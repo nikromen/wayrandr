@@ -1,0 +1,4 @@
+PyQt5
+mss
+opencv-python
+opencv-python-headless
