@@ -1,19 +1,16 @@
-from PyQt5.QtWidgets import (
-    QLabel,
-    QFrame,
-)
-from PyQt5.QtCore import Qt, QPoint, QTimer
-from PyQt5.QtGui import QPainter, QGuiApplication, QFont, QPixmap, QImage, QTransform
-
-from src.constants import GRID_SCALING
-from src.monitors import Monitor
-
-import cv2
-import numpy as np
+import copy
+import shutil
 import tempfile
 from subprocess import run
-import shutil
-import copy
+
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QImage, QPainter, QPixmap, QTransform
+from PySide6.QtWidgets import (
+    QFrame,
+    QLabel,
+)
+
+from src.monitors import Monitor
 
 
 class MonitorWidget(QFrame):
@@ -37,21 +34,10 @@ class MonitorWidget(QFrame):
     def setup_frame(self) -> None:
         self.setFrameShape(QFrame.Box)
         self.setFixedSize(*self.monitor.active_mode.scaled_resolution())
-        self.setCursor(Qt.OpenHandCursor)
-        self.setStyleSheet(
-            """
-            QFrame {
-                background-color: #f5f5f5;
-                border: 1px solid #ccc;
-            }
-            QLabel {
-                color: #333;
-                font-size: 14px;
-            }
-        """
-        )
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
 
-    def paintEvent(self, event: QGuiApplication) -> None:
+    # ruff: noqa: N802 - paintEvent is a PyQt6 method
+    def paintEvent(self, event) -> None:
         if self.screenshot is None:
             return
 
@@ -59,12 +45,14 @@ class MonitorWidget(QFrame):
         painter = QPainter(self)
         painter.drawPixmap(0, 0, self.width(), self.height(), pixmap)
 
+    # ruff: noqa: N802 - mousePressEvent is a PyQt6 method
     def mousePressEvent(self, event: QPoint) -> None:
         self.drag_start_position = event.pos()
 
         if event.button() == Qt.LeftButton:
             self.window().change_monitor_info_tab(self.monitor.name)
 
+    # ruff: noqa: N802 - mouseMoveEvent is a PyQt6 method
     def mouseMoveEvent(self, event: QPoint) -> None:
         if event.buttons() == Qt.LeftButton:
             drag_distance = event.pos() - self.drag_start_position
@@ -90,16 +78,9 @@ class MonitorWidget(QFrame):
                 "-g",
                 f"{position} {resolution}",
                 temp_file.name,
-            ]
+            ],
         )
-        screenshot = cv2.imread(temp_file.name)
-        screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2RGB)
-        self.screenshot = QImage(
-            screenshot,
-            screenshot.shape[1],
-            screenshot.shape[0],
-            QImage.Format_RGB888,
-        )
+        self.screenshot = QImage(temp_file.name)
 
     def rotate_screenshot(self, angle: int) -> None:
         if self.screenshot is None:

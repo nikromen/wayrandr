@@ -1,17 +1,16 @@
-from PyQt5.QtWidgets import (
-    QLabel,
-    QFrame,
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QButtonGroup,
     QCheckBox,
     QComboBox,
-    QSpinBox,
     QDoubleSpinBox,
+    QFrame,
+    QLabel,
     QRadioButton,
-    QButtonGroup,
     QSizePolicy,
+    QSpinBox,
 )
-from PyQt5.QtCore import Qt
 
-from src.constants import GRID_SCALING
 from src.monitors import Monitor, Transform
 
 
@@ -53,12 +52,8 @@ class MonitorInfoWidget(QFrame):
         self.transform_button.addButton(QRadioButton("Rotate 270°", self))
 
         self.transform_button.buttonClicked.connect(self.change_transform)
-        self.transform_button.id = lambda button: self.transform_button.buttons().index(
-            button
-        )
-        self.transform_button.buttons()[
-            self.monitor.transform.value_index()
-        ].setChecked(True)
+        self.transform_button.id = lambda button: self.transform_button.buttons().index(button)
+        self.transform_button.buttons()[self.monitor.transform.value_index()].setChecked(True)
 
         for button in self.transform_button.buttons():
             if button.text() == "Don't rotate":
@@ -66,27 +61,25 @@ class MonitorInfoWidget(QFrame):
             else:
                 button.move(100, self._get_next_move_y())
 
-            button.setCursor(Qt.PointingHandCursor)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setSizePolicy(QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum))
 
     def setup_flipped_button(self) -> None:
         self.flipped_button.move(10, self._get_next_move_y())
         self.flipped_button.setChecked(self.monitor.transform == Transform.flipped)
         self.flipped_button.clicked.connect(self.toggle_flipped)
-        self.flipped_button.setCursor(Qt.PointingHandCursor)
+        self.flipped_button.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def change_transform(self, button: QRadioButton) -> None:
         prev_transform = self.monitor.transform
-        self.monitor.transform = Transform.reverse_map()[
-            self.transform_button.id(button)
-        ]
+        self.monitor.transform = Transform.reverse_map()[self.transform_button.id(button)]
         self.window().update_monitor_transform(self.monitor, prev_transform)
 
     def toggle_flipped(self) -> None:
         self.monitor.transform = self.monitor.transform.flipped_value()
         self.window().update_monitor_mirror(self.monitor.name)
 
-    def _get_next_move_y(self, offset: int = 25) -> int:
+    def _get_next_move_y(self, offset: int = 40) -> int:
         if self._curr_move_y == -1:
             self._curr_move_y = 10
         else:
@@ -103,8 +96,8 @@ class MonitorInfoWidget(QFrame):
         self.position_y.move(180, self._curr_move_y)
         self.position_x.setValue(self.monitor.position.x)
         self.position_y.setValue(self.monitor.position.y)
-        self.position_x.setCursor(Qt.PointingHandCursor)
-        self.position_y.setCursor(Qt.PointingHandCursor)
+        self.position_x.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.position_y.setCursor(Qt.CursorShape.PointingHandCursor)
         self.position_x.valueChanged.connect(self.change_position)
         self.position_y.valueChanged.connect(self.change_position)
 
@@ -134,13 +127,13 @@ class MonitorInfoWidget(QFrame):
         self.scale.setSingleStep(0.1)
         self.scale.setValue(self.monitor.scale)
         self.scale.valueChanged.connect(self.change_scale)
-        self.scale.setCursor(Qt.PointingHandCursor)
+        self.scale.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def setup_checkbox(self) -> None:
         self.checkbox.move(10, self._get_next_move_y())
         self.checkbox.setChecked(self.monitor.enabled)
         self.checkbox.clicked.connect(self.toggle_disable)
-        self.checkbox.setCursor(Qt.PointingHandCursor)
+        self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def toggle_disable(self) -> None:
         self.monitor.enabled = not self.monitor.enabled
@@ -152,13 +145,13 @@ class MonitorInfoWidget(QFrame):
         self.resolution_combobox.move(100, self._curr_move_y)
         self.resolution_combobox.addItems([str(mode) for mode in self.monitor.modes])
         self.resolution_combobox.setCurrentIndex(
-            self.resolution_combobox.findText(str(self.monitor.active_mode))
+            self.resolution_combobox.findText(str(self.monitor.active_mode)),
         )
-        self.resolution_combobox.setCursor(Qt.PointingHandCursor)
+        self.resolution_combobox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.resolution_combobox.activated.connect(self.change_resolution)
-        self.resolution_combobox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.resolution_combobox.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.resolution_combobox.setSizePolicy(
-            QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+            QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum),
         )
 
     def change_resolution(self, index: int) -> None:

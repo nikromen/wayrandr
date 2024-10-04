@@ -1,9 +1,9 @@
-from dataclasses import dataclass
-from functools import cached_property
 import json
+from dataclasses import dataclass
+from enum import StrEnum
+from functools import cached_property
 from subprocess import run
 from typing import Optional
-from enum import StrEnum
 
 from src.helpers import apply_scaling
 
@@ -164,7 +164,7 @@ def _parse_modes(modes: list[dict]) -> list[Mode]:
                 refresh=mode["refresh"],
                 preferred=mode["preferred"],
                 current=mode["current"],
-            )
+            ),
         )
 
     return result
@@ -192,7 +192,7 @@ def get_monitors() -> list[Monitor]:
                 ),
                 modes=modes,
                 transform=Transform(monitor["transform"]),
-            )
+            ),
         )
 
     return result

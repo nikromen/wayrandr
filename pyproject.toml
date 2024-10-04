@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wayrandr"
+authors = [ { name = "Jiri Kyjovsky", email = "j1.kyjovsky@gmail.com" } ]
+description = "Simple QT kanshi and wlr-randr GUI"
+license = "GPL-3.0"
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = ["PySide6"]
+
+[project.urls]
+Homepage = "https://github.com/nikromen/wayrandr"
+
+[project.scripts]
+wayrandr = "src.main:run"

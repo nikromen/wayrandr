@@ -1,24 +1,19 @@
-from PyQt5.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtWidgets import (
     QGridLayout,
-    QTabWidget,
     QGroupBox,
+    QMainWindow,
+    QPushButton,
     QTabWidget,
-    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QTransform
 
 from src.constants import SNAP_DISTANCE
-from src.monitors import Transform, get_monitors, Monitor
-
 from src.helpers import deapply_scaling
-
-from src.ui.monitor_widget import MonitorWidget
+from src.monitors import Monitor, Transform, get_monitors
 from src.ui.monitor_info_widget import MonitorInfoWidget
+from src.ui.monitor_widget import MonitorWidget
 
 
 class MainWindow(QMainWindow):
@@ -58,31 +53,9 @@ class MainWindow(QMainWindow):
 
         self.monitor_details.move(800, 0)
         self.monitor_details.resize(400, 600)
-        self.monitor_details.setStyleSheet(
-            """
-            QGroupBox {
-                background-color: #f5f5f5;
-                font-size: 20px;
-            }
-        """
-        )
 
     def setup_save_button(self) -> None:
         self.save_button.clicked.connect(self.save_configuration)
-        self.save_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-size: 16px;
-                padding: 10px 20px;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """
-        )
         self.save_button.setCursor(Qt.PointingHandCursor)
 
     def set_tab_widget_for_monitor_details(self) -> list[MonitorInfoWidget]:
@@ -109,7 +82,9 @@ class MainWindow(QMainWindow):
         pass
 
     def get_monitor_widget_by_name(
-        self, name: str, is_monitor_info: bool = False
+        self,
+        name: str,
+        is_monitor_info: bool = False,
     ) -> MonitorWidget | MonitorInfoWidget:
         widgets = self.monitor_widgets
         if is_monitor_info:
@@ -127,7 +102,8 @@ class MainWindow(QMainWindow):
 
     def update_monitor_info_positions(self, monitor_widget: MonitorWidget) -> None:
         monitor_info = self.get_monitor_widget_by_name(
-            monitor_widget.monitor.name, is_monitor_info=True
+            monitor_widget.monitor.name,
+            is_monitor_info=True,
         )
         # wtf, when set here it laggs?!
         monitor_info.set_position(
@@ -140,16 +116,12 @@ class MainWindow(QMainWindow):
         monitor_widget.setFixedSize(*monitor.active_mode.scaled_resolution())
 
     def change_monitor_info_tab(self, monitor_name: str) -> None:
-        monitor_info = self.get_monitor_widget_by_name(
-            monitor_name, is_monitor_info=True
-        )
+        monitor_info = self.get_monitor_widget_by_name(monitor_name, is_monitor_info=True)
         self.tab_widget.setCurrentWidget(monitor_info)
 
     def update_monitor_scale(self, monitor: Monitor) -> None:
         monitor_widget = self.get_monitor_widget_by_name(monitor.name)
-        monitor_widget.setFixedSize(
-            *monitor.active_mode.scaled_resolution(monitor.scale)
-        )
+        monitor_widget.setFixedSize(*monitor.active_mode.scaled_resolution(monitor.scale))
 
     def _handle_rotation(
         self,
@@ -173,9 +145,7 @@ class MainWindow(QMainWindow):
         rotate = rotation_map[curr_transform] - rotation_map[prev_transform]
         monitor_widget.rotate_screenshot(rotate)
 
-    def update_monitor_transform(
-        self, monitor: Monitor, prev_transform: Transform
-    ) -> None:
+    def update_monitor_transform(self, monitor: Monitor, prev_transform: Transform) -> None:
         monitor_widget = self.get_monitor_widget_by_name(monitor.name)
         if prev_transform == monitor.transform:
             return
@@ -199,100 +169,90 @@ class MainWindow(QMainWindow):
 
             # this did chatgpt, do not touch :D
             self.snap_if_near_horizontally(
-                moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
+                moving_monitor,
+                moving_monitor_rect,
+                target_monitor_rect,
+                monitor,
             )
             self.snap_if_near_vertically(
-                moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
+                moving_monitor,
+                moving_monitor_rect,
+                target_monitor_rect,
+                monitor,
             )
             self.snap_if_near_diagonally(
-                moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
+                moving_monitor,
+                moving_monitor_rect,
+                target_monitor_rect,
+                monitor,
             )
-            self.snap_edges(
-                moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
-            )
+            self.snap_edges(moving_monitor, moving_monitor_rect, target_monitor_rect, monitor)
 
     def snap_if_near_horizontally(
-        self, moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
+        self,
+        moving_monitor,
+        moving_monitor_rect,
+        target_monitor_rect,
+        monitor,
     ):
-        if (
-            abs(moving_monitor_rect.right() - target_monitor_rect.left())
-            < SNAP_DISTANCE
-        ):
-            moving_monitor.move(
-                monitor.x() - moving_monitor.width(), moving_monitor.y()
-            )
-        elif (
-            abs(moving_monitor_rect.left() - target_monitor_rect.right())
-            < SNAP_DISTANCE
-        ):
+        if abs(moving_monitor_rect.right() - target_monitor_rect.left()) < SNAP_DISTANCE:
+            moving_monitor.move(monitor.x() - moving_monitor.width(), moving_monitor.y())
+        elif abs(moving_monitor_rect.left() - target_monitor_rect.right()) < SNAP_DISTANCE:
             moving_monitor.move(monitor.x() + monitor.width(), moving_monitor.y())
 
     def snap_if_near_vertically(
-        self, moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
+        self,
+        moving_monitor,
+        moving_monitor_rect,
+        target_monitor_rect,
+        monitor,
     ):
-        if (
-            abs(moving_monitor_rect.bottom() - target_monitor_rect.top())
-            < SNAP_DISTANCE
-        ):
-            moving_monitor.move(
-                moving_monitor.x(), monitor.y() - moving_monitor.height()
-            )
-        elif (
-            abs(moving_monitor_rect.top() - target_monitor_rect.bottom())
-            < SNAP_DISTANCE
-        ):
+        if abs(moving_monitor_rect.bottom() - target_monitor_rect.top()) < SNAP_DISTANCE:
+            moving_monitor.move(moving_monitor.x(), monitor.y() - moving_monitor.height())
+        elif abs(moving_monitor_rect.top() - target_monitor_rect.bottom()) < SNAP_DISTANCE:
             moving_monitor.move(moving_monitor.x(), monitor.y() + monitor.height())
 
     def snap_if_near_diagonally(
-        self, moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
+        self,
+        moving_monitor,
+        moving_monitor_rect,
+        target_monitor_rect,
+        monitor,
     ):
         if (
-            abs(moving_monitor_rect.top() - target_monitor_rect.bottom())
-            < SNAP_DISTANCE
-            and abs(moving_monitor_rect.right() - target_monitor_rect.left())
-            < SNAP_DISTANCE
+            abs(moving_monitor_rect.top() - target_monitor_rect.bottom()) < SNAP_DISTANCE
+            and abs(moving_monitor_rect.right() - target_monitor_rect.left()) < SNAP_DISTANCE
         ):
             moving_monitor.move(
-                monitor.x() - moving_monitor.width(), monitor.y() + monitor.height()
+                monitor.x() - moving_monitor.width(),
+                monitor.y() + monitor.height(),
             )
         elif (
-            abs(moving_monitor_rect.bottom() - target_monitor_rect.top())
-            < SNAP_DISTANCE
-            and abs(moving_monitor_rect.left() - target_monitor_rect.right())
-            < SNAP_DISTANCE
+            abs(moving_monitor_rect.bottom() - target_monitor_rect.top()) < SNAP_DISTANCE
+            and abs(moving_monitor_rect.left() - target_monitor_rect.right()) < SNAP_DISTANCE
         ):
             moving_monitor.move(
-                monitor.x() + monitor.width(), monitor.y() - moving_monitor.height()
+                monitor.x() + monitor.width(),
+                monitor.y() - moving_monitor.height(),
             )
         elif (
-            abs(moving_monitor_rect.top() - target_monitor_rect.bottom())
-            < SNAP_DISTANCE
-            and abs(moving_monitor_rect.left() - target_monitor_rect.right())
-            < SNAP_DISTANCE
+            abs(moving_monitor_rect.top() - target_monitor_rect.bottom()) < SNAP_DISTANCE
+            and abs(moving_monitor_rect.left() - target_monitor_rect.right()) < SNAP_DISTANCE
         ):
-            moving_monitor.move(
-                monitor.x() + monitor.width(), monitor.y() + monitor.height()
-            )
+            moving_monitor.move(monitor.x() + monitor.width(), monitor.y() + monitor.height())
         elif (
-            abs(moving_monitor_rect.bottom() - target_monitor_rect.top())
-            < SNAP_DISTANCE
-            and abs(moving_monitor_rect.right() - target_monitor_rect.left())
-            < SNAP_DISTANCE
+            abs(moving_monitor_rect.bottom() - target_monitor_rect.top()) < SNAP_DISTANCE
+            and abs(moving_monitor_rect.right() - target_monitor_rect.left()) < SNAP_DISTANCE
         ):
             moving_monitor.move(
                 monitor.x() - moving_monitor.width(),
                 monitor.y() - moving_monitor.height(),
             )
 
-    def snap_edges(
-        self, moving_monitor, moving_monitor_rect, target_monitor_rect, monitor
-    ):
+    def snap_edges(self, moving_monitor, moving_monitor_rect, target_monitor_rect, monitor):
         if abs(moving_monitor_rect.left() - target_monitor_rect.left()) < SNAP_DISTANCE:
             moving_monitor.move(monitor.x(), moving_monitor.y())
-        elif (
-            abs(moving_monitor_rect.right() - target_monitor_rect.right())
-            < SNAP_DISTANCE
-        ):
+        elif abs(moving_monitor_rect.right() - target_monitor_rect.right()) < SNAP_DISTANCE:
             moving_monitor.move(
                 monitor.x() + monitor.width() - moving_monitor.width(),
                 moving_monitor.y(),
@@ -300,10 +260,7 @@ class MainWindow(QMainWindow):
 
         if abs(moving_monitor_rect.top() - target_monitor_rect.top()) < SNAP_DISTANCE:
             moving_monitor.move(moving_monitor.x(), monitor.y())
-        elif (
-            abs(moving_monitor_rect.bottom() - target_monitor_rect.bottom())
-            < SNAP_DISTANCE
-        ):
+        elif abs(moving_monitor_rect.bottom() - target_monitor_rect.bottom()) < SNAP_DISTANCE:
             moving_monitor.move(
                 moving_monitor.x(),
                 monitor.y() + monitor.height() - moving_monitor.height(),
