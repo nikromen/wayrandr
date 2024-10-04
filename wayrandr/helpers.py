@@ -1,4 +1,4 @@
-from src.constants import GRID_SCALING
+from wayrandr.constants import GRID_SCALING
 
 
 def apply_scaling(value: float, scale: float = 1) -> int:

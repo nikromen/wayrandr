@@ -9,11 +9,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.constants import SNAP_DISTANCE
-from src.helpers import deapply_scaling
-from src.monitors import Monitor, Transform, get_monitors
-from src.ui.monitor_info_widget import MonitorInfoWidget
-from src.ui.monitor_widget import MonitorWidget
+from wayrandr.constants import SNAP_DISTANCE
+from wayrandr.helpers import deapply_scaling
+from wayrandr.monitors import Monitor, Transform, get_monitors
+from wayrandr.ui.monitor_info_widget import MonitorInfoWidget
+from wayrandr.ui.monitor_widget import MonitorWidget
 
 
 class MainWindow(QMainWindow):

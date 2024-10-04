@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
-from src.monitors import Monitor, Transform
+from wayrandr.monitors import Monitor, Transform
 
 
 class MonitorInfoWidget(QFrame):

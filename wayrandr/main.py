@@ -2,7 +2,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from src.ui import MainWindow
+from wayrandr.ui import MainWindow
 
 
 def run() -> None:
