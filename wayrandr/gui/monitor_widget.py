@@ -5,11 +5,9 @@ from subprocess import run
 
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QImage, QPainter, QPixmap, QTransform
-from PySide6.QtWidgets import (
-    QFrame,
-    QLabel,
-)
+from PySide6.QtWidgets import QFrame
 
+from wayrandr.gui.ui.generated_ui.monitor_widget import Ui_monitor_widget
 from wayrandr.monitors import Monitor
 
 
@@ -19,25 +17,23 @@ class MonitorWidget(QFrame):
         self.monitor = monitor
         self.initial_monitor = copy.deepcopy(monitor)
 
-        self.setup_frame()
+        self.ui = Ui_monitor_widget()
+        self.ui.setupUi(self)
 
-        self.name_label = QLabel(self.monitor.name, self)
-        self.name_label.move(10, 10)
+        self.setFixedSize(*self.monitor.active_mode.scaled_resolution())
+
+        self.ui.monitor_name_label.setText(self.monitor.name)
 
         # TODO: getting img from xdg-desktop-portal every 1sec would be cool
+        # and it will get rid of that 1s delay at the start due to screenshoting
         self.screenshot = None
         self.update_screen()
 
         self.setMouseTracking(True)
         self.drag_start_position = None
 
-    def setup_frame(self) -> None:
-        self.setFrameShape(QFrame.Box)
-        self.setFixedSize(*self.monitor.active_mode.scaled_resolution())
-        self.setCursor(Qt.CursorShape.OpenHandCursor)
-
     # ruff: noqa: N802 - paintEvent is a PyQt6 method
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, _) -> None:
         if self.screenshot is None:
             return
 
