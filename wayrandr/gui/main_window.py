@@ -1,68 +1,32 @@
-from PySide6.QtCore import QRect, Qt
-from PySide6.QtWidgets import (
-    QGridLayout,
-    QGroupBox,
-    QMainWindow,
-    QPushButton,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import QRect
+from PySide6.QtWidgets import QMainWindow
 
 from wayrandr.constants import SNAP_DISTANCE
+from wayrandr.gui.monitor_info_widget import MonitorInfoWidget
+from wayrandr.gui.monitor_widget import MonitorWidget
+from wayrandr.gui.ui.generated_ui.main_window import Ui_main_window
 from wayrandr.helpers import deapply_scaling
 from wayrandr.monitors import Monitor, Transform, get_monitors
-from wayrandr.ui.monitor_info_widget import MonitorInfoWidget
-from wayrandr.ui.monitor_widget import MonitorWidget
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
 
-        self.setWindowTitle("Monitor Configuration")
+        self.ui = Ui_main_window()
+        self.ui.setupUi(self)
 
-        self.layout = QGridLayout()
-        self.monitors_area = QWidget(self)
-        self.monitors_area.setLayout(self.layout)
+        self.ui.save_button.clicked.connect(self.save_configuration)
 
-        self.monitor_widgets = self.set_monitor_widgets()
-
-        self.save_button = QPushButton("Save", self)
-        self.setup_save_button()
-
-        self.main_layout = QVBoxLayout()
-        self.main_layout.addWidget(self.monitors_area)
-        self.main_layout.addWidget(self.save_button)
-
-        self.central_widget = QWidget(self)
-        self.central_widget.setLayout(self.main_layout)
-        self.setCentralWidget(self.central_widget)
-
-        self.monitor_details = QGroupBox("Monitor Details", self)
-        self.monitor_details_layout = QVBoxLayout()
-        self.setup_monitor_details()
-
-        self.tab_widget = QTabWidget()
         self.monitor_info_widgets = self.set_tab_widget_for_monitor_details()
 
-        self.monitor_details_layout.addWidget(self.tab_widget)
-
-    def setup_monitor_details(self) -> None:
-        self.monitor_details.setLayout(self.monitor_details_layout)
-
-        self.monitor_details.move(800, 0)
-        self.monitor_details.resize(400, 600)
-
-    def setup_save_button(self) -> None:
-        self.save_button.clicked.connect(self.save_configuration)
-        self.save_button.setCursor(Qt.PointingHandCursor)
+        self.monitor_widgets = self.set_monitor_widgets()
 
     def set_tab_widget_for_monitor_details(self) -> list[MonitorInfoWidget]:
         monitor_info_widgets = []
         for monitor in get_monitors():
             monitor_info_widget = MonitorInfoWidget(monitor)
-            self.tab_widget.addTab(monitor_info_widget, monitor.name)
+            self.ui.monitor_tab_widget.addTab(monitor_info_widget, monitor.name)
             monitor_info_widgets.append(monitor_info_widget)
 
         return monitor_info_widgets
@@ -72,8 +36,7 @@ class MainWindow(QMainWindow):
         for monitor in get_monitors():
             monitor_widget = MonitorWidget(monitor)
             monitor_widget.move(*monitor.position.scaled_position())
-            monitor_widget.setParent(self.monitors_area)
-            monitor_widget.show()
+            monitor_widget.setParent(self.ui.monitors_area_widget)
             monitor_widgets.append(monitor_widget)
 
         return monitor_widgets
@@ -117,7 +80,7 @@ class MainWindow(QMainWindow):
 
     def change_monitor_info_tab(self, monitor_name: str) -> None:
         monitor_info = self.get_monitor_widget_by_name(monitor_name, is_monitor_info=True)
-        self.tab_widget.setCurrentWidget(monitor_info)
+        self.ui.monitor_tab_widget.setCurrentWidget(monitor_info)
 
     def update_monitor_scale(self, monitor: Monitor) -> None:
         monitor_widget = self.get_monitor_widget_by_name(monitor.name)
