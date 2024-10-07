@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QLabel,
 )
 
-from src.monitors import Monitor
+from wayrandr.monitors import Monitor
 
 
 class MonitorWidget(QFrame):

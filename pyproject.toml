@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling"]  # and add hatchling-vcs for versioning
 build-backend = "hatchling.build"
 
 [project]
@@ -9,11 +9,16 @@ description = "Simple QT kanshi and wlr-randr GUI"
 license = "GPL-3.0"
 readme = "README.md"
 requires-python = ">=3.9"
-dynamic = ["version"]
+# dynamic = ["version"]
 dependencies = ["PySide6"]
+# drop this with first release, use hatch-vcs
+version = "0.1.0"
 
 [project.urls]
 Homepage = "https://github.com/nikromen/wayrandr"
 
 [project.scripts]
-wayrandr = "src.main:run"
+wayrandr = "wayrandr.main:run"
+
+# [tool.hatch.version]
+# source = "vcs"

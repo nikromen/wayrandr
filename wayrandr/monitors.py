@@ -5,7 +5,7 @@ from functools import cached_property
 from subprocess import run
 from typing import Optional
 
-from src.helpers import apply_scaling
+from wayrandr.helpers import apply_scaling
 
 
 class Transform(StrEnum):
