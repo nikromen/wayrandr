@@ -8,7 +8,7 @@ from PySide6.QtGui import QImage, QPainter, QPixmap, QTransform
 from PySide6.QtWidgets import QFrame
 
 from wayrandr.gui.ui.generated_ui.monitor_widget import Ui_monitor_widget
-from wayrandr.monitors import Monitor
+from wayrandr.monitor import Monitor
 
 
 class MonitorWidget(QFrame):

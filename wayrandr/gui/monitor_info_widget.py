@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
 )
 
 from wayrandr.gui.ui.generated_ui.monitor_info_widget import Ui_monitor_info_widget
-from wayrandr.monitors import Monitor, Transform
+from wayrandr.monitor import Monitor, Transform
 
 
 class MonitorInfoWidget(QWidget):

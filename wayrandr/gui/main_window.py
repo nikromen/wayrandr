@@ -1,12 +1,13 @@
 from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QMainWindow
 
+from wayrandr.backend.wlr_randr import WlrRandrBackend
 from wayrandr.constants import SNAP_DISTANCE
 from wayrandr.gui.monitor_info_widget import MonitorInfoWidget
 from wayrandr.gui.monitor_widget import MonitorWidget
 from wayrandr.gui.ui.generated_ui.main_window import Ui_main_window
 from wayrandr.helpers import deapply_scaling
-from wayrandr.monitors import Monitor, Transform, get_monitors
+from wayrandr.monitor import Monitor, Transform, get_monitors
 
 
 class MainWindow(QMainWindow):
@@ -42,7 +43,7 @@ class MainWindow(QMainWindow):
         return monitor_widgets
 
     def save_configuration(self) -> None:
-        pass
+        WlrRandrBackend().save_configuration([monitor.monitor for monitor in self.monitor_widgets])
 
     def get_monitor_widget_by_name(
         self,

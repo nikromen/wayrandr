@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
 
+from wayrandr.monitor import Monitor
 
-class Base(ABC):
-    @abstractmethod
-    def save_configuration(self) -> None:
-        pass
 
+class RandrBackend(ABC):
     @abstractmethod
-    def get_configuration(self) -> dict:
+    def save_configuration(self, monitors: list[Monitor]) -> None:
         pass
