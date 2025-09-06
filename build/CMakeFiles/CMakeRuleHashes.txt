@@ -1,0 +1,4 @@
+# Hashes of file build rules.
+41029623edad30811ca0d311f43e6d2c CMakeFiles/wayrandr_autogen
+f8b5d667419978672d4d681d755b561c qrc_resource.cpp
+3d359ba4cce474745d20200981c11a88 wayrandr_autogen/timestamp

@@ -1,0 +1,7 @@
+/home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/CMakeFiles/wayrandr.dir
+/home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/CMakeFiles/edit_cache.dir
+/home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/CMakeFiles/rebuild_cache.dir
+/home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/CMakeFiles/wayrandr_autogen_timestamp_deps.dir
+/home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/CMakeFiles/wayrandr_autogen.dir
+/home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/_deps/json-build/CMakeFiles/edit_cache.dir
+/home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/_deps/json-build/CMakeFiles/rebuild_cache.dir
