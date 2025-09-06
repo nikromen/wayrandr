@@ -16,7 +16,7 @@ MainWindow::MainWindow(QObject *parent) : QObject(parent)
     }
 }
 
-QVariantList MainWindow::monitors() const
+QVariantList MainWindow::getMonitors() const
 {
     return monitors_;
 }

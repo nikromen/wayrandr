@@ -33,7 +33,7 @@ Window {
 
             Label {
                 id: outputNameLabel
-                text: "DP-8"
+                text: "output"
                 color: "white"
                 font.pointSize: 16
                 font.bold: true
@@ -41,7 +41,7 @@ Window {
 
             Label {
                 id: monitorNameLabel
-                text: "Dell UltraSharp U2721DE"
+                text: "display name"
                 color: "#cccccc"
                 font.pointSize: 10
             }
