@@ -3,22 +3,21 @@
 #include <QVariantMap>
 
 #include "../MonitorSpecs.hpp"
+#include "MonitorProperties.hpp"
 
 MainWindow::MainWindow(QObject *parent) : QObject(parent)
 {
-    std::vector<MonitorSpecs> monitors_specs_list = getMonitorSpecsList();
+    std::vector<MonitorSpecs> monitors_ = getMonitorSpecsList();
 
-    for (const auto &monitor_spec : monitors_specs_list)
+    for (auto &monitor_spec : monitors_)
     {
-        QVariantMap model_data;
-        model_data["name"] = QString::fromStdString(monitor_spec.getName());
-        monitors_.append(model_data);
+        monitors_models_.append(new MonitorProperties(monitor_spec, this));
     }
 }
 
-QVariantList MainWindow::getMonitors() const
+QList<QObject*> MainWindow::getMonitors() const
 {
-    return monitors_;
+    return monitors_models_;
 }
 
 void MainWindow::apply()

@@ -304,7 +304,11 @@ CMakeFiles/wayrandr.dir/wayrandr_autogen/mocs_compilation.cpp.o: \
  /usr/include/qt6/QtCore/qvarlengtharray.h \
  /usr/include/qt6/QtCore/q23utility.h \
  /usr/include/qt6/QtCore/q20utility.h /usr/include/qt6/QtCore/qobject.h \
+ /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/wayrandr_autogen/M4YTXQ7V2H/../../../src/models/MonitorProperties.hpp \
+ /usr/include/qt6/QtCore/QString /usr/include/qt6/QtCore/qstring.h \
+ /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/src/MonitorSpecs.hpp \
  /usr/include/qt6/QtCore/qtmochelpers.h \
  /usr/include/qt6/QtCore/qtmocconstants.h \
  /usr/include/qt6/QtCore/q20algorithm.h \
- /usr/include/qt6/QtCore/q23type_traits.h
+ /usr/include/qt6/QtCore/q23type_traits.h \
+ /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/build/wayrandr_autogen/M4YTXQ7V2H/moc_MonitorProperties.cpp

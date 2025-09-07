@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <unordered_map>
+#include <stdexcept>
 
 using json = nlohmann::json;
 
@@ -46,8 +47,61 @@ std::string TransformUtils::toString(Transform transform) {
         case Transform::FLIPPED_270:
             return "flipped-270";
         default:
-            return "normal";
+            throw std::invalid_argument("Unknown transform: " + std::to_string(static_cast<int>(transform)));
     }
+}
+
+bool TransformUtils::isFlipped(Transform transform) {
+    return transform == Transform::FLIPPED || transform == Transform::FLIPPED_90 ||
+           transform == Transform::FLIPPED_180 || transform == Transform::FLIPPED_270;
+}
+
+Transform TransformUtils::getFlipped(Transform transform) {
+    switch (transform) {
+        case Transform::NORMAL:
+            return Transform::FLIPPED;
+        case Transform::ROTATE_90:
+            return Transform::FLIPPED_90;
+        case Transform::ROTATE_180:
+            return Transform::FLIPPED_180;
+        case Transform::ROTATE_270:
+            return Transform::FLIPPED_270;
+        case Transform::FLIPPED:
+            return Transform::NORMAL;
+        case Transform::FLIPPED_90:
+            return Transform::ROTATE_90;
+        case Transform::FLIPPED_180:
+            return Transform::ROTATE_180;
+        case Transform::FLIPPED_270:
+            return Transform::ROTATE_270;
+        default:
+            throw std::invalid_argument("Unknown transform: " + std::to_string(static_cast<int>(transform)));
+    }
+}
+
+const std::vector<Transform> &TransformUtils::allEnums() {
+    static const std::vector<Transform> all_enums = {
+        Transform::NORMAL,
+        Transform::ROTATE_90,
+        Transform::ROTATE_180,
+        Transform::ROTATE_270,
+        Transform::FLIPPED,
+        Transform::FLIPPED_90,
+        Transform::FLIPPED_180,
+        Transform::FLIPPED_270
+    };
+    return all_enums;
+}
+
+const std::vector<std::string> &TransformUtils::allStrings() {
+    static const std::vector<std::string> all_strings = [] {
+        std::vector<std::string> strings;
+        for (const auto &transform : allEnums()) {
+            strings.push_back(toString(transform));
+        }
+        return strings;
+    }();
+    return all_strings;
 }
 
 Mode::Mode(int width, int height, float refresh_rate, bool is_preferred, bool is_current)
@@ -70,7 +124,7 @@ std::string Mode::toString() const {
 
 MonitorSpecs::MonitorSpecs(const std::string &name, const std::optional<std::string> &make,
                            const std::optional<std::string> &model, const std::optional<std::string> &serial_number, const std::string &description,
-                           const PhysicalSize &physical_size, bool enabled, Mode *active_mode,
+                           const PhysicalSize &physical_size, bool enabled, std::optional<size_t> active_mode_index,
                            const std::vector<Mode> &modes, const std::optional<Position> &position,
                            const std::optional<Transform> &transform, const std::optional<float> &scale, const std::optional<bool> &adaptive_sync)
     : name(name),
@@ -80,7 +134,7 @@ MonitorSpecs::MonitorSpecs(const std::string &name, const std::optional<std::str
       serial_number(serial_number),
       physical_size(physical_size),
       enabled(enabled),
-      active_mode(active_mode),
+      active_mode_index(active_mode_index),
       modes(modes),
       position(position),
       transform(transform),
@@ -91,7 +145,7 @@ MonitorSpecs::MonitorSpecs(const std::string &name, const std::optional<std::str
 const std::string &MonitorSpecs::getName() const { return name; }
 const std::string &MonitorSpecs::getDescription() const { return description; }
 bool MonitorSpecs::isEnabled() const { return enabled; }
-const Mode *MonitorSpecs::getActiveMode() const { return active_mode; }
+const std::optional<size_t> &MonitorSpecs::getActiveModeIndex() const { return active_mode_index; }
 const std::vector<Mode> &MonitorSpecs::getModes() const { return modes; }
 const std::optional<Position> &MonitorSpecs::getPosition() const { return position; }
 const std::optional<Transform> &MonitorSpecs::getTransform() const { return transform; }
@@ -104,10 +158,17 @@ void MonitorSpecs::setTransform(const Transform &transform) { this->transform = 
 void MonitorSpecs::setScale(float scale) { this->scale = scale; }
 void MonitorSpecs::setAdaptiveSync(bool adaptive_sync) { this->adaptive_sync = adaptive_sync; }
 
-void MonitorSpecs::setActiveMode(Mode *active_mode) {
-    this->active_mode->is_current = false;
-    this->active_mode = active_mode;
-    this->active_mode->is_current = true;
+void MonitorSpecs::setActiveModeIndex(size_t index) {
+    if (index >= modes.size()) {
+        throw std::out_of_range("Active mode index out of range");
+    }
+
+    Mode prev = modes[active_mode_index.value()];
+    prev.is_current = false;
+
+    this->active_mode_index = index;
+    Mode curr = modes[active_mode_index.value()];
+    curr.is_current = true;
 }
 
 void MonitorSpecs::setPosition(int x, int y) {
@@ -119,6 +180,22 @@ void MonitorSpecs::setPosition(int x, int y) {
     }
 }
 
+void MonitorSpecs::setPositionX(int x) {
+    if (!this->position) {
+        throw std::runtime_error("Position is not set");
+    } else {
+        this->position->x = x;
+    }
+}
+
+void MonitorSpecs::setPositionY(int y) {
+    if (!this->position) {
+        throw std::runtime_error("Position is not set");
+    } else {
+        this->position->y = y;
+    }
+}
+
 std::vector<MonitorSpecs> getMonitorSpecsList() {
     std::vector<MonitorSpecs> monitor_specs_list;
 
@@ -126,7 +203,7 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
     json j = json::parse(output);
     for (auto &monitor : j) {
         std::vector<Mode> modes;
-        Mode *active_mode = nullptr;
+        size_t active_mode_index = -1;
         for (auto &mode : monitor["modes"]) {
             modes.emplace_back(
                 mode["width"].get<int>(),
@@ -137,7 +214,7 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
             );
 
             if (mode["current"]) {
-                active_mode = &modes.back();
+                active_mode_index = modes.size() - 1;
             }
         }
 
@@ -177,7 +254,7 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
                 monitor["description"],
                 physical_size,
                 is_enabled,
-                active_mode,
+                active_mode_index,
                 modes,
                 position,
                 transform,

@@ -3,6 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 ScrollView {
+    property var monitor
+
     implicitHeight: mainLayout.implicitHeight
 
     Frame {
@@ -14,11 +16,23 @@ ScrollView {
             width: parent.width
 
             RowLayout {
-                Switch { id: enabledSwitch; text: qsTr("Enabled") }
+                Switch {
+                    id: enabledSwitch
+                    text: qsTr("Enabled")
+                    onCheckedChanged: monitor.enabled = checked
+                }
 
-                Switch { id: flippedSwitch; text: qsTr("Flipped") }
+                Switch {
+                    id: flippedSwitch
+                    text: qsTr("Flipped")
+                    onCheckedChanged: monitor.flipped = checked
+                }
 
-                Switch { id: adaptiveSyncSwitch; text: qsTr("Adaptive Sync") }
+                Switch {
+                    id: adaptiveSyncSwitch
+                    text: qsTr("Adaptive Sync")
+                    onCheckedChanged: monitor.adaptiveSync = checked
+                }
 
                 Item { Layout.fillWidth: true }
             }
@@ -29,15 +43,25 @@ ScrollView {
                 Layout.fillWidth: true
 
                 Label { text: qsTr("Name:") }
-                Label { id: nameValue; text: "Unknown"; Layout.fillWidth: true }
+                Label { id: nameValue; text: monitor.name; Layout.fillWidth: true }
 
                 Label { text: qsTr("Description:") }
-                Label { id: descriptionValue; text: "Unknown"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                Label {
+                    id: descriptionValue
+                    text: monitor.description
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                }
 
                 Label { text: qsTr("Resolution:") }
                 RowLayout {
                     Layout.fillWidth: true
-                    ComboBox { id: resolutionCombo; Layout.fillWidth: true }
+                    ComboBox {
+                        id: resolutionCombo
+                        Layout.fillWidth: true
+                        currentIndex: monitor.activeResolutionIndex
+                        onCurrentIndexChanged: monitor.activeResolutionIndex = currentIndex
+                    }
                     Button {
                         id: preferredModeButton
                         text: qsTr("Preferred")
@@ -46,22 +70,31 @@ ScrollView {
                 }
 
                 Label { text: qsTr("Scale:") }
-                TextField {
-                    id: scaleTextField
+                SpinBox {
+                    id: scaleSpinBox
                     Layout.fillWidth: true
-                    validator: DoubleValidator { bottom: 0.1 }
+                    from: 0.1
+                    stepSize: 0.1
+                    value: monitor.scale
+                    onValueChanged: monitor.scale = value
                 }
 
                 Label { text: qsTr("Position:") }
                 RowLayout {
                     Layout.fillWidth: true
-                    SpinBox { id: posXSpinBox; value: 0; Layout.fillWidth: true }
+                    SpinBox { id: posXSpinBox; value: monitor.positionX; onValueChanged: monitor.positionX = value }
                     Label { text: "x" }
-                    SpinBox { id: posYSpinBox; value: 0; Layout.fillWidth: true }
+                    SpinBox { id: posYSpinBox; value: monitor.positionY; onValueChanged: monitor.positionY = value }
                 }
 
                 Label { text: qsTr("Transform:") }
-                ComboBox { id: transformCombo; Layout.fillWidth: true }
+                ComboBox {
+                    id: transformCombo
+                    Layout.fillWidth: true
+                    model: monitor.getTransformList
+                    currentIndex: monitor.transform
+                    onCurrentIndexChanged: monitor.transform = currentIndex
+                }
             }
 
             Item { Layout.fillHeight: true }

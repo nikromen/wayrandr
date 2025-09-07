@@ -8,6 +8,7 @@
 
 #include "../../../src/models/MainWindow.hpp"
 #include <QtCore/qmetatype.h>
+#include <QtCore/QList>
 
 #include <QtCore/qtmochelpers.h>
 
@@ -43,7 +44,7 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "",
         "save",
         "monitors",
-        "QVariantList"
+        "QList<QObject*>"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -54,7 +55,7 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
     };
     QtMocHelpers::UintData qt_properties {
         // property 'monitors'
-        QtMocHelpers::PropertyData<QVariantList>(4, 0x80000000 | 5, QMC::DefaultPropertyFlags | QMC::EnumOrFlag | QMC::Constant),
+        QtMocHelpers::PropertyData<QList<QObject*>>(4, 0x80000000 | 5, QMC::DefaultPropertyFlags | QMC::EnumOrFlag | QMC::Constant),
     };
     QtMocHelpers::UintData qt_enums {
     };
@@ -81,10 +82,17 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         default: ;
         }
     }
+    if (_c == QMetaObject::RegisterPropertyMetaType) {
+        switch (_id) {
+        default: *reinterpret_cast<int*>(_a[0]) = -1; break;
+        case 0:
+            *reinterpret_cast<int*>(_a[0]) = qRegisterMetaType< QList<QObject*> >(); break;
+        }
+    }
     if (_c == QMetaObject::ReadProperty) {
         void *_v = _a[0];
         switch (_id) {
-        case 0: *reinterpret_cast<QVariantList*>(_v) = _t->monitors(); break;
+        case 0: *reinterpret_cast<QList<QObject*>*>(_v) = _t->getMonitors(); break;
         default: break;
         }
     }

@@ -303,9 +303,10 @@ CMakeFiles/wayrandr.dir/src/models/MainWindow.cpp.o: \
  /usr/include/qt6/QtCore/qvarlengtharray.h \
  /usr/include/qt6/QtCore/q23utility.h \
  /usr/include/qt6/QtCore/q20utility.h /usr/include/qt6/QtCore/qobject.h \
+ /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/src/models/MonitorProperties.hpp \
+ /usr/include/qt6/QtCore/QString /usr/include/qt6/QtCore/qstring.h \
+ /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/src/MonitorSpecs.hpp \
  /usr/include/qt6/QtCore/QDebug /usr/include/qt6/QtCore/qdebug.h \
  /usr/include/qt6/QtCore/QVariantMap \
  /usr/include/qt6/QtCore/qvariantmap.h /usr/include/qt6/QtCore/QMap \
- /usr/include/qt6/QtCore/qmap.h /usr/include/qt6/QtCore/QString \
- /usr/include/qt6/QtCore/qstring.h \
- /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/src/models/../MonitorSpecs.hpp
+ /usr/include/qt6/QtCore/qmap.h /usr/include/qt6/QtCore/QString

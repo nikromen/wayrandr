@@ -351,4 +351,7 @@ CMakeFiles/wayrandr.dir/src/main.cpp.o: \
  /usr/include/qt6/QtCore/QVariantList \
  /usr/include/qt6/QtCore/qvariantlist.h /usr/include/qt6/QtCore/QList \
  /usr/include/qt6/QtCore/qlist.h /usr/include/qt6/QtCore/QVariant \
- /usr/include/qt6/QtCore/qvariant.h
+ /usr/include/qt6/QtCore/qvariant.h \
+ /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/src/models/MonitorProperties.hpp \
+ /usr/include/qt6/QtCore/QString /usr/include/qt6/QtCore/qstring.h \
+ /home/jkyjovsk/Documents/git/github/nikromen/wayrand_real/src/MonitorSpecs.hpp

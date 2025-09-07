@@ -41,8 +41,11 @@ enum class Transform {
 
 namespace TransformUtils {
     Transform fromString(const std::string &str);
-
     std::string toString(Transform transform);
+    bool isFlipped(Transform transform);
+    Transform getFlipped(Transform transform);
+    const std::vector<Transform> &allEnums();
+    const std::vector<std::string> &allStrings();
 }
 
 class MonitorSpecs {
@@ -54,7 +57,7 @@ class MonitorSpecs {
     const std::string description;
     const PhysicalSize physical_size;
     bool enabled;
-    Mode *active_mode;
+    std::optional<size_t> active_mode_index;
     const std::vector<Mode> modes;
     std::optional<Position> position;
     std::optional<Transform> transform;
@@ -64,14 +67,14 @@ class MonitorSpecs {
    public:
     MonitorSpecs(const std::string &name, const std::optional<std::string> &make, const std::optional<std::string> &model,
                  const std::optional<std::string> &serial_number, const std::string &description, const PhysicalSize &physical_size, bool enabled,
-                 Mode *active_mode, const std::vector<Mode> &modes, const std::optional<Position> &position,
+                 std::optional<size_t> active_mode_index, const std::vector<Mode> &modes, const std::optional<Position> &position,
                  const std::optional<Transform> &transform, const std::optional<float> &scale, const std::optional<bool> &adaptive_sync);
 
     // Getters
     const std::string &getName() const;
     const std::string &getDescription() const;
     bool isEnabled() const;
-    const Mode *getActiveMode() const;
+    const std::optional<size_t> &getActiveModeIndex() const;
     const std::vector<Mode> &getModes() const;
     const std::optional<Position> &getPosition() const;
     const std::optional<Transform> &getTransform() const;
@@ -80,8 +83,10 @@ class MonitorSpecs {
 
     // Setters
     void setEnabled(bool enabled);
-    void setActiveMode(Mode *active_mode);
+    void setActiveModeIndex(size_t index);
     void setPosition(int x, int y);
+    void setPositionX(int x);
+    void setPositionY(int y);
     void setTransform(const Transform &transform);
     void setScale(float scale);
     void setAdaptiveSync(bool adaptive_sync);

@@ -60,6 +60,13 @@ Rectangle {
                 Layout.fillHeight: true
 
                 currentIndex: monitorTabBar.currentIndex
+
+                Repeater {
+                    model: mainWindow.monitors
+                    MonitorProperties {
+                        monitor: modelData
+                    }
+                }
             }
 
             RowLayout {

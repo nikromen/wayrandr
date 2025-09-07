@@ -4,19 +4,22 @@
 #include <QStringList>
 #include <QVariantList>
 
+#include "MonitorProperties.hpp"
+
 class MainWindow : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QVariantList monitors READ getMonitors CONSTANT)
+    Q_PROPERTY(QList<QObject*> monitors READ getMonitors CONSTANT)
 
 public:
     explicit MainWindow(QObject *parent = nullptr);
 
-    QVariantList getMonitors() const;
+    QList<QObject*> getMonitors() const;
 
     Q_INVOKABLE void apply();
     Q_INVOKABLE void save();
 
 private:
-    QVariantList monitors_;
+    std::vector<std::unique_ptr<MonitorProperties>> monitors_;
+    QList<QObject*> monitors_models_;
 };
