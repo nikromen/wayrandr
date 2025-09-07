@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import io.github.nikromen.wayrandr 1.0
 
 Rectangle {
     id: root

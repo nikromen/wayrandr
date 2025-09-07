@@ -4,9 +4,13 @@
 
 #include "utils/Helpers.hpp"
 #include "models/MainWindow.hpp"
+#include "models/MonitorProperties.hpp"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
+
+    qmlRegisterType<MainWindow>("io.github.nikromen.wayrandr", 1, 0, "MainWindow");
+    qmlRegisterType<MonitorProperties>("io.github.nikromen.wayrandr", 1, 0, "MonitorProperties");
 
     QQmlApplicationEngine engine;
     

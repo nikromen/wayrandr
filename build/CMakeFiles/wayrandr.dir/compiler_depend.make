@@ -3496,6 +3496,224 @@ CMakeFiles/wayrandr.dir/wayrandr_autogen/mocs_compilation.cpp.o: wayrandr_autoge
   /usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h \
   /usr/lib/gcc/x86_64-redhat-linux/15/include/syslimits.h
 
+wayrandr: /lib/libproxy.so.1 \
+  /lib64/ld-linux-x86-64.so.2 \
+  /lib64/libc.so.6 \
+  /lib64/libgcc_s.so.1 \
+  /lib64/libm.so.6 \
+  /lib64/libmvec.so.1 \
+  /lib64/libproxy.so.1 \
+  /usr/lib64/crt1.o \
+  /usr/lib64/crti.o \
+  /usr/lib64/crtn.o \
+  /usr/lib64/libc.so \
+  /usr/lib64/libm.so \
+  /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o \
+  /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o \
+  /usr/lib/gcc/x86_64-redhat-linux/15/libgcc.a \
+  /usr/lib/gcc/x86_64-redhat-linux/15/libgcc_s.so \
+  /usr/lib/gcc/x86_64-redhat-linux/15/libstdc++.so \
+  /usr/lib/libproxy.so.1 \
+  /usr/lib64/libEGL.so.1 \
+  /usr/lib64/libGLX.so \
+  /usr/lib64/libGLdispatch.so.0 \
+  /usr/lib64/libOpenGL.so \
+  /usr/lib64/libQt6Core.so.6.9.1 \
+  /usr/lib64/libQt6DBus.so.6 \
+  /usr/lib64/libQt6Gui.so.6.9.1 \
+  /usr/lib64/libQt6Network.so.6.9.1 \
+  /usr/lib64/libQt6OpenGL.so.6.9.1 \
+  /usr/lib64/libQt6Qml.so.6.9.1 \
+  /usr/lib64/libQt6QmlMeta.so.6.9.1 \
+  /usr/lib64/libQt6QmlModels.so.6.9.1 \
+  /usr/lib64/libQt6QmlWorkerScript.so.6.9.1 \
+  /usr/lib64/libQt6Quick.so.6.9.1 \
+  /usr/lib64/libQt6QuickControls2.so.6.9.1 \
+  /usr/lib64/libQt6QuickTemplates2.so.6 \
+  /usr/lib64/libX11.so.6 \
+  /usr/lib64/libXau.so.6 \
+  /usr/lib64/libXext.so.6 \
+  /usr/lib64/libb2.so.1 \
+  /usr/lib64/libblkid.so.1 \
+  /usr/lib64/libbrotlicommon.so.1 \
+  /usr/lib64/libbrotlidec.so.1 \
+  /usr/lib64/libbz2.so.1 \
+  /usr/lib64/libc_nonshared.a \
+  /usr/lib64/libcap.so.2 \
+  /usr/lib64/libcom_err.so.2 \
+  /usr/lib64/libcrypto.so.3 \
+  /usr/lib64/libcurl.so.4 \
+  /usr/lib64/libdbus-1.so.3 \
+  /usr/lib64/libdouble-conversion.so.3 \
+  /usr/lib64/libduktape.so.207 \
+  /usr/lib64/libffi.so.8 \
+  /usr/lib64/libfontconfig.so.1 \
+  /usr/lib64/libfreetype.so.6 \
+  /usr/lib64/libgio-2.0.so.0 \
+  /usr/lib64/libglib-2.0.so.0 \
+  /usr/lib64/libgmodule-2.0.so.0 \
+  /usr/lib64/libgobject-2.0.so.0 \
+  /usr/lib64/libgomp.so.1 \
+  /usr/lib64/libgraphite2.so.3 \
+  /usr/lib64/libgssapi_krb5.so.2 \
+  /usr/lib64/libharfbuzz.so.0 \
+  /usr/lib64/libicudata.so.76 \
+  /usr/lib64/libicui18n.so.76 \
+  /usr/lib64/libicuuc.so.76 \
+  /usr/lib64/libidn2.so.0 \
+  /usr/lib64/libk5crypto.so.3 \
+  /usr/lib64/libkeyutils.so.1 \
+  /usr/lib64/libkrb5.so.3 \
+  /usr/lib64/libkrb5support.so.0 \
+  /usr/lib64/liblzma.so.5 \
+  /usr/lib64/libmount.so.1 \
+  /usr/lib64/libnghttp2.so.14 \
+  /usr/lib64/libpcre2-16.so.0 \
+  /usr/lib64/libpcre2-8.so.0 \
+  /usr/lib64/libpng16.so.16 \
+  /usr/lib64/libproxy.so.1 \
+  /usr/lib64/libproxy/libpxbackend-1.0.so \
+  /usr/lib64/libresolv.so.2 \
+  /usr/lib64/libselinux.so.1 \
+  /usr/lib64/libssl.so.3 \
+  /usr/lib64/libsystemd.so.0 \
+  /usr/lib64/libunistring.so.5 \
+  /usr/lib64/libxcb.so.1 \
+  /usr/lib64/libxkbcommon.so.0 \
+  /usr/lib64/libxml2.so.2 \
+  /usr/lib64/libz.so.1 \
+  /usr/lib64/libzstd.so.1 \
+  CMakeFiles/wayrandr.dir/qrc_resource.cpp.o \
+  CMakeFiles/wayrandr.dir/src/MonitorSpecs.cpp.o \
+  CMakeFiles/wayrandr.dir/src/backend.cpp.o \
+  CMakeFiles/wayrandr.dir/src/backend/AutoWlrWandr.cpp.o \
+  CMakeFiles/wayrandr.dir/src/backend/Base.cpp.o \
+  CMakeFiles/wayrandr.dir/src/backend/Kanshi.cpp.o \
+  CMakeFiles/wayrandr.dir/src/backend/WlrRandr.cpp.o \
+  CMakeFiles/wayrandr.dir/src/main.cpp.o \
+  CMakeFiles/wayrandr.dir/src/models/MainWindow.cpp.o \
+  CMakeFiles/wayrandr.dir/src/models/MonitorBlock.cpp.o \
+  CMakeFiles/wayrandr.dir/src/models/MonitorInfoOverlay.cpp.o \
+  CMakeFiles/wayrandr.dir/src/models/MonitorProperties.cpp.o \
+  CMakeFiles/wayrandr.dir/src/utils/Helpers.cpp.o \
+  CMakeFiles/wayrandr.dir/wayrandr_autogen/mocs_compilation.cpp.o
+
+
+CMakeFiles/wayrandr.dir/wayrandr_autogen/mocs_compilation.cpp.o:
+
+CMakeFiles/wayrandr.dir/src/models/MainWindow.cpp.o:
+
+CMakeFiles/wayrandr.dir/src/main.cpp.o:
+
+CMakeFiles/wayrandr.dir/src/backend/WlrRandr.cpp.o:
+
+CMakeFiles/wayrandr.dir/src/backend.cpp.o:
+
+CMakeFiles/wayrandr.dir/src/MonitorSpecs.cpp.o:
+
+/usr/lib64/libzstd.so.1:
+
+/usr/lib64/libxml2.so.2:
+
+/usr/lib64/libxcb.so.1:
+
+/usr/lib64/libsystemd.so.0:
+
+/usr/lib64/libproxy.so.1:
+
+/usr/lib64/libpcre2-16.so.0:
+
+/usr/lib64/libnghttp2.so.14:
+
+/usr/lib64/libkrb5support.so.0:
+
+/usr/lib64/libkrb5.so.3:
+
+/usr/lib64/libkeyutils.so.1:
+
+/usr/lib64/libk5crypto.so.3:
+
+/usr/lib64/libidn2.so.0:
+
+/usr/lib64/libicuuc.so.76:
+
+/usr/lib64/libicui18n.so.76:
+
+/usr/lib64/libicudata.so.76:
+
+/usr/lib64/libharfbuzz.so.0:
+
+/usr/lib64/libgmodule-2.0.so.0:
+
+/usr/lib64/libffi.so.8:
+
+/usr/lib64/libdouble-conversion.so.3:
+
+/usr/lib64/libdbus-1.so.3:
+
+/usr/lib64/libcurl.so.4:
+
+/usr/lib64/libcrypto.so.3:
+
+/usr/lib64/libcom_err.so.2:
+
+/usr/lib64/libc_nonshared.a:
+
+/usr/lib64/libbz2.so.1:
+
+/usr/lib64/libbrotlidec.so.1:
+
+/usr/lib64/libblkid.so.1:
+
+/usr/lib64/libX11.so.6:
+
+/usr/lib64/libQt6QuickTemplates2.so.6:
+
+/usr/lib64/libQt6Quick.so.6.9.1:
+
+/usr/lib64/libQt6QmlModels.so.6.9.1:
+
+/usr/lib64/libQt6Qml.so.6.9.1:
+
+/usr/lib64/libQt6Network.so.6.9.1:
+
+/usr/lib64/libQt6DBus.so.6:
+
+/usr/lib64/libQt6Core.so.6.9.1:
+
+/usr/lib64/libOpenGL.so:
+
+/usr/lib64/libGLdispatch.so.0:
+
+/usr/lib/libproxy.so.1:
+
+/usr/lib/gcc/x86_64-redhat-linux/15/libgcc_s.so:
+
+/usr/lib/gcc/x86_64-redhat-linux/15/libgcc.a:
+
+/usr/lib/gcc/x86_64-redhat-linux/15/crtend.o:
+
+/usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o:
+
+/usr/lib64/libm.so:
+
+/usr/lib64/libc.so:
+
+/usr/lib64/crti.o:
+
+/lib64/libproxy.so.1:
+
+/lib64/libm.so.6:
+
+/lib64/libgcc_s.so.1:
+
+CMakeFiles/wayrandr.dir/src/backend/Base.cpp.o:
+
+/lib64/libc.so.6:
+
+/lib64/ld-linux-x86-64.so.2:
+
+/lib/libproxy.so.1:
 
 /usr/include/qt6/QtCore/qtmocconstants.h:
 
@@ -3531,6 +3749,8 @@ wayrandr_autogen/mocs_compilation.cpp:
 
 /usr/include/qt6/QtQml/qjsmanagedvalue.h:
 
+/usr/lib64/libQt6OpenGL.so.6.9.1:
+
 /usr/include/qt6/QtQml/qjsengine.h:
 
 /usr/include/qt6/QtQml/QQmlContext:
@@ -3559,6 +3779,8 @@ wayrandr_autogen/mocs_compilation.cpp:
 
 /usr/include/qt6/QtCore/qmargins.h:
 
+/usr/lib64/crtn.o:
+
 /usr/include/qt6/QtCore/qeventloop.h:
 
 /usr/include/qt6/QtCore/qelapsedtimer.h:
@@ -3574,6 +3796,8 @@ wayrandr_autogen/mocs_compilation.cpp:
 /usr/include/qt6/QtCore/qbasictimer.h:
 
 /usr/include/qt6/QtCore/q20iterator.h:
+
+/usr/lib64/libxkbcommon.so.0:
 
 /usr/include/c++/15/stdlib.h:
 
@@ -3657,6 +3881,8 @@ wayrandr_autogen/mocs_compilation.cpp:
 
 /usr/include/bits/fp-logb.h:
 
+/usr/lib64/libGLX.so:
+
 /usr/include/bits/fp-fast.h:
 
 /usr/include/bits/flt-eval-method.h:
@@ -3672,6 +3898,8 @@ _deps/json-src/include/nlohmann/detail/value_t.hpp:
 _deps/json-src/include/nlohmann/detail/string_escape.hpp:
 
 _deps/json-src/include/nlohmann/detail/output/output_adapters.hpp:
+
+/usr/lib64/libQt6QmlWorkerScript.so.6.9.1:
 
 _deps/json-src/include/nlohmann/detail/meta/void_t.hpp:
 
@@ -3804,6 +4032,10 @@ qrc_resource.cpp:
 /usr/include/qt6/QtCore/qlocale.h:
 
 /usr/lib64/cmake/Qt6GuiPrivate/Qt6GuiPrivateConfigVersionImpl.cmake:
+
+CMakeFiles/wayrandr.dir/src/utils/Helpers.cpp.o:
+
+/usr/lib64/crt1.o:
 
 /usr/lib64/cmake/Qt6QmlWorkerScript/Qt6QmlWorkerScriptTargets.cmake:
 
@@ -4119,6 +4351,8 @@ _deps/json-src/include/nlohmann/detail/meta/call_std/begin.hpp:
 
 /usr/lib64/cmake/Qt6DBus/Qt6DBusTargets-relwithdebinfo.cmake:
 
+/usr/lib64/libQt6Gui.so.6.9.1:
+
 /usr/lib64/cmake/Qt6DBus/Qt6DBusVersionlessAliasTargets.cmake:
 
 /usr/lib64/cmake/Qt6Gui/Qt6QEvdevTouchScreenPluginConfig.cmake:
@@ -4174,6 +4408,8 @@ _deps/json-src/include/nlohmann/detail/meta/call_std/begin.hpp:
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquickcontrols2implpluginAdditionalTargetInfo.cmake:
 
 /usr/include/linux/types.h:
+
+/usr/lib64/libz.so.1:
 
 /usr/include/linux/limits.h:
 
@@ -4238,6 +4474,8 @@ _deps/json-src/include/nlohmann/detail/iterators/iterator_traits.hpp:
 /usr/lib64/cmake/Qt6GuiTools/Qt6GuiToolsConfigVersionImpl.cmake:
 
 /usr/include/c++/15/bits/basic_string.h:
+
+/usr/lib64/libgraphite2.so.3:
 
 /usr/include/c++/15/bits/cpp_type_traits.h:
 
@@ -4310,6 +4548,8 @@ CMakeFiles/3.31.6/CMakeCCompiler.cmake:
 /usr/lib64/cmake/Qt6Qml/Qt6QDebugMessageServiceFactoryPluginAdditionalTargetInfo.cmake:
 
 /usr/include/qt6/QtCore/qiterable.h:
+
+/usr/lib64/libb2.so.1:
 
 /usr/lib/gcc/x86_64-redhat-linux/15/include/stddef.h:
 
@@ -4437,6 +4677,8 @@ CMakeFiles/3.31.6/CMakeCCompiler.cmake:
 
 /usr/include/sys/cdefs.h:
 
+/usr/lib64/libQt6QmlMeta.so.6.9.1:
+
 /usr/lib64/cmake/Qt6Qml/Qt6QmlTargets-relwithdebinfo.cmake:
 
 /usr/lib64/cmake/Qt6QmlTools/Qt6QmlToolsAdditionalTargetInfo.cmake:
@@ -4483,6 +4725,8 @@ CMakeFiles/3.31.6/CMakeCCompiler.cmake:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquickcontrols2materialstyleimplpluginConfig.cmake:
 
+/usr/lib64/libproxy/libpxbackend-1.0.so:
+
 /usr/include/c++/15/bits/uses_allocator_args.h:
 
 /usr/lib64/cmake/Qt6Gui/Qt6QXcbEglIntegrationPluginTargets-relwithdebinfo.cmake:
@@ -4518,6 +4762,8 @@ wayrandr_autogen/moc_predefs.h:
 /usr/lib64/cmake/Qt6DBusTools/Qt6DBusToolsTargets.cmake:
 
 /usr/include/c++/15/bits/stl_function.h:
+
+/usr/lib64/libmount.so.1:
 
 /usr/include/c++/15/bits/memory_resource.h:
 
@@ -4603,6 +4849,8 @@ _deps/json-src/include/nlohmann/json.hpp:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquickcontrols2universalstylepluginTargets.cmake:
 
+/usr/lib64/libfreetype.so.6:
+
 /usr/include/bits/types/struct_sched_param.h:
 
 /usr/include/c++/15/bits/shared_ptr_atomic.h:
@@ -4624,6 +4872,8 @@ _deps/json-src/include/nlohmann/detail/hash.hpp:
 /usr/lib64/cmake/Qt6Gui/Qt6QEglFSIntegrationPluginConfig.cmake:
 
 /usr/lib64/cmake/Qt6DBusPrivate/Qt6DBusPrivateConfigVersion.cmake:
+
+/usr/lib64/liblzma.so.5:
 
 /usr/include/bits/types/__fpos64_t.h:
 
@@ -4656,6 +4906,8 @@ _deps/json-src/include/nlohmann/detail/hash.hpp:
 /usr/include/c++/15/bits/specfun.h:
 
 /usr/include/c++/15/bits/new_allocator.h:
+
+/usr/lib64/libpcre2-8.so.0:
 
 /usr/include/qt6/QtCore/qglobalstatic.h:
 
@@ -4729,6 +4981,8 @@ _deps/json-src/include/nlohmann/detail/iterators/internal_iterator.hpp:
 
 /usr/include/c++/15/tr1/hypergeometric.tcc:
 
+/usr/lib64/libXau.so.6:
+
 /usr/include/qt6/QtCore/qbytearray.h:
 
 /usr/include/c++/15/memory:
@@ -4740,6 +4994,8 @@ _deps/json-src/include/nlohmann/detail/iterators/internal_iterator.hpp:
 /usr/lib64/cmake/Qt6/Qt6ConfigVersion.cmake:
 
 /usr/lib64/cmake/Qt6/QtPublicSbomLicenseHelpers.cmake:
+
+/usr/lib64/libglib-2.0.so.0:
 
 /usr/include/qt6/QtCore/qassert.h:
 
@@ -4825,9 +5081,13 @@ CMakeFiles/3.31.6/CMakeCXXCompiler.cmake:
 
 /usr/lib64/cmake/Qt6/QtPublicCMakeVersionHelpers.cmake:
 
+/usr/lib64/libXext.so.6:
+
 /usr/lib64/cmake/Qt6Qml/Qt6QQmlInspectorServiceFactoryPluginAdditionalTargetInfo.cmake:
 
 /usr/include/strings.h:
+
+/usr/lib64/libgomp.so.1:
 
 /usr/include/c++/15/bits/exception.h:
 
@@ -4850,6 +5110,8 @@ CMakeFiles/3.31.6/CMakeCXXCompiler.cmake:
 /usr/include/c++/15/bits/locale_classes.tcc:
 
 /usr/include/c++/15/bits/ios_base.h:
+
+/usr/lib64/libgssapi_krb5.so.2:
 
 /usr/include/c++/15/bits/move.h:
 
@@ -5027,7 +5289,11 @@ _deps/json-src/include/nlohmann/byte_container_with_subtype.hpp:
 
 CMakeFiles/3.31.6/CMakeSystem.cmake:
 
+/usr/lib64/libEGL.so.1:
+
 /usr/include/c++/15/cmath:
+
+/usr/lib64/libselinux.so.1:
 
 /usr/include/linux/stddef.h:
 
@@ -5076,6 +5342,8 @@ CMakeFiles/3.31.6/CMakeSystem.cmake:
 /usr/include/qt6/QtCore/qcontainertools_impl.h:
 
 /usr/include/c++/15/ext/string_conversions.h:
+
+CMakeFiles/wayrandr.dir/src/models/MonitorBlock.cpp.o:
 
 /usr/lib64/cmake/Qt6Gui/Qt6QMinimalEglIntegrationPluginTargets.cmake:
 
@@ -5133,6 +5401,8 @@ _deps/json-src/include/nlohmann/detail/conversions/to_chars.hpp:
 
 /usr/include/c++/15/tr1/bessel_function.tcc:
 
+CMakeFiles/wayrandr.dir/src/models/MonitorProperties.cpp.o:
+
 /usr/include/qt6/QtCore/qiterator.h:
 
 /usr/lib64/cmake/Qt6Qml/Qt6QQmlProfilerServiceFactoryPluginConfig.cmake:
@@ -5142,6 +5412,8 @@ _deps/json-src/include/nlohmann/detail/conversions/to_chars.hpp:
 /usr/lib64/cmake/Qt6Network/Qt6QNetworkManagerNetworkInformationPluginAdditionalTargetInfo.cmake:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquickcontrols2implpluginTargets-relwithdebinfo.cmake:
+
+CMakeFiles/wayrandr.dir/src/backend/AutoWlrWandr.cpp.o:
 
 /usr/include/c++/15/tr1/modified_bessel_func.tcc:
 
@@ -5255,6 +5527,8 @@ _deps/json-src/include/nlohmann/detail/json_pointer.hpp:
 
 /usr/lib64/cmake/Qt6Gui/Qt6QIbusPlatformInputContextPluginTargets-relwithdebinfo.cmake:
 
+/usr/lib64/libgobject-2.0.so.0:
+
 /usr/lib64/cmake/Qt6Gui/Qt6QIbusPlatformInputContextPluginTargets.cmake:
 
 /usr/include/bits/libm-simd-decl-stubs.h:
@@ -5270,6 +5544,8 @@ _deps/json-src/include/nlohmann/detail/json_pointer.hpp:
 /usr/lib64/cmake/Qt6Gui/Qt6QJpegPluginTargets-relwithdebinfo.cmake:
 
 /usr/lib64/cmake/Qt6Gui/Qt6QJpegPluginTargets.cmake:
+
+/usr/lib64/libssl.so.3:
 
 /usr/include/qt6/QtCore/qutf8stringview.h:
 
@@ -5308,6 +5584,8 @@ _deps/json-src/include/nlohmann/detail/json_pointer.hpp:
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6QmlNetworkpluginAdditionalTargetInfo.cmake:
 
 /usr/lib64/cmake/Qt6Gui/Qt6QMinimalIntegrationPluginTargets.cmake:
+
+/lib64/libmvec.so.1:
 
 /usr/include/c++/15/bits/uses_allocator.h:
 
@@ -5435,6 +5713,8 @@ _deps/json-src/include/nlohmann/detail/meta/identity_tag.hpp:
 
 /usr/lib64/cmake/Qt6QmlPrivate/Qt6QmlPrivateTargets.cmake:
 
+/usr/lib64/libQt6QuickControls2.so.6.9.1:
+
 /usr/lib64/cmake/Qt6GuiPrivate/Qt6GuiPrivateTargets.cmake:
 
 /usr/lib64/cmake/Qt6GuiTools/Qt6GuiToolsAdditionalTargetInfo.cmake:
@@ -5472,6 +5752,8 @@ _deps/json-src/include/nlohmann/detail/meta/identity_tag.hpp:
 /usr/lib64/cmake/Qt6Core/Qt6CoreConfigVersion.cmake:
 
 /usr/lib64/cmake/Qt6Network/Qt6QTlsBackendCertOnlyPluginTargets-relwithdebinfo.cmake:
+
+/usr/lib64/libpng16.so.16:
 
 /usr/lib64/cmake/Qt6/QtPublicDependencyHelpers.cmake:
 
@@ -5607,6 +5889,10 @@ _deps/json-src/include/nlohmann/detail/meta/identity_tag.hpp:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquicktemplates2pluginTargets-relwithdebinfo.cmake:
 
+/usr/lib64/libunistring.so.5:
+
+/usr/lib64/libcap.so.2:
+
 /usr/include/qt6/QtCore/qchar.h:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qmlpluginTargets.cmake:
@@ -5701,6 +5987,8 @@ _deps/json-src/include/nlohmann/detail/abi_macros.hpp:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6workerscriptpluginTargets.cmake:
 
+CMakeFiles/wayrandr.dir/src/models/MonitorInfoOverlay.cpp.o:
+
 /usr/lib64/cmake/Qt6QuickTools/Qt6QuickToolsConfig.cmake:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquickcontrols2basicstyleimplpluginTargets-relwithdebinfo.cmake:
@@ -5746,6 +6034,8 @@ _deps/json-src/include/nlohmann/detail/abi_macros.hpp:
 /usr/include/qt6/QtCore/q20type_traits.h:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquickcontrols2imaginestyleimplpluginConfig.cmake:
+
+CMakeFiles/wayrandr.dir/qrc_resource.cpp.o:
 
 /usr/lib64/cmake/Qt6Qml/QmlPlugins/Qt6qtquickcontrols2imaginestyleimplpluginTargets-relwithdebinfo.cmake:
 
@@ -5825,9 +6115,15 @@ _deps/json-src/include/nlohmann/detail/string_concat.hpp:
 
 /usr/lib64/cmake/Qt6QmlIntegration/Qt6QmlIntegrationConfigVersion.cmake:
 
+/usr/lib64/libresolv.so.2:
+
+/usr/lib/gcc/x86_64-redhat-linux/15/libstdc++.so:
+
 /usr/lib64/cmake/Qt6Qml/Qt6QQmlDebugServerFactoryPluginConfig.cmake:
 
 /usr/lib64/cmake/Qt6Qml/Qt6QQmlDebugServerFactoryPluginTargets-relwithdebinfo.cmake:
+
+/usr/lib64/libgio-2.0.so.0:
 
 /usr/lib64/cmake/Qt6Quick/Qt6QuickTargets.cmake:
 
@@ -5838,6 +6134,8 @@ _deps/json-src/include/nlohmann/detail/string_concat.hpp:
 /usr/lib64/cmake/Qt6Qml/Qt6QQmlDebuggerServiceFactoryPluginTargets-relwithdebinfo.cmake:
 
 /usr/lib64/cmake/Qt6Qml/Qt6QQmlInspectorServiceFactoryPluginTargets.cmake:
+
+/usr/lib64/libbrotlicommon.so.1:
 
 /usr/lib64/cmake/Qt6Qml/Qt6QQmlNativeDebugConnectorFactoryPluginAdditionalTargetInfo.cmake:
 
@@ -5900,6 +6198,8 @@ _deps/json-src/include/nlohmann/adl_serializer.hpp:
 /usr/include/asm-generic/int-ll64.h:
 
 /usr/lib64/cmake/Qt6QmlIntegration/Qt6QmlIntegrationVersionlessAliasTargets.cmake:
+
+CMakeFiles/wayrandr.dir/src/backend/Kanshi.cpp.o:
 
 /usr/lib64/cmake/Qt6QmlIntegrationPrivate/Qt6QmlIntegrationPrivateConfigVersionImpl.cmake:
 
@@ -6001,6 +6301,8 @@ _deps/json-src/include/nlohmann/adl_serializer.hpp:
 
 /usr/lib64/cmake/Qt6QmlWorkerScriptPrivate/Qt6QmlWorkerScriptPrivateTargets.cmake:
 
+/usr/lib64/libfontconfig.so.1:
+
 /usr/lib64/cmake/Qt6QmlWorkerScriptPrivate/Qt6QmlWorkerScriptPrivateVersionlessAliasTargets.cmake:
 
 /usr/lib64/cmake/Qt6Quick/Qt6QuickConfigVersion.cmake:
@@ -6100,6 +6402,8 @@ _deps/json-src/include/nlohmann/detail/iterators/iteration_proxy.hpp:
 /usr/share/cmake/Modules/CMakeInitializeConfigs.cmake:
 
 /usr/share/cmake/Modules/CMakeLanguageInformation.cmake:
+
+/usr/lib64/libduktape.so.207:
 
 /usr/share/cmake/Modules/CMakeSystemSpecificInformation.cmake:
 

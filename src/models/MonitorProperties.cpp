@@ -89,7 +89,6 @@ void MonitorProperties::setFlipped(bool flipped) {
     } else {
         throw std::runtime_error("Transform is not set");
     }
-    
 }
 
 void MonitorProperties::setAdaptiveSync(bool adaptiveSync) {

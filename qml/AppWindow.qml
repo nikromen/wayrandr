@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
+import io.github.nikromen.wayrandr 1.0
 
 ApplicationWindow {
     id: window
@@ -13,7 +14,7 @@ ApplicationWindow {
     minimumWidth: 640
     minimumHeight: 480
     
-    title: qsTr("WayRandR")
+    title: qsTr("wayrandr")
     
     // Use MainWindow.qml as the main content
     MainWindow {
