@@ -19,17 +19,20 @@ ScrollView {
                 Switch {
                     id: enabledSwitch
                     text: qsTr("Enabled")
+                    checked: true
                     onCheckedChanged: monitor.enabled = checked
                 }
 
                 Switch {
                     id: flippedSwitch
+                    visible: enabledSwitch.checked
                     text: qsTr("Flipped")
                     onCheckedChanged: monitor.flipped = checked
                 }
 
                 Switch {
                     id: adaptiveSyncSwitch
+                    visible: enabledSwitch.checked
                     text: qsTr("Adaptive Sync")
                     onCheckedChanged: monitor.adaptiveSync = checked
                 }
@@ -52,6 +55,14 @@ ScrollView {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                 }
+            }
+
+
+            GridLayout {
+                visible: enabledSwitch.checked
+                columns: 2
+                columnSpacing: 10
+                Layout.fillWidth: true
 
                 Label { text: qsTr("Resolution:") }
                 RowLayout {
