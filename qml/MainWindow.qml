@@ -64,8 +64,19 @@ Rectangle {
 
                 Repeater {
                     model: mainWindow.monitors
-                    MonitorProperties {
-                        monitor: modelData
+                    // Use a direct MonitorProperties component instead of a Loader
+                    ScrollView {
+                        width: parent.width
+                        height: parent.height
+                        
+                        Frame {
+                            width: parent.width
+                            
+                            MonitorBlock {
+                                monitor: modelData
+                                width: parent.width
+                            }
+                        }
                     }
                 }
             }

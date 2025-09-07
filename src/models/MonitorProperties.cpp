@@ -3,7 +3,7 @@
 #include "MonitorProperties.hpp"
 
 MonitorProperties::MonitorProperties(MonitorSpecs &monitor_specs, QObject *parent)
-    : monitor_specs(monitor_specs), QObject(parent) {}
+    : QObject(parent), monitor_specs(monitor_specs) {}
 
 // TODO: the defaults for optional should really give optionals not defaults, but it does not matter rn since they are disabled in qml
 // some of the methods just throw error instead of handling it... fix

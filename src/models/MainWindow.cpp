@@ -7,7 +7,7 @@
 
 MainWindow::MainWindow(QObject *parent) : QObject(parent)
 {
-    std::vector<MonitorSpecs> monitors_ = getMonitorSpecsList();
+    monitors_ = getMonitorSpecsList();
 
     for (auto &monitor_spec : monitors_)
     {

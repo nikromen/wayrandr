@@ -20,6 +20,6 @@ public:
     Q_INVOKABLE void save();
 
 private:
-    std::vector<std::unique_ptr<MonitorProperties>> monitors_;
+    std::vector<MonitorSpecs> monitors_; // Store the actual monitor specs
     QList<QObject*> monitors_models_;
 };
