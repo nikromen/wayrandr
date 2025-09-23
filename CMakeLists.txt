@@ -18,7 +18,15 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.3  # Use the latest version or specify a specific version
 )
-FetchContent_MakeAvailable(json)
+
+# Include spdlog
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.15.3  # Use the latest version or specify a specific version
+)
+
+FetchContent_MakeAvailable(json spdlog)
 
 # Use the QML resource file
 qt_add_resources(QML_RESOURCES qml/resource.qrc)
@@ -47,5 +55,6 @@ target_link_libraries(wayrandr PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     nlohmann_json::nlohmann_json
+    spdlog::spdlog
 )
 

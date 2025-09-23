@@ -4,6 +4,8 @@
 #include <optional>
 #include <unordered_map>
 #include <stdexcept>
+#include <QString>
+#include <spdlog/spdlog.h>
 
 using json = nlohmann::json;
 
@@ -21,34 +23,46 @@ Transform TransformUtils::fromString(const std::string &str) {
     
     auto it = mapping.find(str);
     if (it != mapping.end()) {
+        spdlog::debug("Transform mapping found: {} to {}", str, static_cast<int>(it->second));
         return it->second;
     }
     
-    // default
+    spdlog::warn("Unknown transform: {}, defaulting to NORMAL", str);
     return Transform::NORMAL;
 }
 
 std::string TransformUtils::toString(Transform transform) {
+    std::string result;
     switch (transform) {
         case Transform::NORMAL:
-            return "normal";
+            result = "normal";
+            break;
         case Transform::ROTATE_90:
-            return "90";
+            result = "90";
+            break;
         case Transform::ROTATE_180:
-            return "180";
+            result = "180";
+            break;
         case Transform::ROTATE_270:
-            return "270";
+            result = "270";
+            break;
         case Transform::FLIPPED:
-            return "flipped";
+            result = "flipped";
+            break;
         case Transform::FLIPPED_90:
-            return "flipped-90";
+            result = "flipped-90";
+            break;
         case Transform::FLIPPED_180:
-            return "flipped-180";
+            result = "flipped-180";
+            break;
         case Transform::FLIPPED_270:
-            return "flipped-270";
+            result = "flipped-270";
+            break;
         default:
             throw std::invalid_argument("Unknown transform: " + std::to_string(static_cast<int>(transform)));
     }
+    spdlog::debug("Transform converted to string: {} to {}", static_cast<int>(transform), result);
+    return result;
 }
 
 bool TransformUtils::isFlipped(Transform transform) {
@@ -57,26 +71,40 @@ bool TransformUtils::isFlipped(Transform transform) {
 }
 
 Transform TransformUtils::getFlipped(Transform transform) {
+    Transform result;
+    spdlog::debug("Getting flipped transform for: {}", static_cast<int>(transform));
+    
     switch (transform) {
         case Transform::NORMAL:
-            return Transform::FLIPPED;
+            result = Transform::FLIPPED;
+            break;
         case Transform::ROTATE_90:
-            return Transform::FLIPPED_90;
+            result = Transform::FLIPPED_90;
+            break;
         case Transform::ROTATE_180:
-            return Transform::FLIPPED_180;
+            result = Transform::FLIPPED_180;
+            break;
         case Transform::ROTATE_270:
-            return Transform::FLIPPED_270;
+            result = Transform::FLIPPED_270;
+            break;
         case Transform::FLIPPED:
-            return Transform::NORMAL;
+            result = Transform::NORMAL;
+            break;
         case Transform::FLIPPED_90:
-            return Transform::ROTATE_90;
+            result = Transform::ROTATE_90;
+            break;
         case Transform::FLIPPED_180:
-            return Transform::ROTATE_180;
+            result = Transform::ROTATE_180;
+            break;
         case Transform::FLIPPED_270:
-            return Transform::ROTATE_270;
+            result = Transform::ROTATE_270;
+            break;
         default:
             throw std::invalid_argument("Unknown transform: " + std::to_string(static_cast<int>(transform)));
     }
+    
+    spdlog::debug("Flipped transform result: {} -> {}", static_cast<int>(transform), static_cast<int>(result));
+    return result;
 }
 
 const std::vector<Transform> &TransformUtils::allEnums() {
@@ -159,6 +187,8 @@ void MonitorSpecs::setScale(float scale) { this->scale = scale; }
 void MonitorSpecs::setAdaptiveSync(bool adaptive_sync) { this->adaptive_sync = adaptive_sync; }
 
 void MonitorSpecs::setActiveModeIndex(size_t index) {
+    spdlog::debug("Setting active mode index for monitor {} to {}", name, index);
+    
     if (index >= modes.size()) {
         throw std::out_of_range("Active mode index out of range");
     }
@@ -169,10 +199,12 @@ void MonitorSpecs::setActiveModeIndex(size_t index) {
     this->active_mode_index = index;
     Mode curr = modes[active_mode_index.value()];
     curr.is_current = true;
+    spdlog::debug("New active mode set: {}", curr.toString());
 }
 
 void MonitorSpecs::setPosition(int x, int y) {
     if (!this->position) {
+        spdlog::debug("Creating new position object");
         this->position = Position{x, y};
     } else {
         this->position->x = x;
@@ -201,7 +233,10 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
 
     std::string output = runCommand("wlr-randr --json");
     json j = json::parse(output);
+    spdlog::info("Found {} monitors", j.size());
+
     for (auto &monitor : j) {
+        spdlog::debug("Processing monitor: {}", monitor["name"].get<std::string>());
         std::vector<Mode> modes;
         size_t active_mode_index = -1;
         for (auto &mode : monitor["modes"]) {

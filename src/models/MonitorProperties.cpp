@@ -1,10 +1,13 @@
 #include <algorithm>
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 #include "MonitorProperties.hpp"
 
 MonitorProperties::MonitorProperties(MonitorSpecs &monitor_specs, QObject *parent)
-    : QObject(parent), monitor_specs(monitor_specs) {}
+    : QObject(parent), monitor_specs(monitor_specs) {
+    spdlog::debug("Created MonitorProperties for monitor: {}", monitor_specs.getName());
+}
 
 // TODO: the defaults for optional should really give optionals not defaults, but it does not matter rn since they are disabled in qml
 // some of the methods just throw error instead of handling it... fix
@@ -19,7 +22,6 @@ float MonitorProperties::getScale() const { return monitor_specs.getScale().valu
 
 int MonitorProperties::getPositionX() const {
     if (monitor_specs.getPosition().has_value()) {
-        std::cout << "Position X: " << monitor_specs.getPosition().value().x << std::endl;
         return monitor_specs.getPosition().value().x;
     }
     return 0;
@@ -27,7 +29,6 @@ int MonitorProperties::getPositionX() const {
 
 int MonitorProperties::getPositionY() const {
     if (monitor_specs.getPosition().has_value()) {
-        std::cout << "Position Y: " << monitor_specs.getPosition().value().y << std::endl;
         return monitor_specs.getPosition().value().y;
     }
     return 0;
