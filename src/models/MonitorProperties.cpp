@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iostream>
 
 #include "MonitorProperties.hpp"
 
@@ -18,6 +19,7 @@ float MonitorProperties::getScale() const { return monitor_specs.getScale().valu
 
 int MonitorProperties::getPositionX() const {
     if (monitor_specs.getPosition().has_value()) {
+        std::cout << "Position X: " << monitor_specs.getPosition().value().x << std::endl;
         return monitor_specs.getPosition().value().x;
     }
     return 0;
@@ -25,6 +27,7 @@ int MonitorProperties::getPositionX() const {
 
 int MonitorProperties::getPositionY() const {
     if (monitor_specs.getPosition().has_value()) {
+        std::cout << "Position Y: " << monitor_specs.getPosition().value().y << std::endl;
         return monitor_specs.getPosition().value().y;
     }
     return 0;

@@ -1,9 +1,0 @@
-<RCC>
-    <qresource prefix="/qml">
-        <file>AppWindow.qml</file>
-        <file>MainWindow.qml</file>
-        <file>MonitorBlock.qml</file>
-        <file>MonitorInfoOverlay.qml</file>
-        <file>MonitorProperties.qml</file>
-    </qresource>
-</RCC>

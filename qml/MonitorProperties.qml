@@ -20,7 +20,7 @@ ScrollView {
                 Switch {
                     id: enabledSwitch
                     text: qsTr("Enabled")
-                    checked: true
+                    checked: monitor.enabled
                     onCheckedChanged: monitor.enabled = checked
                 }
 
@@ -71,6 +71,7 @@ ScrollView {
                     ComboBox {
                         id: resolutionCombo
                         Layout.fillWidth: true
+                        model: monitor.resolutions
                         currentIndex: monitor.activeResolutionIndex
                         onCurrentIndexChanged: monitor.activeResolutionIndex = currentIndex
                     }
@@ -85,27 +86,59 @@ ScrollView {
                 SpinBox {
                     id: scaleSpinBox
                     Layout.fillWidth: true
-                    from: 0.1
-                    stepSize: 0.1
-                    value: monitor.scale
-                    onValueChanged: monitor.scale = value
+                    from: 1
+                    to: 150
+                    stepSize: 1
+                    value: Math.round(monitor.scale * 10)
+                    onValueChanged: monitor.scale = value / 10
+
+                    property int decimals: 1
+                    
+                    validator: DoubleValidator {
+                        bottom: 1
+                    }
+
+                    textFromValue: function(value, locale) {
+                        return Number(value / 10).toLocaleString(locale, 'f', scaleSpinBox.decimals)
+                    }
+
+                    valueFromText: function(value, locale) {
+                        return Number.fromLocaleString(locale, text) * 10
+                    }
                 }
 
                 Label { text: qsTr("Position:") }
                 RowLayout {
                     Layout.fillWidth: true
-                    SpinBox { id: posXSpinBox; value: monitor.positionX; onValueChanged: monitor.positionX = value }
+                    SpinBox {
+                        id: posXSpinBox
+                        from: 0
+                        to: 1000000
+                        value: monitor.positionX
+                        onValueChanged: monitor.positionX = value
+                    }
                     Label { text: "x" }
-                    SpinBox { id: posYSpinBox; value: monitor.positionY; onValueChanged: monitor.positionY = value }
+                    SpinBox {
+                        id: posYSpinBox
+                        from: 0
+                        to: 1000000
+                        value: monitor.positionY
+                        onValueChanged: monitor.positionY = value
+                    }
                 }
 
                 Label { text: qsTr("Transform:") }
                 ComboBox {
                     id: transformCombo
                     Layout.fillWidth: true
-                    model: monitor.getTransformList
-                    currentIndex: monitor.transform
-                    onCurrentIndexChanged: monitor.transform = currentIndex
+                    model: monitor.transformList
+                    // TODO: fix this via offering index of transform - it is enum so it is constant
+                    currentIndex: model.indexOf(monitor.transform)
+                    onCurrentIndexChanged: {
+                        if (currentIndex !== -1) {
+                            monitor.transform = model[currentIndex]
+                        }
+                    }
                 }
             }
 
