@@ -31,8 +31,7 @@ void initializeLogger() {
 
 int main(int argc, char *argv[]) {
     initializeLogger();
-    
-    spdlog::info("Starting wayrandr");
+
     QGuiApplication app(argc, argv);
 
     spdlog::info("Registering QML types");
@@ -40,29 +39,33 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<MonitorProperties>("io.github.nikromen.wayrandr", 1, 0, "MonitorPropertiesModel");
 
     spdlog::info("Creating MainWindow instance");
-    MainWindow* mainWindow = new MainWindow();
+    auto mainWindow = std::make_unique<MainWindow>();
     
     QQmlApplicationEngine engine;
     spdlog::info("Setting up QML context properties");
-    engine.rootContext()->setContextProperty("mainWindow", mainWindow);
+    engine.rootContext()->setContextProperty("mainWindow", mainWindow.get());
 
-    spdlog::info("Loading QML UI from qrc:/qml/AppWindow.qml");
-    engine.load(QUrl(QStringLiteral("qrc:/qml/AppWindow.qml")));
+    const QUrl url(QStringLiteral("qrc:/qml/AppWindow.qml"));
+    QObject::connect(
+        &engine, &QQmlApplicationEngine::objectCreated,
+        &app, [url](QObject *obj, const QUrl &objUrl) {
+            if (!obj && objUrl == url) {
+                spdlog::critical("Failed to load QML UI, exiting");
+                QCoreApplication::exit(-1);
+            }
+        },
+        Qt::QueuedConnection
+    );
+
+    spdlog::info("Loading QML UI from {}", url.toString().toStdString());
+    engine.load(url);
 
     if (engine.rootObjects().isEmpty()) {
-        spdlog::critical("Failed to load QML UI, no root objects found");
-        delete mainWindow;
+        spdlog::critical("No root objects found after QML load");
         return -1;
     }
     
     spdlog::info("UI loaded successfully");
     spdlog::info("Starting event loop");
-    int result = app.exec();
-    
-    spdlog::info("Application exiting with code: {}", result);
-    
-    spdlog::info("Cleaning up resources");
-    delete mainWindow;
-    
-    return result;
+    return app.exec();
 }
