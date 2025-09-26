@@ -26,16 +26,18 @@ ScrollView {
 
                 Switch {
                     id: flippedSwitch
-                    visible: enabledSwitch.checked
+                    visible: monitor.hasSettings
                     text: qsTr("Flipped")
-                    onCheckedChanged: monitor.flipped = checked
+                    checked: monitor.hasSettings ? monitor.flipped : false
+                    onCheckedChanged: if (monitor.hasSettings) monitor.flipped = checked
                 }
 
                 Switch {
                     id: adaptiveSyncSwitch
-                    visible: enabledSwitch.checked
+                    visible: monitor.hasSettings
                     text: qsTr("Adaptive Sync")
-                    onCheckedChanged: monitor.adaptiveSync = checked
+                    checked: monitor.hasSettings ? monitor.adaptiveSync : false
+                    onCheckedChanged: if (monitor.hasSettings) monitor.adaptiveSync = checked
                 }
 
                 Item { Layout.fillWidth: true }
@@ -60,7 +62,7 @@ ScrollView {
 
 
             GridLayout {
-                visible: enabledSwitch.checked
+                visible: monitor.hasSettings
                 columns: 2
                 columnSpacing: 10
                 Layout.fillWidth: true
@@ -72,13 +74,15 @@ ScrollView {
                         id: resolutionCombo
                         Layout.fillWidth: true
                         model: monitor.resolutions
-                        currentIndex: monitor.activeResolutionIndex
-                        onCurrentIndexChanged: monitor.activeResolutionIndex = currentIndex
+                        currentIndex: monitor.hasSettings ? monitor.activeResolutionIndex : 0
+                        onCurrentIndexChanged: if (monitor.hasSettings) monitor.activeResolutionIndex = currentIndex
+                        enabled: monitor.hasSettings
                     }
                     Button {
                         id: preferredModeButton
                         text: qsTr("Preferred")
                         ToolTip.text: qsTr("Set preferred/native mode")
+                        enabled: monitor.hasSettings
                     }
                 }
 
@@ -89,8 +93,9 @@ ScrollView {
                     from: 1
                     to: 150
                     stepSize: 1
-                    value: Math.round(monitor.scale * 10)
-                    onValueChanged: monitor.scale = value / 10
+                    value: monitor.hasSettings ? Math.round(monitor.scale * 10) : 10
+                    onValueChanged: if (monitor.hasSettings) monitor.scale = value / 10
+                    enabled: monitor.hasSettings
 
                     property int decimals: 1
                     
@@ -114,16 +119,18 @@ ScrollView {
                         id: posXSpinBox
                         from: 0
                         to: 1000000
-                        value: monitor.positionX
-                        onValueChanged: monitor.positionX = value
+                        value: monitor.hasSettings ? monitor.positionX : 0
+                        onValueChanged: if (monitor.hasSettings) monitor.positionX = value
+                        enabled: monitor.hasSettings
                     }
                     Label { text: "x" }
                     SpinBox {
                         id: posYSpinBox
                         from: 0
                         to: 1000000
-                        value: monitor.positionY
-                        onValueChanged: monitor.positionY = value
+                        value: monitor.hasSettings ? monitor.positionY : 0
+                        onValueChanged: if (monitor.hasSettings) monitor.positionY = value
+                        enabled: monitor.hasSettings
                     }
                 }
 
@@ -132,13 +139,19 @@ ScrollView {
                     id: transformCombo
                     Layout.fillWidth: true
                     model: monitor.transformList
-                    // TODO: fix this via offering index of transform - it is enum so it is constant
-                    currentIndex: model.indexOf(monitor.transform)
+                    currentIndex: {
+                        if (monitor.hasSettings && monitor.transform) {
+                            var idx = model.indexOf(monitor.transform);
+                            return idx !== -1 ? idx : 0;
+                        }
+                        return 0;
+                    }
                     onCurrentIndexChanged: {
-                        if (currentIndex !== -1) {
+                        if (monitor.hasSettings && currentIndex !== -1) {
                             monitor.transform = model[currentIndex]
                         }
                     }
+                    enabled: monitor.hasSettings
                 }
             }
 

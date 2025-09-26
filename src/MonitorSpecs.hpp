@@ -58,32 +58,43 @@ class MonitorSpecs {
     const std::string description;
     const PhysicalSize physical_size;
     bool enabled;
-    std::optional<size_t> active_mode_index;
     const std::vector<Mode> modes;
-    std::optional<Position> position;
-    std::optional<Transform> transform;
-    std::optional<float> scale;
-    std::optional<bool> adaptive_sync;
+    std::optional<EnabledMonitorSettings> enabled_monitor_settings;
 
    public:
     MonitorSpecs(const std::string &name, const std::optional<std::string> &make, const std::optional<std::string> &model,
                  const std::optional<std::string> &serial_number, const std::string &description, const PhysicalSize &physical_size, bool enabled,
-                 std::optional<size_t> active_mode_index, const std::vector<Mode> &modes, const std::optional<Position> &position,
-                 const std::optional<Transform> &transform, const std::optional<float> &scale, const std::optional<bool> &adaptive_sync);
+                 const std::vector<Mode> &modes, const std::optional<EnabledMonitorSettings> &enabled_monitor_settings = std::nullopt);
 
     // Getters
     const std::string &getName() const;
     const std::string &getDescription() const;
     bool isEnabled() const;
-    const std::optional<size_t> &getActiveModeIndex() const;
     const std::vector<Mode> &getModes() const;
-    const std::optional<Position> &getPosition() const;
-    const std::optional<Transform> &getTransform() const;
-    const std::optional<float> &getScale() const;
-    const std::optional<bool> &isAdaptiveSync() const;
+    const std::optional<EnabledMonitorSettings> &getEnabledMonitorSettings() const;
 
     // Setters
     void setEnabled(bool enabled);
+};
+
+class EnabledMonitorSettings {
+public:
+    EnabledMonitorSettings(size_t active_mode_index, 
+                         const Position &position,
+                         const Transform &transform,
+                         float scale,
+                         bool adaptive_sync);
+
+    EnabledMonitorSettings() = default;
+
+    // Getters
+    size_t getActiveModeIndex() const;
+    const Position& getPosition() const;
+    const Transform& getTransform() const;
+    float getScale() const;
+    bool isAdaptiveSync() const;
+
+    // Setters
     void setActiveModeIndex(size_t index);
     void setPosition(int x, int y);
     void setPositionX(int x);
@@ -91,6 +102,13 @@ class MonitorSpecs {
     void setTransform(const Transform &transform);
     void setScale(float scale);
     void setAdaptiveSync(bool adaptive_sync);
+
+private:
+    size_t active_mode_index = 0;
+    Position position = {0, 0};
+    Transform transform = Transform::NORMAL;
+    float scale = 1.0f;
+    bool adaptive_sync = false;
 };
 
 std::vector<MonitorSpecs> getMonitorSpecsList();

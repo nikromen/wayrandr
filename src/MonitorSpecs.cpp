@@ -163,81 +163,81 @@ std::string Mode::toString() const {
 
 MonitorSpecs::MonitorSpecs(const std::string &name, const std::optional<std::string> &make,
                            const std::optional<std::string> &model, const std::optional<std::string> &serial_number, const std::string &description,
-                           const PhysicalSize &physical_size, bool enabled, std::optional<size_t> active_mode_index,
-                           const std::vector<Mode> &modes, const std::optional<Position> &position,
-                           const std::optional<Transform> &transform, const std::optional<float> &scale, const std::optional<bool> &adaptive_sync)
+                           const PhysicalSize &physical_size, bool enabled,
+                           const std::vector<Mode> &modes, const std::optional<EnabledMonitorSettings> &enabled_monitor_settings)
     : name(name),
       make(make),
       model(model),
-      description(description),
       serial_number(serial_number),
+      description(description),
       physical_size(physical_size),
       enabled(enabled),
-      active_mode_index(active_mode_index),
       modes(modes),
+      enabled_monitor_settings(enabled_monitor_settings) {}
+
+// Getters
+const std::string &MonitorSpecs::getName() const { return name; }
+const std::string &MonitorSpecs::getDescription() const { return description; }
+bool MonitorSpecs::isEnabled() const { return enabled; }
+const std::vector<Mode> &MonitorSpecs::getModes() const { return modes; }
+const std::optional<EnabledMonitorSettings> &MonitorSpecs::getEnabledMonitorSettings() const { return enabled_monitor_settings; }
+
+// Setters
+void MonitorSpecs::setEnabled(bool enabled) {
+    this->enabled = enabled;
+    // No need for deleting settings when disabling; user may re-enable it, so remember them
+}
+
+EnabledMonitorSettings::EnabledMonitorSettings(size_t active_mode_index, 
+                                                     const Position &position,
+                                                     const Transform &transform,
+                                                     float scale,
+                                                     bool adaptive_sync)
+    : active_mode_index(active_mode_index),
       position(position),
       transform(transform),
       scale(scale),
       adaptive_sync(adaptive_sync) {}
 
 // Getters
-const std::string &MonitorSpecs::getName() const { return name; }
-const std::string &MonitorSpecs::getDescription() const { return description; }
-bool MonitorSpecs::isEnabled() const { return enabled; }
-const std::optional<size_t> &MonitorSpecs::getActiveModeIndex() const { return active_mode_index; }
-const std::vector<Mode> &MonitorSpecs::getModes() const { return modes; }
-const std::optional<Position> &MonitorSpecs::getPosition() const { return position; }
-const std::optional<Transform> &MonitorSpecs::getTransform() const { return transform; }
-const std::optional<float> &MonitorSpecs::getScale() const { return scale; }
-const std::optional<bool> &MonitorSpecs::isAdaptiveSync() const { return adaptive_sync; }
+EnabledMonitorSettings::getActiveModeIndex() const { return active_mode_index; }
+const Position& EnabledMonitorSettings::getPosition() const { return position; }
+const Transform& EnabledMonitorSettings::getTransform() const { return transform; }
+float EnabledMonitorSettings::getScale() const { return scale; }
+bool EnabledMonitorSettings::isAdaptiveSync() const { return adaptive_sync; }
 
 // Setters
-void MonitorSpecs::setEnabled(bool enabled) { this->enabled = enabled; }
-void MonitorSpecs::setTransform(const Transform &transform) { this->transform = transform; }
-void MonitorSpecs::setScale(float scale) { this->scale = scale; }
-void MonitorSpecs::setAdaptiveSync(bool adaptive_sync) { this->adaptive_sync = adaptive_sync; }
-
-void MonitorSpecs::setActiveModeIndex(size_t index) {
-    spdlog::debug("Setting active mode index for monitor {} to {}", name, index);
-    
+void EnabledMonitorSettings::setActiveModeIndex(size_t index) {
     if (index >= modes.size()) {
         throw std::out_of_range("Active mode index out of range");
     }
 
-    Mode prev = modes[active_mode_index.value()];
-    prev.is_current = false;
-
-    this->active_mode_index = index;
-    Mode curr = modes[active_mode_index.value()];
-    curr.is_current = true;
-    spdlog::debug("New active mode set: {}", curr.toString());
+    active_mode_index = index;
 }
 
-void MonitorSpecs::setPosition(int x, int y) {
-    if (!this->position.has_value()) {
-        spdlog::debug("Creating new position object");
-        this->position = Position{x, y};
-    } else {
-        auto& pos = this->position.value();
-        pos.x = x;
-        pos.y = y;
-    }
+void EnabledMonitorSettings::setPosition(int x, int y) {
+    position.x = x;
+    position.y = y;
 }
 
-void MonitorSpecs::setPositionX(int x) {
-    if (!this->position.has_value()) {
-        throw std::runtime_error("Position is not set");
-    } else {
-        this->position.value().x = x;
-    }
+void EnabledMonitorSettings::setPositionX(int x) {
+    position.x = x;
 }
 
-void MonitorSpecs::setPositionY(int y) {
-    if (!this->position.has_value()) {
-        throw std::runtime_error("Position is not set");
-    } else {
-        this->position.value().y = y;
-    }
+void EnabledMonitorSettings::setPositionY(int y) {
+    position.y = y;
+}
+
+void EnabledMonitorSettings::setTransform(const Transform &t) {
+    transform = t;
+}
+
+void EnabledMonitorSettings::setScale(float scale) {
+    this->scale = scale;
+}
+
+void EnabledMonitorSettings::setAdaptiveSync(bool adaptive_sync) {
+    this->adaptive_sync = adaptive_sync;
 }
 
 std::vector<MonitorSpecs> getMonitorSpecsList() {
@@ -249,8 +249,11 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
 
     for (auto &monitor : j) {
         spdlog::debug("Processing monitor: {}", monitor["name"].get<std::string>());
+        bool is_enabled = monitor["enabled"].get<bool>();
+        spdlog::debug("Monitor is enabled: {}", is_enabled);
+
         std::vector<Mode> modes;
-        size_t active_mode_index = -1;
+        int active_mode_index = -1
         for (auto &mode : monitor["modes"]) {
             modes.emplace_back(
                 mode["width"].get<int>(),
@@ -265,16 +268,15 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
             }
         }
 
-        bool is_enabled = monitor["enabled"].get<bool>();
-        std::optional<Position> position = std::nullopt;
-        std::optional<Transform> transform = std::nullopt;
-        std::optional<float> scale = std::nullopt;
-        std::optional<bool> adaptive_sync = std::nullopt;
+        EnabledMonitorSettings enabled_monitor_settings = std::nullopt;
         if (is_enabled) {
-            position = Position{monitor["position"]["x"].get<int>(), monitor["position"]["y"].get<int>()};
-            transform = TransformUtils::fromString(monitor["transform"].get<std::string>());
-            scale = monitor["scale"].get<float>();
-            adaptive_sync = monitor["adaptive_sync"].get<bool>();
+            enabled_monitor_settings = EnabledMonitorSettings(
+                static_cast<size_t>(active_mode_index),
+                Position{monitor["position"]["x"].get<int>(), monitor["position"]["y"].get<int>()},
+                TransformUtils::fromString(monitor["transform"].get<std::string>()),
+                monitor["scale"].get<float>(),
+                monitor["adaptive_sync"].get<bool>()
+            );
         }
 
         std::optional<std::string> make = std::nullopt;
@@ -301,12 +303,8 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
                 monitor["description"],
                 physical_size,
                 is_enabled,
-                active_mode_index,
                 modes,
-                position,
-                transform,
-                scale,
-                adaptive_sync
+                enabled_monitor_settings
             )
         );
     }

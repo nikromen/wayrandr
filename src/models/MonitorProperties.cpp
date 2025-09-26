@@ -9,36 +9,61 @@ MonitorProperties::MonitorProperties(MonitorSpecs &monitor_specs, QObject *paren
     spdlog::debug("Created MonitorProperties for monitor: {}", monitor_specs.getName());
 }
 
-// TODO: the defaults for optional should really give optionals not defaults, but it does not matter rn since they are disabled in qml
-// some of the methods just throw error instead of handling it... fix
-
-
 // Getters
-bool MonitorProperties::isEnabled() const { return monitor_specs.isEnabled(); }
-bool MonitorProperties::isAdaptiveSync() const { return monitor_specs.isAdaptiveSync().value_or(false); }
-QString MonitorProperties::getName() const { return QString::fromStdString(monitor_specs.getName()); }
-QString MonitorProperties::getDescription() const { return QString::fromStdString(monitor_specs.getDescription()); }
-float MonitorProperties::getScale() const { return monitor_specs.getScale().value_or(1.0f); }
+bool MonitorProperties::isEnabled() const { 
+    return monitor_specs.isEnabled(); 
+}
+
+bool MonitorProperties::hasSettings() const {
+    return monitor_specs.isEnabled() && monitor_specs.getSettings().has_value();
+}
+
+bool MonitorProperties::isAdaptiveSync() const { 
+    if (!hasSettings()) {
+        spdlog::debug("Settings not available for monitor {}", monitor_specs.getName());
+        return false;
+    }
+    return monitor_specs.getEnabledMonitorSettings().value().isAdaptiveSync();
+}
+
+QString MonitorProperties::getName() const { 
+    return QString::fromStdString(monitor_specs.getName()); 
+}
+
+QString MonitorProperties::getDescription() const { 
+    return QString::fromStdString(monitor_specs.getDescription()); 
+}
+
+float MonitorProperties::getScale() const {
+    if (!hasSettings()) {
+        spdlog::debug("Settings not available for monitor {}", monitor_specs.getName());
+        return 1.0f;
+    }
+    return monitor_specs.getEnabledMonitorSettings().value().getScale();
+}
 
 int MonitorProperties::getPositionX() const {
-    if (monitor_specs.getPosition().has_value()) {
-        return monitor_specs.getPosition().value().x;
+    if (!hasSettings()) {
+        spdlog::debug("Settings not available for monitor {}", monitor_specs.getName());
+        return 0;
     }
-    return 0;
+    return monitor_specs.getEnabledMonitorSettings().value().getPosition().x;
 }
 
 int MonitorProperties::getPositionY() const {
-    if (monitor_specs.getPosition().has_value()) {
-        return monitor_specs.getPosition().value().y;
+    if (!hasSettings()) {
+        spdlog::debug("Settings not available for monitor {}", monitor_specs.getName());
+        return 0;
     }
-    return 0;
+    return monitor_specs.getEnabledMonitorSettings().value().getPosition().y;
 }
 
 bool MonitorProperties::isFlipped() const {
-    if (monitor_specs.getTransform().has_value()) {
-        return TransformUtils::isFlipped(monitor_specs.getTransform().value());
+    if (!hasSettings()) {
+        spdlog::debug("Settings not available for monitor {}", monitor_specs.getName());
+        return false;
     }
-    return false;
+    return TransformUtils::isFlipped(monitor_specs.getEnabledMonitorSettings().value().getTransform());
 }
 
 QStringList MonitorProperties::getResolutions() const {
@@ -50,17 +75,19 @@ QStringList MonitorProperties::getResolutions() const {
 }
 
 QString MonitorProperties::getTransform() const {
-    if (monitor_specs.getTransform().has_value()) {
-        return QString::fromStdString(TransformUtils::toString(monitor_specs.getTransform().value()));
+    if (!hasSettings()) {
+        spdlog::debug("Settings not available for monitor {}", monitor_specs.getName());
+        return QString::fromStdString(TransformUtils::toString(Transform::NORMAL));
     }
-    return QString();
+    return QString::fromStdString(TransformUtils::toString(monitor_specs.getEnabledMonitorSettings().value().getTransform()));
 }
 
 int MonitorProperties::getActiveResolutionIndex() const {
-    if (monitor_specs.getActiveModeIndex().has_value()) {
-        return monitor_specs.getActiveModeIndex().value();
+    if (!hasSettings()) {
+        spdlog::debug("Settings not available for monitor {}", monitor_specs.getName());
+        return 0;
     }
-    return -1;
+    return static_cast<int>(monitor_specs.getEnabledMonitorSettings().value().getActiveModeIndex());
 }
 
 QStringList MonitorProperties::getTransformList() const {
@@ -86,50 +113,44 @@ void MonitorProperties::setFlipped(bool flipped) {
         return;
     }
 
-    auto &transform = monitor_specs.getTransform();
-    if (transform.has_value()) {
-        monitor_specs.setTransform(TransformUtils::getFlipped(transform.value()));
-        emit flippedChanged();
-    } else {
-        throw std::runtime_error("Transform is not set");
-    }
+    const auto& enabled_monitor_settings = monitor_specs.getEnabledMonitorSettings().value();
+    enabled_monitor_settings.setTransform(TransformUtils::getFlipped(enabled_monitor_settings.getTransform()));
+    emit flippedChanged();
 }
 
 void MonitorProperties::setAdaptiveSync(bool adaptiveSync) {
-    if (monitor_specs.isAdaptiveSync() == adaptiveSync) {
+    if (isAdaptiveSync() == adaptiveSync) {
         return;
     }
 
-    monitor_specs.setAdaptiveSync(adaptiveSync);
+    monitor_specs.getEnabledMonitorSettings().value().setAdaptiveSync(adaptiveSync);
     emit adaptiveSyncChanged();
 }
 
 void MonitorProperties::setScale(float scale) {
-    if (monitor_specs.getScale() == scale) {
+    if (qFuzzyCompare(getScale(), scale)) {
         return;
     }
 
-    monitor_specs.setScale(scale);
+    monitor_specs.getEnabledMonitorSettings().value().setScale(scale);
     emit scaleChanged();
 }
 
 void MonitorProperties::setPositionX(int x) {
-    const auto& position = monitor_specs.getPosition();
-    if (position.has_value() && position.value().x == x) {
+    if (getPositionX() == x) {
         return;
     }
 
-    monitor_specs.setPositionX(x);
+    monitor_specs.getEnabledMonitorSettings().value().setPositionX(x);
     emit positionXChanged();
 }
 
 void MonitorProperties::setPositionY(int y) {
-    const auto& position = monitor_specs.getPosition();
-    if (position.has_value() && position.value().y == y) {
+    if (getPositionY() == y) {
         return;
     }
 
-    monitor_specs.setPositionY(y);
+    monitor_specs.getEnabledMonitorSettings().value().setPositionY(y);
     emit positionYChanged();
 }
 
@@ -138,16 +159,22 @@ void MonitorProperties::setActiveResolutionIndex(int index) {
         return;
     }
 
-    monitor_specs.setActiveModeIndex(index);
+    monitor_specs.getEnabledMonitorSettings().value().setActiveModeIndex(static_cast<size_t>(index));
     emit activeResolutionIndexChanged();
 }
 
 void MonitorProperties::setTransform(const QString &transform) {
-    if (getTransform() == transform) {
+    if (!hasSettings()) {
+        return;
+    }
+    
+    Transform currentTransform = monitor_specs.getSettings().value().getTransform();
+    Transform newTransform = TransformUtils::fromString(transform.toStdString());
+    
+    if (currentTransform == newTransform) {
         return;
     }
 
-    Transform transform_converted = TransformUtils::fromString(transform.toStdString());
-    monitor_specs.setTransform(transform_converted);
+    monitor_specs.setTransform(newTransform);
     emit transformChanged();
 }
