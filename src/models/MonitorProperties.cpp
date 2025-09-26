@@ -114,7 +114,8 @@ void MonitorProperties::setScale(float scale) {
 }
 
 void MonitorProperties::setPositionX(int x) {
-    if (monitor_specs.getPosition()->x == x) {
+    const auto& position = monitor_specs.getPosition();
+    if (position.has_value() && position.value().x == x) {
         return;
     }
 
@@ -123,7 +124,8 @@ void MonitorProperties::setPositionX(int x) {
 }
 
 void MonitorProperties::setPositionY(int y) {
-    if (monitor_specs.getPosition()->y == y) {
+    const auto& position = monitor_specs.getPosition();
+    if (position.has_value() && position.value().y == y) {
         return;
     }
 

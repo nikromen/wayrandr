@@ -214,28 +214,29 @@ void MonitorSpecs::setActiveModeIndex(size_t index) {
 }
 
 void MonitorSpecs::setPosition(int x, int y) {
-    if (!this->position) {
+    if (!this->position.has_value()) {
         spdlog::debug("Creating new position object");
         this->position = Position{x, y};
     } else {
-        this->position->x = x;
-        this->position->y = y;
+        auto& pos = this->position.value();
+        pos.x = x;
+        pos.y = y;
     }
 }
 
 void MonitorSpecs::setPositionX(int x) {
-    if (!this->position) {
+    if (!this->position.has_value()) {
         throw std::runtime_error("Position is not set");
     } else {
-        this->position->x = x;
+        this->position.value().x = x;
     }
 }
 
 void MonitorSpecs::setPositionY(int y) {
-    if (!this->position) {
+    if (!this->position.has_value()) {
         throw std::runtime_error("Position is not set");
     } else {
-        this->position->y = y;
+        this->position.value().y = y;
     }
 }
 
