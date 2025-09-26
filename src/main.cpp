@@ -18,10 +18,11 @@ void initializeLogger() {
     
     spdlog::set_default_logger(logger);
 
-#ifdef NDEBUG
-    spdlog::set_level(spdlog::level::info);
-#else
+#ifdef ENABLE_DEBUG_LOGS
     spdlog::set_level(spdlog::level::debug);
+    spdlog::info("Debug logging enabled");
+#else
+    spdlog::set_level(spdlog::level::info);
 #endif
 
     spdlog::flush_on(spdlog::level::err);

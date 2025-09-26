@@ -46,6 +46,7 @@ namespace TransformUtils {
     Transform getFlipped(Transform transform);
     const std::vector<Transform> &allEnums();
     const std::vector<std::string> &allStrings();
+    int indexOf(Transform transform);
 }
 
 class MonitorSpecs {

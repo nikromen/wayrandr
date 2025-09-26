@@ -132,6 +132,17 @@ const std::vector<std::string> &TransformUtils::allStrings() {
     return all_strings;
 }
 
+int TransformUtils::indexOf(Transform transform) {
+    const auto &enums = allEnums();
+    for (size_t i = 0; i < enums.size(); ++i) {
+        if (enums[i] == transform) {
+            return static_cast<int>(i);
+        }
+    }
+
+    throw std::invalid_argument("Transform not found in list");
+}
+
 Mode::Mode(int width, int height, float refresh_rate, bool is_preferred, bool is_current)
     : width(width),
       height(height),

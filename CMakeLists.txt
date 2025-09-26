@@ -8,6 +8,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+# Option to enable/disable debug logs
+option(ENABLE_DEBUG_LOGS "Enable debug logging" ON)
+
 # Find the required Qt packages
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2)
 
@@ -57,4 +60,9 @@ target_link_libraries(wayrandr PRIVATE
     nlohmann_json::nlohmann_json
     spdlog::spdlog
 )
+
+# Configure debug logging
+if(ENABLE_DEBUG_LOGS)
+    target_compile_definitions(wayrandr PRIVATE ENABLE_DEBUG_LOGS)
+endif()
 
