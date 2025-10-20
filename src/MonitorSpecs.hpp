@@ -49,34 +49,6 @@ namespace TransformUtils {
     int indexOf(Transform transform);
 }
 
-class MonitorSpecs {
-   private:
-    const std::string name;
-    const std::optional<std::string> make;
-    const std::optional<std::string> model;
-    const std::optional<std::string> serial_number;
-    const std::string description;
-    const PhysicalSize physical_size;
-    bool enabled;
-    const std::vector<Mode> modes;
-    std::optional<EnabledMonitorSettings> enabled_monitor_settings;
-
-   public:
-    MonitorSpecs(const std::string &name, const std::optional<std::string> &make, const std::optional<std::string> &model,
-                 const std::optional<std::string> &serial_number, const std::string &description, const PhysicalSize &physical_size, bool enabled,
-                 const std::vector<Mode> &modes, const std::optional<EnabledMonitorSettings> &enabled_monitor_settings = std::nullopt);
-
-    // Getters
-    const std::string &getName() const;
-    const std::string &getDescription() const;
-    bool isEnabled() const;
-    const std::vector<Mode> &getModes() const;
-    const std::optional<EnabledMonitorSettings> &getEnabledMonitorSettings() const;
-
-    // Setters
-    void setEnabled(bool enabled);
-};
-
 class EnabledMonitorSettings {
 public:
     EnabledMonitorSettings(size_t active_mode_index, 
@@ -109,6 +81,35 @@ private:
     Transform transform = Transform::NORMAL;
     float scale = 1.0f;
     bool adaptive_sync = false;
+};
+
+class MonitorSpecs {
+   private:
+    const std::string name;
+    const std::optional<std::string> make;
+    const std::optional<std::string> model;
+    const std::optional<std::string> serial_number;
+    const std::string description;
+    const PhysicalSize physical_size;
+    bool enabled;
+    const std::vector<Mode> modes;
+    std::optional<EnabledMonitorSettings> enabled_monitor_settings;
+
+   public:
+    MonitorSpecs(const std::string &name, const std::optional<std::string> &make, const std::optional<std::string> &model,
+                 const std::optional<std::string> &serial_number, const std::string &description, const PhysicalSize &physical_size, bool enabled,
+                 const std::vector<Mode> &modes, const std::optional<EnabledMonitorSettings> &enabled_monitor_settings = std::nullopt);
+
+    // Getters
+    const std::string &getName() const;
+    const std::string &getDescription() const;
+    bool isEnabled() const;
+    const std::vector<Mode> &getModes() const;
+    const std::optional<EnabledMonitorSettings> &getEnabledMonitorSettings() const;
+    std::optional<EnabledMonitorSettings> &getEnabledMonitorSettings();
+
+    // Setters
+    void setEnabled(bool enabled);
 };
 
 std::vector<MonitorSpecs> getMonitorSpecsList();

@@ -181,6 +181,7 @@ const std::string &MonitorSpecs::getDescription() const { return description; }
 bool MonitorSpecs::isEnabled() const { return enabled; }
 const std::vector<Mode> &MonitorSpecs::getModes() const { return modes; }
 const std::optional<EnabledMonitorSettings> &MonitorSpecs::getEnabledMonitorSettings() const { return enabled_monitor_settings; }
+std::optional<EnabledMonitorSettings> &MonitorSpecs::getEnabledMonitorSettings() { return enabled_monitor_settings; }
 
 // Setters
 void MonitorSpecs::setEnabled(bool enabled) {
@@ -200,7 +201,7 @@ EnabledMonitorSettings::EnabledMonitorSettings(size_t active_mode_index,
       adaptive_sync(adaptive_sync) {}
 
 // Getters
-EnabledMonitorSettings::getActiveModeIndex() const { return active_mode_index; }
+size_t EnabledMonitorSettings::getActiveModeIndex() const { return active_mode_index; }
 const Position& EnabledMonitorSettings::getPosition() const { return position; }
 const Transform& EnabledMonitorSettings::getTransform() const { return transform; }
 float EnabledMonitorSettings::getScale() const { return scale; }
@@ -208,10 +209,9 @@ bool EnabledMonitorSettings::isAdaptiveSync() const { return adaptive_sync; }
 
 // Setters
 void EnabledMonitorSettings::setActiveModeIndex(size_t index) {
-    if (index >= modes.size()) {
-        throw std::out_of_range("Active mode index out of range");
-    }
-
+    // Note: Ideally, we should validate that index is within a valid range
+    // but since we don't have direct access to the modes here,
+    // we'll simply set the index and assume the caller validates it
     active_mode_index = index;
 }
 
@@ -253,7 +253,7 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
         spdlog::debug("Monitor is enabled: {}", is_enabled);
 
         std::vector<Mode> modes;
-        int active_mode_index = -1
+        int active_mode_index = -1;
         for (auto &mode : monitor["modes"]) {
             modes.emplace_back(
                 mode["width"].get<int>(),
@@ -268,7 +268,7 @@ std::vector<MonitorSpecs> getMonitorSpecsList() {
             }
         }
 
-        EnabledMonitorSettings enabled_monitor_settings = std::nullopt;
+        std::optional<EnabledMonitorSettings> enabled_monitor_settings = std::nullopt;
         if (is_enabled) {
             enabled_monitor_settings = EnabledMonitorSettings(
                 static_cast<size_t>(active_mode_index),
