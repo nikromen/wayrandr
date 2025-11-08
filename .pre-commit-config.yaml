@@ -1,0 +1,54 @@
+ci:
+  autofix_prs: false
+
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-yaml
+      - id: destroyed-symlinks
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: detect-private-key
+      - id: check-toml
+      - id: pretty-format-json
+        args:
+          - --fix=lf
+      - id: trailing-whitespace
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.2
+    hooks:
+    - id: clang-format
+      types_or:
+      - c++
+
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-tidy
+        args:
+          - --fix
+          - --use-color
+          - -p=build
+        types_or:
+          - c++
+          - c
+
+  - repo: https://github.com/cpplint/cpplint
+    rev: 1.6.1
+    hooks:
+      - id: cpplint
+        args:
+          - '--filter=-legal/copyright,-readability/todo,-whitespace/indent,-build/include_subdir,-build/include_order,-whitespace/parens'
+          - '--linelength=100'
+        types_or:
+          - c++
+          - c
