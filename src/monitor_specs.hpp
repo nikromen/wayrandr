@@ -22,6 +22,7 @@ struct Mode {
     auto operator!=(const Mode & other) const -> bool;
 
     [[nodiscard]] auto to_string() const -> std::string;
+    [[nodiscard]] auto to_wlr_randr_arg() const -> std::string;
 };
 
 struct Position {
@@ -105,10 +106,13 @@ public:
     [[nodiscard]] auto get_description() const -> const std::string &;
     [[nodiscard]] auto is_enabled() const -> bool;
     [[nodiscard]] auto get_modes() const -> const std::vector<Mode> &;
+    [[nodiscard]] auto get_enabled_monitor_settings() const
+        -> const std::optional<EnabledMonitorSettings> &;
     auto get_enabled_monitor_settings() -> std::optional<EnabledMonitorSettings> &;
 
     // Setters
     void set_enabled(bool enabled);
+    void sync_from(const MonitorSpecs & other);
 
 private:
     const std::string name;

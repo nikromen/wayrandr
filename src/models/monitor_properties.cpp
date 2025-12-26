@@ -32,7 +32,6 @@ auto MonitorProperties::has_settings() const -> bool {
 
 auto MonitorProperties::is_adaptive_sync() const -> bool {
     if (!has_settings()) {
-        spdlog::debug("Settings not available for monitor {}", monitor_specs->get_name());
         return false;
     }
     return monitor_specs->get_enabled_monitor_settings().value().is_adaptive_sync();
@@ -48,7 +47,6 @@ auto MonitorProperties::get_description() const -> QString {
 
 auto MonitorProperties::get_scale() const -> float {
     if (!has_settings()) {
-        spdlog::debug("Settings not available for monitor {}", monitor_specs->get_name());
         return 1.0F;
     }
     return monitor_specs->get_enabled_monitor_settings().value().get_scale();
@@ -56,7 +54,6 @@ auto MonitorProperties::get_scale() const -> float {
 
 auto MonitorProperties::get_position_x() const -> int {
     if (!has_settings()) {
-        spdlog::debug("Settings not available for monitor {}", monitor_specs->get_name());
         return 0;
     }
     return monitor_specs->get_enabled_monitor_settings().value().get_position().x;
@@ -64,7 +61,6 @@ auto MonitorProperties::get_position_x() const -> int {
 
 auto MonitorProperties::get_position_y() const -> int {
     if (!has_settings()) {
-        spdlog::debug("Settings not available for monitor {}", monitor_specs->get_name());
         return 0;
     }
     return monitor_specs->get_enabled_monitor_settings().value().get_position().y;
@@ -112,7 +108,6 @@ auto MonitorProperties::get_transform_list() -> QStringList {
 
 auto MonitorProperties::get_transform() const -> QString {
     if (!has_settings()) {
-        spdlog::debug("Settings not available for monitor {}", monitor_specs->get_name());
         return QString::fromStdString(transform_utils::to_string(Transform::NORMAL));
     }
     return QString::fromStdString(
@@ -124,10 +119,49 @@ auto MonitorProperties::get_transform() const -> QString {
 
 auto MonitorProperties::get_active_resolution_index() const -> size_t {
     if (!has_settings()) {
-        spdlog::debug("Settings not available for monitor {}", monitor_specs->get_name());
         return 0;
     }
     return monitor_specs->get_enabled_monitor_settings().value().get_active_mode_index();
+}
+
+auto MonitorProperties::is_transform_rotated() const -> bool {
+    if (!has_settings()) {
+        return false;
+    }
+
+    const QString transform = get_transform();
+    return transform == "90" || transform == "270" || transform == "flipped-90" ||
+        transform == "flipped-270";
+}
+
+auto MonitorProperties::get_layout_width() const -> int {
+    if (!has_settings()) {
+        return 0;
+    }
+
+    const float scale = get_scale();
+    if (scale <= 0.0F) {
+        return get_resolution_width();
+    }
+
+    const int logical_width = static_cast<int>(std::round(get_resolution_width() / scale));
+    const int logical_height = static_cast<int>(std::round(get_resolution_height() / scale));
+    return is_transform_rotated() ? logical_height : logical_width;
+}
+
+auto MonitorProperties::get_layout_height() const -> int {
+    if (!has_settings()) {
+        return 0;
+    }
+
+    const float scale = get_scale();
+    if (scale <= 0.0F) {
+        return get_resolution_height();
+    }
+
+    const int logical_width = static_cast<int>(std::round(get_resolution_width() / scale));
+    const int logical_height = static_cast<int>(std::round(get_resolution_height() / scale));
+    return is_transform_rotated() ? logical_width : logical_height;
 }
 
 // Setters
@@ -138,9 +172,14 @@ void MonitorProperties::set_enabled(bool enabled) {
 
     monitor_specs->set_enabled(enabled);
     emit enabled_changed();
+    emit layout_dimensions_changed();
 }
 
 void MonitorProperties::set_adaptive_sync(bool adaptive_sync) {
+    if (!has_settings()) {
+        return;
+    }
+
     if (is_adaptive_sync() == adaptive_sync) {
         return;
     }
@@ -151,6 +190,10 @@ void MonitorProperties::set_adaptive_sync(bool adaptive_sync) {
 }
 
 void MonitorProperties::set_scale(float scale) {
+    if (!has_settings()) {
+        return;
+    }
+
     if (std::abs(get_scale() - scale) < 0.001F) {
         return;
     }
@@ -158,9 +201,14 @@ void MonitorProperties::set_scale(float scale) {
     auto & settings = monitor_specs->get_enabled_monitor_settings().value();
     settings.set_scale(scale);
     emit scale_changed();
+    emit layout_dimensions_changed();
 }
 
 void MonitorProperties::set_position_x(int x) {
+    if (!has_settings()) {
+        return;
+    }
+
     if (get_position_x() == x) {
         return;
     }
@@ -171,6 +219,10 @@ void MonitorProperties::set_position_x(int x) {
 }
 
 void MonitorProperties::set_position_y(int y) {
+    if (!has_settings()) {
+        return;
+    }
+
     if (get_position_y() == y) {
         return;
     }
@@ -181,6 +233,10 @@ void MonitorProperties::set_position_y(int y) {
 }
 
 void MonitorProperties::set_active_resolution_index(size_t index) {
+    if (!has_settings()) {
+        return;
+    }
+
     if (get_active_resolution_index() == index) {
         return;
     }
@@ -188,6 +244,7 @@ void MonitorProperties::set_active_resolution_index(size_t index) {
     auto & settings = monitor_specs->get_enabled_monitor_settings().value();
     settings.set_active_mode_index(index);
     emit active_resolution_index_changed();
+    emit layout_dimensions_changed();
 }
 
 void MonitorProperties::set_transform(const QString & transform) {
@@ -212,6 +269,7 @@ void MonitorProperties::set_transform(const QString & transform) {
     );
     settings.set_transform(new_transform);
     emit transform_changed();
+    emit layout_dimensions_changed();
 }
 
 void MonitorProperties::start_drag(int mouse_x, int mouse_y) {
@@ -222,7 +280,12 @@ void MonitorProperties::start_drag(int mouse_x, int mouse_y) {
 }
 
 void MonitorProperties::update_drag(
-    int mouse_x, int mouse_y, float display_scale, QObject * main_window
+    int mouse_x,
+    int mouse_y,
+    float display_scale,
+    QObject * main_window,
+    int canvas_width,
+    int canvas_height
 ) {
     float const delta_x = (mouse_x - drag_start_mouse_x_) / display_scale;
     float const delta_y = (mouse_y - drag_start_mouse_y_) / display_scale;
@@ -239,7 +302,10 @@ void MonitorProperties::update_drag(
             Q_ARG(QObject *, this),
             Q_ARG(int, new_x),
             Q_ARG(int, new_y),
-            Q_ARG(int, 200)
+            Q_ARG(int, 200),
+            Q_ARG(int, canvas_width),
+            Q_ARG(int, canvas_height),
+            Q_ARG(float, display_scale)
         );
         new_x = snapped.x();
         new_y = snapped.y();
@@ -272,4 +338,15 @@ void MonitorProperties::activate_preferred_mode() {
     }
 
     spdlog::warn("No preferred mode found for monitor {}", monitor_specs->get_name());
+}
+
+void MonitorProperties::notify_all_changed() {
+    emit enabled_changed();
+    emit adaptive_sync_changed();
+    emit active_resolution_index_changed();
+    emit scale_changed();
+    emit position_x_changed();
+    emit position_y_changed();
+    emit transform_changed();
+    emit layout_dimensions_changed();
 }

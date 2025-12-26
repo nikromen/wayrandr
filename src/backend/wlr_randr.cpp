@@ -3,71 +3,90 @@
 #include <spdlog/spdlog.h>
 
 #include <cstddef>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "monitor_specs.hpp"
-#include "nlohmann/json_fwd.hpp"
 #include "utils/helpers.hpp"
 
-using json = nlohmann::json;
-
-auto WlrRandrBackend::build_wlr_randr_command(const std::vector<MonitorSpecs> & monitors)
-    -> std::string {
-    std::string cmd = "wlr-randr";
+auto WlrRandrBackend::build_wlr_randr_args(const std::vector<MonitorSpecs> & monitors)
+    -> std::vector<std::string> {
+    std::vector<std::string> args;
 
     for (const auto & monitor : monitors) {
-        cmd += fmt::format(" --output {}", monitor.get_name());
+        args.push_back("--output");
+        args.push_back(monitor.get_name());
 
-        if (monitor.is_enabled()) {
-            cmd += " --on";
-        } else {
-            cmd += " --off";
+        if (!monitor.is_enabled()) {
+            args.push_back("--off");
             continue;
         }
 
-        const auto & settings = const_cast<MonitorSpecs &>(monitor).get_enabled_monitor_settings();
+        args.push_back("--on");
+
+        const auto & settings = monitor.get_enabled_monitor_settings();
         if (!settings.has_value()) {
             throw std::logic_error(
-                fmt::format(
-                    "Enabled monitor settings missing for enabled monitor: {} this is probably a "
-                    "bug",
-                    monitor.get_name()
-                )
+                "Enabled monitor settings missing for enabled monitor: " + monitor.get_name()
             );
         }
 
         const auto & modes = monitor.get_modes();
-        size_t const active_mode_index = settings->get_active_mode_index();
+        const size_t active_mode_index = settings->get_active_mode_index();
+        if (active_mode_index >= modes.size()) {
+            throw std::out_of_range(
+                "Active mode index out of range for monitor: " + monitor.get_name()
+            );
+        }
+
         const auto & mode = modes[active_mode_index];
-        std::string const mode_str = mode.to_string();
-        cmd += fmt::format(" --mode {}", mode_str);
+        args.push_back("--mode");
+        args.push_back(mode.to_wlr_randr_arg());
 
         const auto & pos = settings->get_position();
-        cmd += fmt::format(" --pos {},{}", pos.x, pos.y);
+        args.push_back("--pos");
+        args.push_back(std::to_string(pos.x) + "," + std::to_string(pos.y));
 
-        cmd += fmt::format(" --scale {}", settings->get_scale());
+        args.push_back("--scale");
+        args.push_back(std::to_string(settings->get_scale()));
 
-        const auto & transform = settings->get_transform();
-        cmd += fmt::format(" --transform {}", transform_utils::to_string(transform));
+        args.push_back("--transform");
+        args.push_back(transform_utils::to_string(settings->get_transform()));
 
-        if (settings->is_adaptive_sync()) {
-            cmd += " --adaptive-sync enabled";
-        } else {
-            cmd += " --adaptive-sync disabled";
-        }
+        args.push_back("--adaptive-sync");
+        args.push_back(settings->is_adaptive_sync() ? "enabled" : "disabled");
     }
 
-    return cmd;
+    return args;
 }
 
 void WlrRandrBackend::apply(const std::vector<MonitorSpecs> & monitors) {
+    apply(monitors, true);
+}
+
+void WlrRandrBackend::apply(const std::vector<MonitorSpecs> & monitors, bool snapshot_current) {
     spdlog::info("Applying wlr-randr configuration");
 
-    previous_config_ = get_monitor_specs_list();
+    if (snapshot_current) {
+        previous_config_ = get_monitor_specs_list();
+    }
 
-    run_command(build_wlr_randr_command(monitors));
+    const auto args = build_wlr_randr_args(monitors);
+    spdlog::debug("wlr-randr argument count: {}", args.size());
+#ifdef ENABLE_DEBUG_LOGS
+    {
+        std::ostringstream cmd_log;
+        cmd_log << "wlr-randr";
+        for (const auto & arg : args) {
+            cmd_log << ' ' << arg;
+        }
+        spdlog::debug("wlr-randr command: {}", cmd_log.str());
+    }
+#endif
+
+    run_command("wlr-randr", args);
     spdlog::info("Configuration applied successfully");
 }
 
@@ -77,6 +96,7 @@ void WlrRandrBackend::revert() {
         return;
     }
 
-    spdlog::info("Reverting to previous configuration");
-    apply(previous_config_);
+    spdlog::info("Reverting to previous configuration ({} monitors)", previous_config_.size());
+    const auto saved = previous_config_;
+    apply(saved, false);
 }

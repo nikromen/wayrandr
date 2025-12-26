@@ -2,33 +2,51 @@
 
 #include <spdlog/spdlog.h>
 
-#include <array>
-#include <cstdio>
-#include <memory>
+#include <QProcess>
+#include <QStringList>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
-namespace {
-constexpr size_t K_COMMAND_BUFFER_SIZE = 4096;
-}
-
-auto run_command(const std::string & command) -> std::string {
-    spdlog::debug("Running command: {}", command);
-
-    std::string output;
-    std::array<char, K_COMMAND_BUFFER_SIZE> buffer{};
-
-    using pclose_type = int (*)(FILE *);
-    std::unique_ptr<FILE, pclose_type> const pipe(popen(command.c_str(), "r"), pclose);
-    if (!pipe) {
-        spdlog::critical("Failed to execute command: {}", command);
-        throw std::runtime_error("popen() failed!");
+auto run_command(const std::string & program, const std::vector<std::string> & args) -> std::string {
+    QStringList qargs;
+    for (const auto & arg : args) {
+        qargs << QString::fromStdString(arg);
     }
 
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        output += buffer.data();
+    std::ostringstream cmd_log;
+    cmd_log << program;
+    for (const auto & arg : args) {
+        cmd_log << ' ' << arg;
+    }
+    spdlog::debug("Running command: {}", cmd_log.str());
+
+    QProcess process;
+    process.setProgram(QString::fromStdString(program));
+    process.setArguments(qargs);
+    process.start(QIODevice::ReadOnly);
+
+    if (!process.waitForFinished(-1)) {
+        spdlog::error("Failed to start command: {}", program);
+        throw std::runtime_error("QProcess::start failed for: " + program);
     }
 
-    spdlog::debug("Command output: {}", output);
+    const QString stderr_output = QString::fromUtf8(process.readAllStandardError());
+    const QString stdout_output = QString::fromUtf8(process.readAllStandardOutput());
+
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        spdlog::error(
+            "Command {} exited with code {}: {}",
+            program,
+            process.exitCode(),
+            stderr_output.toStdString()
+        );
+        throw std::runtime_error(
+            "Command failed: " + program + " - " + stderr_output.toStdString()
+        );
+    }
+
+    const std::string output = stdout_output.toStdString();
+    spdlog::debug("Command output: {} bytes", output.size());
     return output;
 }

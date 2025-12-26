@@ -33,6 +33,8 @@ class MonitorProperties : public QObject {
     Q_PROPERTY(
         int resolutionHeight READ get_resolution_height NOTIFY active_resolution_index_changed
     )
+    Q_PROPERTY(int layoutWidth READ get_layout_width NOTIFY layout_dimensions_changed)
+    Q_PROPERTY(int layoutHeight READ get_layout_height NOTIFY layout_dimensions_changed)
     Q_PROPERTY(QString transform READ get_transform WRITE set_transform NOTIFY transform_changed)
     Q_PROPERTY(QStringList transformList READ get_transform_list CONSTANT)
 
@@ -55,6 +57,8 @@ public:
     [[nodiscard]] auto get_position_y() const -> int;
     [[nodiscard]] auto get_resolution_width() const -> int;
     [[nodiscard]] auto get_resolution_height() const -> int;
+    [[nodiscard]] auto get_layout_width() const -> int;
+    [[nodiscard]] auto get_layout_height() const -> int;
     [[nodiscard]] auto get_transform() const -> QString;
 
     // Setters
@@ -68,9 +72,16 @@ public:
 
     Q_INVOKABLE void start_drag(int mouse_x, int mouse_y);
     Q_INVOKABLE void update_drag(
-        int mouse_x, int mouse_y, float display_scale, QObject * main_window
+        int mouse_x,
+        int mouse_y,
+        float display_scale,
+        QObject * main_window,
+        int canvas_width,
+        int canvas_height
     );
     Q_INVOKABLE void activate_preferred_mode();
+
+    void notify_all_changed();
 
 signals:
     void enabled_changed();
@@ -80,9 +91,11 @@ signals:
     void position_x_changed();
     void position_y_changed();
     void transform_changed();
+    void layout_dimensions_changed();
 
 private:
     [[nodiscard]] auto get_resolution(bool width) const -> int;
+    [[nodiscard]] auto is_transform_rotated() const -> bool;
 
     MonitorSpecs * monitor_specs;
     int drag_start_mouse_x_ = 0;

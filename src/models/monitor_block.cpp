@@ -9,30 +9,27 @@
 #include <qtmetamacros.h>
 #include <spdlog/spdlog.h>
 
-#include <QBuffer>
-#include <QImage>
-#include <QTransform>
-#include <stdexcept>
-#include <string>
+#include <QProcess>
 #include <utility>
 
-#include "models/monitor_properties.hpp"
-#include "monitor_specs.hpp"
+namespace {
+constexpr int kPreviewFps = 1;
+constexpr int kPreviewIntervalMs = 1000 / kPreviewFps;
+constexpr char kPreviewScale[] = "0.2";
+}  // namespace
 
-MonitorBlock::MonitorBlock(
-    QString monitor_name, MonitorProperties * monitor_props, QObject * parent
-)
+MonitorBlock::MonitorBlock(QString monitor_name, QObject * parent)
     : QObject(parent),
       monitor_name_(std::move(monitor_name)),
       capture_timer_(new QTimer(this)),
       capture_process_(nullptr),
-      is_capturing_(false),
-      monitor_props_(monitor_props) {
-    // TODO: set later in settings
-    capture_timer_->setInterval(1000 / 60);  // 15 FPS
+      is_capturing_(false) {
+    capture_timer_->setInterval(kPreviewIntervalMs);
     connect(capture_timer_, &QTimer::timeout, this, &MonitorBlock::capture_frame);
 
-    spdlog::debug("Created MonitorBlock for: {}", monitor_name_.toStdString());
+    spdlog::debug(
+        "Created MonitorBlock for: {} (preview {} FPS)", monitor_name_.toStdString(), kPreviewFps
+    );
 }
 
 MonitorBlock::~MonitorBlock() {
@@ -66,15 +63,25 @@ void MonitorBlock::stop_capture() {
     spdlog::debug("Stopped capture for monitor: {}", monitor_name_.toStdString());
 }
 
-void MonitorBlock::capture_frame() {
-    if (is_capturing_) {
+void MonitorBlock::capture_now() {
+    if (!capture_timer_->isActive()) {
         return;
     }
 
-    // clean up old process
+    capture_frame();
+}
+
+void MonitorBlock::capture_frame() {
+    if (is_capturing_) {
+        spdlog::debug(
+            "Skipping capture for {} - previous grim still running", monitor_name_.toStdString()
+        );
+        return;
+    }
+
     if (capture_process_ != nullptr) {
         if (capture_process_->state() != QProcess::NotRunning) {
-            return;  // previous capture still running
+            return;
         }
         capture_process_->deleteLater();
     }
@@ -89,7 +96,9 @@ void MonitorBlock::capture_frame() {
         &MonitorBlock::on_process_finished
     );
 
-    QStringList const args = { "-t", "ppm", "-o", monitor_name_, "-" };
+    QStringList const args = {
+        "-t", "jpeg", "-s", kPreviewScale, "-o", monitor_name_, "-"
+    };
     capture_process_->start("grim", args);
 }
 
@@ -120,57 +129,7 @@ void MonitorBlock::on_process_finished(int exit_code, QProcess::ExitStatus exit_
         return;
     }
 
-    QImage image;
-    if (!image.loadFromData(image_data, "PPM")) {
-        spdlog::warn("Failed to load PPM data for monitor: {}", monitor_name_.toStdString());
-        return;
-    }
-
-    if (monitor_props_ != nullptr && monitor_props_->has_settings()) {
-        QString const transform_str = monitor_props_->get_transform();
-        Transform const transform_enum = transform_utils::from_string(transform_str.toStdString());
-
-        QTransform transform;
-
-        if (transform_utils::is_flipped(transform_enum)) {
-            transform.scale(-1, 1);
-        }
-
-        switch (transform_enum) {
-            case Transform::NORMAL:
-            case Transform::FLIPPED:
-                // No transformation needed
-                break;
-            case Transform::ROTATE_90:
-            case Transform::FLIPPED_90:
-                transform.rotate(90);
-                break;
-            case Transform::ROTATE_180:
-            case Transform::FLIPPED_180:
-                transform.rotate(180);
-                break;
-            case Transform::ROTATE_270:
-            case Transform::FLIPPED_270:
-                transform.rotate(270);
-                break;
-            default:
-                throw std::invalid_argument(
-                    "Unknown transform: " + std::to_string(static_cast<int>(transform_enum))
-                );
-        }
-
-        if (!transform.isIdentity()) {
-            image = image.transformed(transform, Qt::SmoothTransformation);
-        }
-    }
-
-    QByteArray byte_array;
-    QBuffer buffer(&byte_array);
-    buffer.open(QIODevice::WriteOnly);
-
-    image.save(&buffer, "JPEG");
-
-    screen_image_ = QString("data:image/jpeg;base64,%1").arg(QString(byte_array.toBase64()));
+    screen_image_ = QString("data:image/jpeg;base64,%1").arg(QString(image_data.toBase64()));
 
     emit screen_image_changed();
 }
