@@ -13,9 +13,9 @@
 #include <utility>
 
 namespace {
-constexpr int kPreviewFps = 1;
-constexpr int kPreviewIntervalMs = 1000 / kPreviewFps;
-constexpr char kPreviewScale[] = "0.2";
+constexpr int K_PREVIEW_FPS = 1;
+constexpr int K_PREVIEW_INTERVAL_MS = 1000 / K_PREVIEW_FPS;
+constexpr char K_PREVIEW_SCALE[] = "0.2";
 }  // namespace
 
 MonitorBlock::MonitorBlock(QString monitor_name, QObject * parent)
@@ -24,11 +24,11 @@ MonitorBlock::MonitorBlock(QString monitor_name, QObject * parent)
       capture_timer_(new QTimer(this)),
       capture_process_(nullptr),
       is_capturing_(false) {
-    capture_timer_->setInterval(kPreviewIntervalMs);
+    capture_timer_->setInterval(K_PREVIEW_INTERVAL_MS);
     connect(capture_timer_, &QTimer::timeout, this, &MonitorBlock::capture_frame);
 
     spdlog::debug(
-        "Created MonitorBlock for: {} (preview {} FPS)", monitor_name_.toStdString(), kPreviewFps
+        "Created MonitorBlock for: {} (preview {} FPS)", monitor_name_.toStdString(), K_PREVIEW_FPS
     );
 }
 
@@ -96,9 +96,7 @@ void MonitorBlock::capture_frame() {
         &MonitorBlock::on_process_finished
     );
 
-    QStringList const args = {
-        "-t", "jpeg", "-s", kPreviewScale, "-o", monitor_name_, "-"
-    };
+    QStringList const args = { "-t", "jpeg", "-s", K_PREVIEW_SCALE, "-o", monitor_name_, "-" };
     capture_process_->start("grim", args);
 }
 

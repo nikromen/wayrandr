@@ -1,27 +1,16 @@
 #pragma once
 
-#include <string>
 #include <vector>
 
 #include "backend/base.hpp"
 #include "monitor_specs.hpp"
 
 // TODO: not ready yet
-class KanshiBackend : public ProfileBackend {
+class KanshiBackend : public Backend {
 public:
     KanshiBackend();
     ~KanshiBackend() override = default;
 
     void apply(const std::vector<MonitorSpecs> & monitors) override;
     void revert() override;
-
-    void save(const Profile & profile) override;
-    void delete_profile(const std::string & name) override;
-
-private:
-    std::string config_path_;
-    std::string previous_config_copy_path_;
-    std::vector<Profile> profiles_;
-
-    [[nodiscard]] auto get_config_path() const -> std::string override;
 };

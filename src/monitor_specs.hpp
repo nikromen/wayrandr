@@ -45,6 +45,8 @@ namespace transform_utils {
 auto from_string(const std::string & str) -> Transform;
 auto to_string(Transform transform) -> std::string;
 auto is_flipped(Transform transform) -> bool;
+auto is_rotated(Transform transform) -> bool;
+auto is_rotated(const std::string & transform) -> bool;
 auto get_flipped(Transform transform) -> Transform;
 auto all_enums() -> const std::vector<Transform> &;
 auto all_strings() -> const std::vector<std::string> &;
@@ -103,6 +105,10 @@ public:
 
     // Getters
     [[nodiscard]] auto get_name() const -> const std::string &;
+    [[nodiscard]] auto get_make() const -> const std::optional<std::string> &;
+    [[nodiscard]] auto get_model() const -> const std::optional<std::string> &;
+    [[nodiscard]] auto get_serial_number() const -> const std::optional<std::string> &;
+    [[nodiscard]] auto build_identifier() const -> std::optional<std::string>;
     [[nodiscard]] auto get_description() const -> const std::string &;
     [[nodiscard]] auto is_enabled() const -> bool;
     [[nodiscard]] auto get_modes() const -> const std::vector<Mode> &;

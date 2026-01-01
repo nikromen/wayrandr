@@ -9,6 +9,7 @@
 #include <cstddef>
 
 #include "monitor_specs.hpp"
+#include "utils/canvas_drag.hpp"
 
 class MonitorProperties : public QObject {
     Q_OBJECT
@@ -66,8 +67,8 @@ public:
     void set_adaptive_sync(bool adaptive_sync);
     void set_active_resolution_index(size_t index);
     void set_scale(float scale);
-    void set_position_x(int x);
-    void set_position_y(int y);
+    Q_INVOKABLE void set_position_x(int x);
+    Q_INVOKABLE void set_position_y(int y);
     void set_transform(const QString & transform);
 
     Q_INVOKABLE void start_drag(int mouse_x, int mouse_y);
@@ -98,10 +99,5 @@ private:
     [[nodiscard]] auto is_transform_rotated() const -> bool;
 
     MonitorSpecs * monitor_specs;
-    int drag_start_mouse_x_ = 0;
-    int drag_start_mouse_y_ = 0;
-    int drag_start_pos_x_ = 0;
-    int drag_start_pos_y_ = 0;
-    int current_drag_x_ = 0;
-    int current_drag_y_ = 0;
+    canvas_drag::DragState drag_state_;
 };

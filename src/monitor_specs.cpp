@@ -2,9 +2,9 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cstdio>
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <stdexcept>
@@ -84,6 +84,15 @@ auto transform_utils::to_string(Transform transform) -> std::string {
 auto transform_utils::is_flipped(Transform transform) -> bool {
     return transform == Transform::FLIPPED || transform == Transform::FLIPPED_90 ||
         transform == Transform::FLIPPED_180 || transform == Transform::FLIPPED_270;
+}
+
+auto transform_utils::is_rotated(Transform transform) -> bool {
+    return transform == Transform::ROTATE_90 || transform == Transform::ROTATE_270 ||
+        transform == Transform::FLIPPED_90 || transform == Transform::FLIPPED_270;
+}
+
+auto transform_utils::is_rotated(const std::string & transform) -> bool {
+    return is_rotated(from_string(transform));
 }
 
 auto transform_utils::get_flipped(Transform transform) -> Transform {
@@ -205,6 +214,30 @@ auto MonitorSpecs::get_name() const -> const std::string & {
     return name;
 }
 
+auto MonitorSpecs::get_make() const -> const std::optional<std::string> & {
+    return make;
+}
+
+auto MonitorSpecs::get_model() const -> const std::optional<std::string> & {
+    return model;
+}
+
+auto MonitorSpecs::get_serial_number() const -> const std::optional<std::string> & {
+    return serial_number;
+}
+
+auto MonitorSpecs::build_identifier() const -> std::optional<std::string> {
+    if (!make.has_value() || !model.has_value()) {
+        return std::nullopt;
+    }
+
+    if (serial_number.has_value() && !serial_number->empty()) {
+        return make.value() + " " + model.value() + " " + serial_number.value();
+    }
+
+    return make.value() + " " + model.value();
+}
+
 auto MonitorSpecs::get_description() const -> const std::string & {
     return description;
 }
@@ -217,7 +250,8 @@ auto MonitorSpecs::get_modes() const -> const std::vector<Mode> & {
     return modes;
 }
 
-auto MonitorSpecs::get_enabled_monitor_settings() const -> const std::optional<EnabledMonitorSettings> & {
+auto MonitorSpecs::get_enabled_monitor_settings() const
+    -> const std::optional<EnabledMonitorSettings> & {
     return enabled_monitor_settings;
 }
 
@@ -238,9 +272,8 @@ void MonitorSpecs::set_enabled(bool enabled) {
             }
         }
 
-        enabled_monitor_settings = EnabledMonitorSettings(
-            mode_index, Position{ 0, 0 }, Transform::NORMAL, 1.0F, false
-        );
+        enabled_monitor_settings =
+            EnabledMonitorSettings(mode_index, Position{ 0, 0 }, Transform::NORMAL, 1.0F, false);
         spdlog::info("Created default settings for monitor {}", name);
     }
 }
@@ -404,17 +437,26 @@ auto get_monitor_specs_list() -> std::vector<MonitorSpecs> {
                 );
             }
 
+            auto optional_edid_field =
+                [](const nlohmann::json & value) -> std::optional<std::string> {
+                if (value.is_null() || !value.is_string()) {
+                    return std::nullopt;
+                }
+                const std::string text = value.get<std::string>();
+                return text.empty() ? std::nullopt : std::optional<std::string>(text);
+            };
+
             std::optional<std::string> make = std::nullopt;
             std::optional<std::string> model = std::nullopt;
             std::optional<std::string> serial_number = std::nullopt;
-            if (monitor.contains("make") && !monitor["make"].is_null()) {
-                make = monitor["make"];
+            if (monitor.contains("make")) {
+                make = optional_edid_field(monitor["make"]);
             }
-            if (monitor.contains("model") && !monitor["model"].is_null()) {
-                model = monitor["model"];
+            if (monitor.contains("model")) {
+                model = optional_edid_field(monitor["model"]);
             }
-            if (monitor.contains("serial") && !monitor["serial"].is_null()) {
-                serial_number = monitor["serial"];
+            if (monitor.contains("serial")) {
+                serial_number = optional_edid_field(monitor["serial"]);
             }
 
             const PhysicalSize physical_size = { monitor["physical_size"]["width"].get<int>(),

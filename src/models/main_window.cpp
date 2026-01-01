@@ -11,13 +11,18 @@
 #include <cstdlib>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 
 #include "backend.hpp"
 #include "backend/base.hpp"
 #include "models/monitor_block.hpp"
 #include "models/monitor_properties.hpp"
+#include "models/profile/profile_editor_controller.hpp"
+#include "models/profile/profile_output_properties.hpp"
+#include "models/shared/canvas_participants.hpp"
 #include "monitor_specs.hpp"
+#include "utils/canvas_layout.hpp"
 
 MainWindow::MainWindow(QObject * parent)
     : QObject(parent),
@@ -40,16 +45,22 @@ MainWindow::MainWindow(QObject * parent)
             block->start_capture();
         }
 
-        connect(monitor_props, &MonitorProperties::enabled_changed, this, [this, block, monitor_props]() {
-            if (monitor_props->is_enabled()) {
-                block->start_capture();
-            } else {
-                block->stop_capture();
+        connect(
+            monitor_props,
+            &MonitorProperties::enabled_changed,
+            this,
+            [this, block, monitor_props]() {
+                if (monitor_props->is_enabled()) {
+                    block->start_capture();
+                } else {
+                    block->stop_capture();
+                }
             }
-        });
+        );
     }
 
     backend_manager_ = std::make_unique<BackendManager>();
+    profile_editor_ = std::make_unique<ProfileEditorController>(backend_manager_.get(), this);
 
     confirmation_timer_->setSingleShot(true);
     connect(confirmation_timer_, &QTimer::timeout, this, &MainWindow::on_confirmation_timeout);
@@ -60,6 +71,14 @@ MainWindow::MainWindow(QObject * parent)
 
 auto MainWindow::get_monitors() const -> QList<QObject *> {
     return monitors_models_;
+}
+
+auto MainWindow::get_backend_mode() const -> int {
+    return backend_mode_;
+}
+
+auto MainWindow::get_profile_editor() const -> ProfileEditorController * {
+    return profile_editor_.get();
 }
 
 auto MainWindow::is_confirmation_pending() const -> bool {
@@ -83,19 +102,17 @@ void MainWindow::apply() {
         return;
     }
 
-    spdlog::info(
-        "Applying monitor configuration changes for {} monitors", monitors_.size()
-    );
+    spdlog::info("Applying monitor configuration changes for {} monitors", monitors_.size());
 
     try {
         backend_manager_->apply_with_confirmation(
-            monitors_, nullptr, kConfirmationTimeoutSeconds
+            monitors_, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS
         );
         set_confirmation_pending(true);
-        set_confirmation_seconds_left(kConfirmationTimeoutSeconds);
-        confirmation_timer_->start(kConfirmationTimeoutSeconds * 1000);
+        set_confirmation_seconds_left(K_CONFIRMATION_TIMEOUT_SECONDS);
+        confirmation_timer_->start(K_CONFIRMATION_TIMEOUT_SECONDS * 1000);
         countdown_timer_->start();
-        spdlog::info("Confirmation timer started ({} seconds)", kConfirmationTimeoutSeconds);
+        spdlog::info("Confirmation timer started ({} seconds)", K_CONFIRMATION_TIMEOUT_SECONDS);
     } catch (const std::exception & e) {
         spdlog::error("Failed to apply configuration: {}", e.what());
     }
@@ -143,13 +160,55 @@ void MainWindow::on_countdown_tick() {
 }
 
 void MainWindow::set_backend(int backend_type) {
-    if (backend_type != static_cast<int>(BackendType::WLR_RANDR)) {
-        spdlog::warn("Backend type {} is not supported yet, keeping wlr-randr", backend_type);
+    set_backend_mode(backend_type);
+}
+
+void MainWindow::set_backend_mode(int backend_mode) {
+    if (!can_switch_backend(backend_mode)) {
+        return;
+    }
+    set_backend_mode_internal(backend_mode);
+}
+
+auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
+    if (backend_mode == backend_mode_) {
+        return true;
+    }
+
+    if (backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR &&
+        backend_mode != K_BACKEND_MODE_AUTO_WLR_RANDR && profile_editor_ != nullptr &&
+        profile_editor_->is_dirty()) {
+        return false;
+    }
+
+    if (backend_mode == K_BACKEND_MODE_WLR_RANDR && confirmation_pending_) {
+        return false;
+    }
+
+    return backend_mode == K_BACKEND_MODE_WLR_RANDR ||
+        backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR;
+}
+
+void MainWindow::set_backend_mode_internal(int backend_mode) {
+    if (backend_mode_ == backend_mode) {
         return;
     }
 
-    spdlog::info("Setting backend type to wlr-randr");
-    backend_manager_->set_backend(BackendType::WLR_RANDR);
+    backend_mode_ = backend_mode;
+    if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
+        backend_manager_->set_backend(BackendType::WLR_RANDR);
+    } else if (backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR) {
+        backend_manager_->set_backend(BackendType::AUTO_WLR_RANDR);
+        if (profile_editor_ != nullptr) {
+            profile_editor_->on_profile_backend_changed();
+        }
+    } else {
+        spdlog::warn("Backend mode {} is not supported yet", backend_mode);
+        return;
+    }
+
+    spdlog::info("Switched UI backend mode to {}", backend_mode);
+    emit backend_mode_changed();
 }
 
 void MainWindow::reload_monitors() {
@@ -213,7 +272,7 @@ void MainWindow::set_confirmation_seconds_left(int seconds) {
 }
 
 auto MainWindow::snap_position(
-    QObject * monitor,
+    QObject * item,
     int x,
     int y,
     int snap_threshold,
@@ -221,94 +280,81 @@ auto MainWindow::snap_position(
     int canvas_height,
     float display_scale
 ) const -> QPoint {
-    auto * current_monitor = qobject_cast<MonitorProperties *>(monitor);
+    if (backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR && profile_editor_ != nullptr) {
+        auto * current_output = qobject_cast<ProfileOutputProperties *>(item);
+        if (current_output == nullptr) {
+            return { x, y };
+        }
+
+        const canvas_participants::SnapContext context =
+            canvas_participants::build_profile_snap_context(current_output, profile_editor_.get());
+        if (context.rects.empty()) {
+            return { x, y };
+        }
+
+        const canvas_layout::CanvasRect & current_rect = context.rects[context.current_index];
+        canvas_layout::CanvasRect moving_rect = current_rect;
+        moving_rect.x = x;
+        moving_rect.y = y;
+        moving_rect.active = current_output->is_enabled();
+
+        return canvas_layout::snap_from_rects(
+            moving_rect,
+            context.rects,
+            context.current_index,
+            x,
+            y,
+            snap_threshold,
+            canvas_width,
+            canvas_height,
+            display_scale
+        );
+    }
+
+    auto * current_monitor = qobject_cast<MonitorProperties *>(item);
     if ((current_monitor == nullptr) || !current_monitor->has_settings()) {
         spdlog::debug("snap_position: invalid monitor, returning input position");
         return { x, y };
     }
 
-    const int layout_width = current_monitor->get_layout_width();
-    const int layout_height = current_monitor->get_layout_height();
-
-    int snapped_x = std::max(0, x);
-    int snapped_y = std::max(0, y);
-
-    int const this_left = snapped_x;
-    int const this_right = snapped_x + layout_width;
-    int const this_top = snapped_y;
-    int const this_bottom = snapped_y + layout_height;
-
-    for (auto * other_obj : monitors_models_) {
-        auto * other = qobject_cast<MonitorProperties *>(other_obj);
-        if ((other == nullptr) || other == current_monitor || !other->is_enabled() ||
-            !other->has_settings()) {
-            continue;
-        }
-
-        const int other_layout_width = other->get_layout_width();
-        const int other_layout_height = other->get_layout_height();
-
-        int const other_left = other->get_position_x();
-        int const other_right = other->get_position_x() + other_layout_width;
-        int const other_top = other->get_position_y();
-        int const other_bottom = other->get_position_y() + other_layout_height;
-
-        if (std::abs(this_left - other_right) < snap_threshold) {
-            snapped_x = other_right;
-        } else if (std::abs(this_right - other_left) < snap_threshold) {
-            snapped_x = other_left - layout_width;
-        } else if (std::abs(this_left - other_left) < snap_threshold) {
-            snapped_x = other_left;
-        } else if (std::abs(this_right - other_right) < snap_threshold) {
-            snapped_x = other_right - layout_width;
-        }
-
-        if (std::abs(this_top - other_bottom) < snap_threshold) {
-            snapped_y = other_bottom;
-        } else if (std::abs(this_bottom - other_top) < snap_threshold) {
-            snapped_y = other_top - layout_height;
-        } else if (std::abs(this_top - other_top) < snap_threshold) {
-            snapped_y = other_top;
-        } else if (std::abs(this_bottom - other_bottom) < snap_threshold) {
-            snapped_y = other_bottom - layout_height;
-        }
+    const canvas_participants::SnapContext context =
+        canvas_participants::build_monitor_snap_context(current_monitor, monitors_models_);
+    if (context.rects.empty()) {
+        return { x, y };
     }
 
-    snapped_x = std::max(0, snapped_x);
-    snapped_y = std::max(0, snapped_y);
+    const canvas_layout::CanvasRect moving_rect = {
+        x, y, current_monitor->get_layout_width(), current_monitor->get_layout_height(), true,
+    };
 
-    if (canvas_width > 0 && canvas_height > 0 && display_scale > 0.0F) {
-        const int max_x = std::max(
-            0,
-            static_cast<int>(canvas_width / display_scale) - layout_width
-        );
-        const int max_y = std::max(
-            0,
-            static_cast<int>(canvas_height / display_scale) - layout_height
-        );
-        snapped_x = std::min(snapped_x, max_x);
-        snapped_y = std::min(snapped_y, max_y);
-    }
-
-    return { snapped_x, snapped_y };
+    return canvas_layout::snap_from_rects(
+        moving_rect,
+        context.rects,
+        context.current_index,
+        x,
+        y,
+        snap_threshold,
+        canvas_width,
+        canvas_height,
+        display_scale
+    );
 }
 
 void MainWindow::reset_canvas_layout(int /*canvas_width*/, float /*display_scale*/) {
     spdlog::info("Resetting canvas layout");
 
-    int x = 0;
-    const int y = 0;
-
-    for (auto * monitor_obj : monitors_models_) {
-        auto * monitor = qobject_cast<MonitorProperties *>(monitor_obj);
-        if ((monitor == nullptr) || !monitor->is_enabled() || !monitor->has_settings()) {
-            continue;
-        }
-
-        monitor->set_position_x(x);
-        monitor->set_position_y(y);
-        x += monitor->get_layout_width();
+    if (backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR && profile_editor_ != nullptr) {
+        canvas_participants::ResetContext context =
+            canvas_participants::build_profile_reset_context(profile_editor_.get());
+        canvas_layout::reset_horizontal_layout(context.items);
+        canvas_participants::apply_profile_reset(profile_editor_.get(), context);
+        return;
     }
+
+    canvas_participants::ResetContext context =
+        canvas_participants::build_monitor_reset_context(monitors_models_);
+    canvas_layout::reset_horizontal_layout(context.items);
+    canvas_participants::apply_monitor_reset(monitors_models_, context);
 }
 
 auto MainWindow::get_monitor_index(QObject * monitor) const -> int {

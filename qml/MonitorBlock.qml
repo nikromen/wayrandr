@@ -9,7 +9,6 @@ Rectangle {
     property int monitorResolutionWidth: 1920
     property int monitorResolutionHeight: 1080
     property real displayScale: 0.1
-
     property string monitorIdentifier: "Unknown"
     property string imageSource: ""
     property string monitorTransform: "normal"
