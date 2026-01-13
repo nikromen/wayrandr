@@ -8,15 +8,30 @@ RowLayout {
     required property var controller
 
     readonly property int backendModeWlrRandr: 0
+    readonly property int backendModeKanshi: 1
     readonly property int backendModeAutoWlrRandr: 2
 
     property int requestedBackendMode: -1
+
+    readonly property bool isProfileBackendMode:
+        controller.backendMode === root.backendModeKanshi ||
+        controller.backendMode === root.backendModeAutoWlrRandr
 
     spacing: 8
 
     ButtonGroup {
         id: backendButtonGroup
-        buttons: [wlrRadio, autoRadio]
+    }
+
+    Component.onCompleted: {
+        const buttons = [wlrRadio]
+        if (controller.kanshiAvailable) {
+            buttons.push(kanshiRadio)
+        }
+        if (controller.autoWlrRandrAvailable) {
+            buttons.push(autoRadio)
+        }
+        backendButtonGroup.buttons = buttons
     }
 
     RadioButton {
@@ -27,7 +42,16 @@ RowLayout {
     }
 
     RadioButton {
+        id: kanshiRadio
+        visible: controller.kanshiAvailable
+        text: "kanshi"
+        checked: controller.backendMode === root.backendModeKanshi
+        onClicked: root.requestBackendSwitch(root.backendModeKanshi)
+    }
+
+    RadioButton {
         id: autoRadio
+        visible: controller.autoWlrRandrAvailable
         text: "auto-wlr-randr"
         checked: controller.backendMode === root.backendModeAutoWlrRandr
         onClicked: root.requestBackendSwitch(root.backendModeAutoWlrRandr)
@@ -61,12 +85,19 @@ RowLayout {
             return
         }
 
+        if (mode === root.backendModeKanshi && !controller.kanshiAvailable) {
+            return
+        }
+
+        if (mode === root.backendModeAutoWlrRandr && !controller.autoWlrRandrAvailable) {
+            return
+        }
+
         if (mode === root.backendModeAutoWlrRandr && controller.confirmationPending) {
             return
         }
 
-        if (controller.backendMode === root.backendModeAutoWlrRandr &&
-            controller.profileEditor.isDirty) {
+        if (root.isProfileBackendMode && controller.profileEditor.isDirty) {
             root.requestedBackendMode = mode
             backendDiscardDialog.open()
             return

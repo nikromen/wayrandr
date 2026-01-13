@@ -32,6 +32,8 @@ class MainWindow : public QObject {
         int confirmationSecondsLeft READ get_confirmation_seconds_left NOTIFY
             confirmation_seconds_left_changed
     )
+    Q_PROPERTY(bool kanshiAvailable READ is_kanshi_available CONSTANT)
+    Q_PROPERTY(bool autoWlrRandrAvailable READ is_auto_wlr_randr_available CONSTANT)
 
 public:
     explicit MainWindow(QObject * parent = nullptr);
@@ -41,6 +43,8 @@ public:
     [[nodiscard]] auto get_profile_editor() const -> ProfileEditorController *;
     [[nodiscard]] auto is_confirmation_pending() const -> bool;
     [[nodiscard]] auto get_confirmation_seconds_left() const -> int;
+    [[nodiscard]] auto is_kanshi_available() const -> bool;
+    [[nodiscard]] auto is_auto_wlr_randr_available() const -> bool;
 
     Q_INVOKABLE QObject * get_monitor_block(const QString & monitor_name);  // NOLINT
 
@@ -74,7 +78,7 @@ private slots:
     void on_confirmation_timeout();
     void on_countdown_tick();
 
-
+private:
     void reload_monitors();
     void set_confirmation_pending(bool pending);
     void set_confirmation_seconds_left(int seconds);
@@ -82,6 +86,7 @@ private slots:
 
     static constexpr int K_CONFIRMATION_TIMEOUT_SECONDS = 15;
     static constexpr int K_BACKEND_MODE_WLR_RANDR = 0;
+    static constexpr int K_BACKEND_MODE_KANSHI = 1;
     static constexpr int K_BACKEND_MODE_AUTO_WLR_RANDR = 2;
 
     std::vector<MonitorSpecs> monitors_;
@@ -92,6 +97,8 @@ private slots:
     bool confirmation_pending_ = false;
     int confirmation_seconds_left_ = 0;
     int backend_mode_ = K_BACKEND_MODE_WLR_RANDR;
+    bool kanshi_available_ = false;
+    bool auto_wlr_randr_available_ = false;
     std::unique_ptr<BackendManager> backend_manager_;
     std::unique_ptr<ProfileEditorController> profile_editor_;
 };

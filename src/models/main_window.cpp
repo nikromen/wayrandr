@@ -23,6 +23,7 @@
 #include "models/shared/canvas_participants.hpp"
 #include "monitor_specs.hpp"
 #include "utils/canvas_layout.hpp"
+#include "utils/helpers.hpp"
 
 MainWindow::MainWindow(QObject * parent)
     : QObject(parent),
@@ -59,6 +60,16 @@ MainWindow::MainWindow(QObject * parent)
         );
     }
 
+    kanshi_available_ =
+        is_program_available("kanshi") && is_program_available("kanshictl");
+    auto_wlr_randr_available_ = is_program_available("auto-wlr-randr") &&
+        is_program_available("auto-wlr-randrctl");
+    spdlog::info(
+        "Optional backends available: kanshi={}, auto-wlr-randr={}",
+        kanshi_available_,
+        auto_wlr_randr_available_
+    );
+
     backend_manager_ = std::make_unique<BackendManager>();
     profile_editor_ = std::make_unique<ProfileEditorController>(backend_manager_.get(), this);
 
@@ -87,6 +98,14 @@ auto MainWindow::is_confirmation_pending() const -> bool {
 
 auto MainWindow::get_confirmation_seconds_left() const -> int {
     return confirmation_seconds_left_;
+}
+
+auto MainWindow::is_kanshi_available() const -> bool {
+    return kanshi_available_;
+}
+
+auto MainWindow::is_auto_wlr_randr_available() const -> bool {
+    return auto_wlr_randr_available_;
 }
 
 auto MainWindow::get_monitor_block(const QString & monitor_name) -> QObject * {
@@ -175,8 +194,9 @@ auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
         return true;
     }
 
-    if (backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR &&
-        backend_mode != K_BACKEND_MODE_AUTO_WLR_RANDR && profile_editor_ != nullptr &&
+    if ((backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR ||
+         backend_mode_ == K_BACKEND_MODE_KANSHI) &&
+        backend_mode != backend_mode_ && profile_editor_ != nullptr &&
         profile_editor_->is_dirty()) {
         return false;
     }
@@ -185,7 +205,15 @@ auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
         return false;
     }
 
-    return backend_mode == K_BACKEND_MODE_WLR_RANDR ||
+    if (backend_mode == K_BACKEND_MODE_KANSHI && !kanshi_available_) {
+        return false;
+    }
+
+    if (backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR && !auto_wlr_randr_available_) {
+        return false;
+    }
+
+    return backend_mode == K_BACKEND_MODE_WLR_RANDR || backend_mode == K_BACKEND_MODE_KANSHI ||
         backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR;
 }
 
@@ -197,6 +225,11 @@ void MainWindow::set_backend_mode_internal(int backend_mode) {
     backend_mode_ = backend_mode;
     if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
         backend_manager_->set_backend(BackendType::WLR_RANDR);
+    } else if (backend_mode == K_BACKEND_MODE_KANSHI) {
+        backend_manager_->set_backend(BackendType::KANSHI);
+        if (profile_editor_ != nullptr) {
+            profile_editor_->on_profile_backend_changed();
+        }
     } else if (backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR) {
         backend_manager_->set_backend(BackendType::AUTO_WLR_RANDR);
         if (profile_editor_ != nullptr) {
@@ -280,7 +313,9 @@ auto MainWindow::snap_position(
     int canvas_height,
     float display_scale
 ) const -> QPoint {
-    if (backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR && profile_editor_ != nullptr) {
+    if ((backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR ||
+         backend_mode_ == K_BACKEND_MODE_KANSHI) &&
+        profile_editor_ != nullptr) {
         auto * current_output = qobject_cast<ProfileOutputProperties *>(item);
         if (current_output == nullptr) {
             return { x, y };
@@ -343,7 +378,9 @@ auto MainWindow::snap_position(
 void MainWindow::reset_canvas_layout(int /*canvas_width*/, float /*display_scale*/) {
     spdlog::info("Resetting canvas layout");
 
-    if (backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR && profile_editor_ != nullptr) {
+    if ((backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR ||
+         backend_mode_ == K_BACKEND_MODE_KANSHI) &&
+        profile_editor_ != nullptr) {
         canvas_participants::ResetContext context =
             canvas_participants::build_profile_reset_context(profile_editor_.get());
         canvas_layout::reset_horizontal_layout(context.items);
