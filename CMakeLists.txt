@@ -61,3 +61,18 @@ target_include_directories(wayrandr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 if(ENABLE_DEBUG_LOGS)
     target_compile_definitions(wayrandr PRIVATE ENABLE_DEBUG_LOGS)
 endif()
+
+include(CTest)
+if(BUILD_TESTING)
+    set(CONFIRMATION_TEST_SOURCES ${PROJECT_SOURCES})
+    list(REMOVE_ITEM CONFIRMATION_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
+    add_executable(wlr_confirmation_test tests/wlr_confirmation_test.cpp ${CONFIRMATION_TEST_SOURCES})
+    target_include_directories(wlr_confirmation_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(wlr_confirmation_test PRIVATE
+        Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
+        nlohmann_json::nlohmann_json spdlog::spdlog tomlplusplus::tomlplusplus)
+    target_compile_definitions(wlr_confirmation_test PRIVATE
+        FAKE_WLR_CLI="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_wlr_randr.py")
+    add_test(NAME wlr_confirmation COMMAND wlr_confirmation_test)
+    set_tests_properties(wlr_confirmation PROPERTIES TIMEOUT 30)
+endif()
