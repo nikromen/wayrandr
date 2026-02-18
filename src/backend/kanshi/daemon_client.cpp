@@ -21,7 +21,8 @@ auto socket_path() -> std::filesystem::path {
         return {};
     }
 
-    return std::filesystem::path(runtime_dir) / ("fr.emersion.kanshi." + std::string(wayland_display));
+    return std::filesystem::path(runtime_dir) /
+        ("fr.emersion.kanshi." + std::string(wayland_display));
 }
 
 auto trim(const std::string & value) -> std::string {

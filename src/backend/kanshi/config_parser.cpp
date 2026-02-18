@@ -27,11 +27,10 @@ constexpr std::string_view K_OFF = "off";
 
 class Tokenizer {
 public:
-    explicit Tokenizer(std::string_view input) : input_(input) {}
+    explicit Tokenizer(std::string_view input)
+        : input_(input) {}
 
-    [[nodiscard]] auto eof() const -> bool {
-        return pos_ >= input_.size();
-    }
+    [[nodiscard]] auto eof() const -> bool { return pos_ >= input_.size(); }
 
     [[nodiscard]] auto peek() -> std::string {
         const size_t saved = pos_;
@@ -73,7 +72,7 @@ public:
             ++pos_;
         }
         std::string line(input_.substr(start, pos_ - start));
-        while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back()))) {
+        while (!line.empty() && (std::isspace(static_cast<unsigned char>(line.back())) != 0)) {
             line.pop_back();
         }
         return line;
@@ -85,7 +84,7 @@ private:
 
     void skip_ignored() {
         while (!eof()) {
-            if (std::isspace(static_cast<unsigned char>(input_[pos_]))) {
+            if (std::isspace(static_cast<unsigned char>(input_[pos_])) != 0) {
                 ++pos_;
                 continue;
             }
@@ -122,7 +121,7 @@ private:
         const size_t start = pos_;
         while (!eof()) {
             const char current = input_[pos_];
-            if (std::isspace(static_cast<unsigned char>(current)) || current == '{' ||
+            if ((std::isspace(static_cast<unsigned char>(current)) != 0) || current == '{' ||
                 current == '}' || current == '#') {
                 break;
             }
@@ -134,7 +133,8 @@ private:
 
 class Parser {
 public:
-    explicit Parser(std::string_view input) : tokenizer_(input) {}
+    explicit Parser(std::string_view input)
+        : tokenizer_(input) {}
 
     [[nodiscard]] auto parse_document() -> KanshiConfig {
         KanshiConfig config;
@@ -253,9 +253,8 @@ private:
     }
 
     [[nodiscard]] static auto is_output_directive(const std::string & token) -> bool {
-        return token == K_ENABLE || token == K_DISABLE || token == K_MODE ||
-            token == K_POSITION || token == K_SCALE || token == K_TRANSFORM ||
-            token == K_ADAPTIVE_SYNC;
+        return token == K_ENABLE || token == K_DISABLE || token == K_MODE || token == K_POSITION ||
+            token == K_SCALE || token == K_TRANSFORM || token == K_ADAPTIVE_SYNC;
     }
 
     void parse_output_directive(KanshiOutputSetting & setting) {
@@ -325,7 +324,9 @@ private:
     void expect_token(const std::string & token) {
         const auto actual = tokenizer_.next();
         if (actual != token) {
-            throw kanshi_config_parser::ParseError("Expected '" + token + "', got '" + actual + "'");
+            throw kanshi_config_parser::ParseError(
+                "Expected '" + token + "', got '" + actual + "'"
+            );
         }
     }
 };
@@ -437,7 +438,8 @@ auto serialize(const KanshiConfig & config) -> std::string {
             << format_criteria(global_output.criteria);
         if (count_output_directives(global_output) == 0) {
             out << '\n';
-        } else if (count_output_directives(global_output) == 1 && global_output.enabled.has_value()) {
+        } else if (count_output_directives(global_output) == 1 &&
+                   global_output.enabled.has_value()) {
             out << (global_output.enabled.value() ? " enable" : " disable") << '\n';
         } else {
             out << " {\n";

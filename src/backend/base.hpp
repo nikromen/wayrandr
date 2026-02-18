@@ -13,6 +13,12 @@ public:
 
     virtual void apply(const std::vector<MonitorSpecs> & monitors) = 0;
     virtual void revert() = 0;
+
+    virtual void confirm() {}
+
+    [[nodiscard]] virtual auto has_pending_changes() const -> bool { return false; }
+
+    [[nodiscard]] virtual auto can_confirm() const -> bool { return false; }
 };
 
 class NullDisplayBackend : public Backend {

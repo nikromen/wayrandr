@@ -51,6 +51,13 @@ Item {
                 }
             }
 
+            Label {
+                Layout.fillWidth: true
+                visible: controller.applyError.length > 0
+                text: controller.applyError
+                wrapMode: Text.WordWrap
+            }
+
             RowLayout {
                 spacing: 10
                 Layout.fillWidth: true
@@ -68,18 +75,19 @@ Item {
                     highlighted: true
                     Layout.fillWidth: true
                     visible: controller.confirmationPending
+                    enabled: controller.confirmationAllowed
                     onClicked: controller.confirm_apply()
                 }
 
                 Button {
-                    text: qsTr("Cancel")
+                    text: controller.confirmationAllowed ? qsTr("Cancel") : qsTr("Retry restore")
                     Layout.fillWidth: true
                     visible: controller.confirmationPending
                     onClicked: controller.cancel_apply()
                 }
 
                 Label {
-                    visible: controller.confirmationPending
+                    visible: controller.confirmationPending && controller.confirmationSecondsLeft > 0
                     text: qsTr("Reverting in %1 s").arg(controller.confirmationSecondsLeft)
                 }
             }

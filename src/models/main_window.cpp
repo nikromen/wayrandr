@@ -60,10 +60,9 @@ MainWindow::MainWindow(QObject * parent)
         );
     }
 
-    kanshi_available_ =
-        is_program_available("kanshi") && is_program_available("kanshictl");
-    auto_wlr_randr_available_ = is_program_available("auto-wlr-randr") &&
-        is_program_available("auto-wlr-randrctl");
+    kanshi_available_ = is_program_available("kanshi") && is_program_available("kanshictl");
+    auto_wlr_randr_available_ =
+        is_program_available("auto-wlr-randr") && is_program_available("auto-wlr-randrctl");
     spdlog::info(
         "Optional backends available: kanshi={}, auto-wlr-randr={}",
         kanshi_available_,
@@ -116,24 +115,28 @@ auto MainWindow::get_monitor_block(const QString & monitor_name) -> QObject * {
 }
 
 void MainWindow::apply() {
-    if (confirmation_pending_) {
+    if (backend_mode_ != K_BACKEND_MODE_WLR_RANDR || backend_manager_->has_pending_changes()) {
         spdlog::warn("Apply requested while confirmation is already pending");
         return;
     }
 
     spdlog::info("Applying monitor configuration changes for {} monitors", monitors_.size());
 
+    set_apply_error({});
     try {
         backend_manager_->apply_with_confirmation(
             monitors_, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS
         );
-        set_confirmation_pending(true);
+        sync_confirmation_state();
         set_confirmation_seconds_left(K_CONFIRMATION_TIMEOUT_SECONDS);
         confirmation_timer_->start(K_CONFIRMATION_TIMEOUT_SECONDS * 1000);
         countdown_timer_->start();
         spdlog::info("Confirmation timer started ({} seconds)", K_CONFIRMATION_TIMEOUT_SECONDS);
     } catch (const std::exception & e) {
-        spdlog::error("Failed to apply configuration: {}", e.what());
+        set_apply_error(QString::fromUtf8(e.what()));
+        stop_confirmation_timers();
+        sync_confirmation_state();
+        reload_monitors_safely();
     }
 }
 
@@ -141,30 +144,91 @@ void MainWindow::save() {
     spdlog::info("Saving monitor configuration to persistent storage");
 }
 
-void MainWindow::confirm_apply() {
-    spdlog::info("User confirmed configuration");
+auto MainWindow::is_confirmation_allowed() const -> bool {
+    return backend_manager_->can_confirm();
+}
+
+auto MainWindow::get_apply_error() const -> QString {
+    return apply_error_;
+}
+
+void MainWindow::set_apply_error(const QString & error) {
+    apply_error_ = error;
+    if (!error.isEmpty()) {
+        spdlog::error("{}", error.toStdString());
+    }
+    emit apply_error_changed();
+}
+
+void MainWindow::sync_confirmation_state() {
+    const bool pending = backend_manager_->has_pending_changes();
+    if (pending == confirmation_pending_) {
+        // can_confirm may change while the snapshot remains pending.
+        emit confirmation_pending_changed();
+    } else {
+        set_confirmation_pending(pending);
+    }
+}
+
+void MainWindow::stop_confirmation_timers() {
     confirmation_timer_->stop();
     countdown_timer_->stop();
-    set_confirmation_pending(false);
+    set_confirmation_seconds_left(0);
+}
+
+void MainWindow::reload_monitors_safely() {
+    try {
+        reload_monitors();
+    } catch (const std::exception & e) {
+        const auto refresh_error =
+            QStringLiteral("Could not refresh monitors: ") + QString::fromUtf8(e.what());
+        set_apply_error(
+            apply_error_.isEmpty() ? refresh_error : apply_error_ + "\n" + refresh_error
+        );
+    }
+}
+
+void MainWindow::confirm_apply() {
+    if (!backend_manager_->can_confirm()) {
+        return;
+    }
     backend_manager_->confirm_apply();
-    reload_monitors();
+    stop_confirmation_timers();
+    sync_confirmation_state();
+    set_apply_error({});
+    reload_monitors_safely();
 }
 
 void MainWindow::cancel_apply() {
-    spdlog::info("User cancelled configuration");
-    confirmation_timer_->stop();
-    countdown_timer_->stop();
-    set_confirmation_pending(false);
-    backend_manager_->cancel_apply();
-    reload_monitors();
+    if (!backend_manager_->has_pending_changes()) {
+        return;
+    }
+    // One attempt per timeout or user action; failure must not create a retry loop.
+    stop_confirmation_timers();
+    try {
+        backend_manager_->cancel_apply();
+        set_apply_error({});
+    } catch (const std::exception & e) {
+        set_apply_error(
+            QStringLiteral("Restore failed. Reconnect outputs if necessary and retry: ") +
+            QString::fromUtf8(e.what())
+        );
+    }
+    sync_confirmation_state();
+    if (!backend_manager_->has_pending_changes()) {
+        reload_monitors_safely();
+    }
+}
+
+auto MainWindow::prepare_close() -> bool {
+    if (backend_manager_->has_pending_changes()) {
+        cancel_apply();
+    }
+    return !backend_manager_->has_pending_changes();
 }
 
 void MainWindow::on_confirmation_timeout() {
-    spdlog::warn("Configuration confirmation timeout - reverting");
-    countdown_timer_->stop();
-    set_confirmation_pending(false);
-    backend_manager_->cancel_apply();
-    reload_monitors();
+    cancel_apply();
 }
 
 void MainWindow::on_countdown_tick() {
@@ -201,7 +265,7 @@ auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
         return false;
     }
 
-    if (backend_mode == K_BACKEND_MODE_WLR_RANDR && confirmation_pending_) {
+    if (backend_manager_->has_pending_changes()) {
         return false;
     }
 
@@ -245,7 +309,7 @@ void MainWindow::set_backend_mode_internal(int backend_mode) {
 }
 
 void MainWindow::reload_monitors() {
-    const auto fresh_specs = get_monitor_specs_list();
+    const auto fresh_specs = get_monitor_specs_list(true);
     std::unordered_map<std::string, const MonitorSpecs *> fresh_by_name;
     for (const auto & spec : fresh_specs) {
         fresh_by_name[spec.get_name()] = &spec;
@@ -255,6 +319,7 @@ void MainWindow::reload_monitors() {
     for (auto & monitor_spec : monitors_) {
         const auto it = fresh_by_name.find(monitor_spec.get_name());
         if (it == fresh_by_name.end()) {
+            monitor_spec.set_enabled(false);
             continue;
         }
 
