@@ -5,11 +5,14 @@
 
 #include <QStandardPaths>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
 
+#include "backend/auto_wlr_randr/types.hpp"
+#include "nlohmann/json_fwd.hpp"
 #include "utils/helpers.hpp"
 
 namespace {

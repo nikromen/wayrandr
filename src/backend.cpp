@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "backend/base.hpp"
+#include "backend/profile/editor_backend.hpp"
 #include "monitor_specs.hpp"
 
 BackendManager::BackendManager()

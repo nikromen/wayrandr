@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <exception>
 #include <iomanip>
+#include <ios>
 #include <locale>
 #include <sstream>
 #include <stdexcept>

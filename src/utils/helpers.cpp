@@ -1,5 +1,6 @@
 #include "utils/helpers.hpp"
 
+#include <qcontainerfwd.h>
 #include <spdlog/spdlog.h>
 
 #include <QProcess>
@@ -8,6 +9,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 auto is_program_available(const std::string & program) -> bool {
     return !QStandardPaths::findExecutable(QString::fromStdString(program)).isEmpty();

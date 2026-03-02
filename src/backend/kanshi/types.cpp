@@ -1,5 +1,9 @@
 #include "backend/kanshi/types.hpp"
 
+#include <optional>
+#include <string>
+#include <utility>
+
 #include "backend/kanshi/conversions.hpp"
 #include "backend/profile/layout_utils.hpp"
 

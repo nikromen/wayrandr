@@ -1,13 +1,20 @@
 #include "backend/auto_wlr_randr/config_repository.hpp"
 
+#include <qhashfunctions.h>
 #include <spdlog/spdlog.h>
-#include <toml++/toml.h>
 
 #include <QStandardPaths>
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <stdexcept>
+#include <string>
+// The public entry point initializes dependencies required by toml++ internals.
+#include <toml++/toml.h>  // IWYU pragma: keep
+
 #include <utility>
+
+#include "backend/auto_wlr_randr/types.hpp"
 
 namespace {
 

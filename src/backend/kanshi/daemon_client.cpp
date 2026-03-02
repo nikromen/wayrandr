@@ -1,14 +1,16 @@
 #include "backend/kanshi/daemon_client.hpp"
 
 #include <spdlog/spdlog.h>
-#include <unistd.h>
 
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
+#include "backend/kanshi/types.hpp"
 #include "monitor_specs.hpp"
 #include "utils/helpers.hpp"
 

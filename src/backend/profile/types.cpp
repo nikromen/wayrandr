@@ -1,5 +1,8 @@
 #include "backend/profile/types.hpp"
 
+#include <optional>
+#include <string>
+
 namespace profile {
 
 auto ConnectedOutput::build_identifier() const -> std::optional<std::string> {

@@ -5,6 +5,7 @@
 
 #include "backend/kanshi/config_repository.hpp"
 #include "backend/profile/editor_backend.hpp"
+#include "backend/profile/types.hpp"
 
 class KanshiProfileBackend final : public ProfileEditorBackend {
 public:

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <qcontainerfwd.h>
 #include <qlist.h>
 #include <qtmetamacros.h>
 
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include "../../backend.hpp"
+#include "backend/profile/editor_backend.hpp"
 #include "backend/profile/types.hpp"
 #include "models/profile/profile_output_properties.hpp"
 

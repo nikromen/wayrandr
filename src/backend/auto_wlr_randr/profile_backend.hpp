@@ -5,6 +5,7 @@
 
 #include "backend/auto_wlr_randr/config_repository.hpp"
 #include "backend/profile/editor_backend.hpp"
+#include "backend/profile/types.hpp"
 
 class AutoWlrRandrProfileBackend final : public ProfileEditorBackend {
 public:

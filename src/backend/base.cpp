@@ -1,9 +1,11 @@
 #include "backend/base.hpp"
 
 #include <memory>
+#include <vector>
 
 #include "backend/kanshi.hpp"
 #include "backend/wlr_randr.hpp"
+#include "monitor_specs.hpp"
 
 void NullDisplayBackend::apply(const std::vector<MonitorSpecs> & /*monitors*/) {}
 

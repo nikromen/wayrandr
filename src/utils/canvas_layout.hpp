@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QPoint>
+#include <cstddef>
 #include <vector>
 
 namespace canvas_layout {

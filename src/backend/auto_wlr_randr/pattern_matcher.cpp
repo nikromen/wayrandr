@@ -2,11 +2,13 @@
 
 #include <fnmatch.h>
 
-#include <nlohmann/json.hpp>
+#include <cstddef>
+#include <optional>
+#include <string>
 #include <vector>
 
+#include "backend/auto_wlr_randr/types.hpp"
 #include "monitor_specs.hpp"
-#include "utils/helpers.hpp"
 
 namespace {
 

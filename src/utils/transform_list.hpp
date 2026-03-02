@@ -1,5 +1,8 @@
 #pragma once
 
+#include <qcontainerfwd.h>
+#include <qhashfunctions.h>
+
 #include <QStringList>
 #include <string>
 

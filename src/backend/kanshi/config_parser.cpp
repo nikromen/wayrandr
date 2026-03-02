@@ -3,9 +3,14 @@
 #include <spdlog/spdlog.h>
 
 #include <cctype>
+#include <cstddef>
+#include <exception>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <utility>
+
+#include "backend/kanshi/types.hpp"
 
 namespace {
 

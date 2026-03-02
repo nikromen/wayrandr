@@ -2,6 +2,9 @@
 
 #include <vector>
 
+#include "backend/auto_wlr_randr/types.hpp"
+#include "backend/profile/types.hpp"
+
 namespace auto_wlr_randr_conversions {
 
 auto to_profile_output(const ProfileOutputSetting & setting) -> profile::ProfileOutputDefinition {

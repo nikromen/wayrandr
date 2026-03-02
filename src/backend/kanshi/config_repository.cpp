@@ -1,15 +1,18 @@
 #include "backend/kanshi/config_repository.hpp"
 
+#include <qhashfunctions.h>
 #include <spdlog/spdlog.h>
 
 #include <QStandardPaths>
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
 
 #include "backend/kanshi/config_parser.hpp"
+#include "backend/kanshi/types.hpp"
 
 KanshiConfigRepository::KanshiConfigRepository(std::filesystem::path config_path)
     : config_path_(std::move(config_path)) {}

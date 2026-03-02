@@ -1,5 +1,7 @@
 #include "backend/auto_wlr_randr/types.hpp"
 
+#include <optional>
+#include <string>
 #include <utility>
 
 #include "backend/auto_wlr_randr/conversions.hpp"
