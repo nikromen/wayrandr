@@ -17,6 +17,7 @@ RowLayout {
         controller.backendMode === root.backendModeKanshi ||
         controller.backendMode === root.backendModeAutoWlrRandr
 
+    enabled: !controller.operationBusy
     spacing: 8
 
     ButtonGroup {

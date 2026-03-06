@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include <exception>
+#include <functional>
 #include <optional>
 #include <string>
 #include <utility>
@@ -21,13 +22,19 @@
 #include "backend/profile/types.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "monitor_specs.hpp"
+#include "utils/helpers.hpp"
 #include "utils/string_list_edit.hpp"
 
 ProfileEditorController::ProfileEditorController(BackendManager * backend_manager, QObject * parent)
     : QObject(parent),
       backend_manager_(backend_manager) {
+    connect(
+        backend_manager_,
+        &BackendManager::operation_busy_changed,
+        this,
+        &ProfileEditorController::operation_busy_changed
+    );
     refresh_connected_outputs();
-    refresh_daemon_status();
 
     try {
         working_config_ = profile_backend().load_config();
@@ -184,6 +191,9 @@ auto ProfileEditorController::ensure_selected_profile_exists() -> profile::Profi
 }
 
 auto ProfileEditorController::select_profile(const QString & profile_id, bool force) -> bool {
+    if (backend_manager_->is_operation_busy()) {
+        return false;
+    }
     if (!force && dirty_ && profile_id != selected_profile_id_) {
         return false;
     }
@@ -201,28 +211,57 @@ auto ProfileEditorController::select_profile(const QString & profile_id, bool fo
     return true;
 }
 
+bool ProfileEditorController::submit(std::function<Completion()> work) {
+    if (backend_manager_->is_operation_busy() || backend_manager_->has_pending_changes()) {
+        return false;
+    }
+    backend_manager_->set_operation_busy(true);
+    auto manager = backend_manager_->shared_from_this();
+    run_job(
+        this,
+        [manager, work = std::move(work)] { return work(); },
+        [this](const std::string & error) { report_process_error(error); },
+        [manager] { manager->set_operation_busy(false); }
+    );
+    return true;
+}
+
+void ProfileEditorController::report_process_error(const std::string & error) {
+    daemon_running_ = false;
+    active_profile_id_.clear();
+    emit active_profile_id_changed();
+    daemon_status_text_ = QString::fromStdString(error);
+    emit daemon_status_changed();
+}
+
 void ProfileEditorController::save_profile() {
-    if (selected_profile_id_.isEmpty()) {
+    if (selected_profile_id_.isEmpty() || backend_manager_->is_operation_busy() ||
+        backend_manager_->has_pending_changes()) {
         return;
     }
-
-    try {
-        profile::ProfileDefinition profile = current_profile();
-        profile_backend().add_profile(working_config_, std::move(profile));
-        profile_backend().save_config(working_config_);
-        saved_config_ = working_config_;
-        set_dirty(false);
-        emit profile_ids_changed();
-        refresh_daemon_status();
-        daemon_status_text_ += QStringLiteral(" · saved");
-        emit daemon_status_changed();
-    } catch (const std::exception & e) {
-        daemon_status_text_ = QString::fromStdString(std::string("Save failed: ") + e.what());
-        emit daemon_status_changed();
-    }
+    auto config = working_config_;
+    const auto profile = current_profile();
+    const auto revision = revision_;
+    auto * backend = &profile_backend();
+    submit([this, backend, config, profile, revision]() mutable {
+        backend->add_profile(config, profile);
+        backend->save_config(config);
+        return [this, config, revision] {
+            saved_config_ = config;
+            if (revision == revision_) {
+                working_config_ = config;
+                set_dirty(false);
+            }
+            emit profile_ids_changed();
+            refresh_daemon_status();
+        };
+    });
 }
 
 void ProfileEditorController::discard_changes() {
+    if (backend_manager_->is_operation_busy()) {
+        return;
+    }
     working_config_ = saved_config_;
     reload_current_profile_into_editor();
     set_dirty(false);
@@ -232,6 +271,9 @@ void ProfileEditorController::discard_changes() {
 }
 
 void ProfileEditorController::reload_config_from_disk() {
+    if (backend_manager_->is_operation_busy()) {
+        return;
+    }
     try {
         saved_config_ = profile_backend().load_config();
         working_config_ = saved_config_;
@@ -263,35 +305,39 @@ void ProfileEditorController::switch_profile(bool force) {
     if (selected_profile_id_.isEmpty()) {
         return;
     }
-
-    try {
-        profile_backend().switch_profile(selected_profile_id_.toStdString(), force);
-        refresh_daemon_status();
-    } catch (const std::exception & e) {
-        daemon_status_text_ = QString::fromStdString(std::string("Switch failed: ") + e.what());
-        emit daemon_status_changed();
-    }
+    const auto id = selected_profile_id_.toStdString();
+    auto * backend = &profile_backend();
+    submit([this, backend, id, force] {
+        backend->switch_profile(id, force);
+        return [this] { refresh_connected_outputs(); };
+    });
 }
 
 void ProfileEditorController::create_profile_from_live(const QString & profile_id) {
     if (profile_id.isEmpty()) {
         return;
     }
-
     if (profile_exists(profile_id)) {
         daemon_status_text_ = QStringLiteral("Profile already exists: %1").arg(profile_id);
         emit daemon_status_changed();
         return;
     }
-
-    profile::ProfileDefinition profile =
-        profile_backend().create_profile_from_live(profile_id.toStdString());
-    profile_backend().add_profile(working_config_, std::move(profile));
-    selected_profile_id_ = profile_id;
-    reload_current_profile_into_editor();
-    set_dirty(true);
-    emit profile_ids_changed();
-    emit selected_profile_id_changed();
+    auto * backend = &profile_backend();
+    submit([this, backend, profile_id] {
+        auto profile = backend->create_profile_from_live(profile_id.toStdString());
+        return [this, profile = std::move(profile), profile_id]() mutable {
+            if (profile_exists(profile_id)) {
+                return;
+            }
+            profile_backend().add_profile(working_config_, std::move(profile));
+            selected_profile_id_ = profile_id;
+            reload_current_profile_into_editor();
+            set_dirty(true);
+            ++revision_;
+            emit profile_ids_changed();
+            emit selected_profile_id_changed();
+        };
+    });
 }
 
 void ProfileEditorController::duplicate_profile(const QString & source_id, const QString & new_id) {
@@ -321,34 +367,36 @@ void ProfileEditorController::duplicate_profile(const QString & source_id, const
 }
 
 void ProfileEditorController::delete_profile(const QString & profile_id) {
-    if (profile_id.isEmpty()) {
+    if (profile_id.isEmpty() || backend_manager_->is_operation_busy() ||
+        backend_manager_->has_pending_changes()) {
         return;
     }
-
-    profile::ProfileDocument updated_config = working_config_;
-    try {
-        profile_backend().delete_profile(updated_config, profile_id.toStdString());
-        profile_backend().save_config(updated_config);
-        working_config_ = std::move(updated_config);
-        saved_config_ = working_config_;
-
-        if (selected_profile_id_ == profile_id) {
-            selected_profile_id_.clear();
-            clear_outputs();
-            if (!working_config_.profiles.empty()) {
-                selected_profile_id_ = QString::fromStdString(working_config_.profiles.front().id);
-                rebuild_outputs_from_profile(working_config_.profiles.front());
+    auto config = working_config_;
+    const auto revision = revision_;
+    auto * backend = &profile_backend();
+    submit([this, backend, config, profile_id, revision]() mutable {
+        backend->delete_profile(config, profile_id.toStdString());
+        backend->save_config(config);
+        return [this, config, profile_id, revision] {
+            saved_config_ = config;
+            if (revision == revision_) {
+                working_config_ = config;
+                if (selected_profile_id_ == profile_id) {
+                    selected_profile_id_.clear();
+                    clear_outputs();
+                    if (!working_config_.profiles.empty()) {
+                        selected_profile_id_ =
+                            QString::fromStdString(working_config_.profiles.front().id);
+                        rebuild_outputs_from_profile(working_config_.profiles.front());
+                    }
+                    emit selected_profile_id_changed();
+                }
+                set_dirty(false);
             }
-            emit selected_profile_id_changed();
-        }
-
-        set_dirty(false);
-        emit profile_ids_changed();
-        refresh_daemon_status();
-    } catch (const std::exception & e) {
-        daemon_status_text_ = QString::fromStdString(std::string("Delete failed: ") + e.what());
-        emit daemon_status_changed();
-    }
+            emit profile_ids_changed();
+            refresh_daemon_status();
+        };
+    });
 }
 
 void ProfileEditorController::add_output() {
@@ -439,66 +487,67 @@ void ProfileEditorController::set_on_no_match_exec_command(int index, const QStr
 }
 
 void ProfileEditorController::refresh_daemon_status() {
-    try {
-        const profile::ProfileServiceStatus status = profile_backend().service_status();
-        daemon_running_ = status.service_running;
-        active_profile_id_ = QString::fromStdString(status.active_profile);
-        if (daemon_running_) {
-            daemon_status_text_ =
-                QStringLiteral("Daemon running · active: %1").arg(active_profile_id_);
-        } else {
-            daemon_status_text_ = QStringLiteral("Daemon not running");
-        }
-    } catch (const std::exception & e) {
-        daemon_running_ = false;
-        daemon_status_text_ =
-            QString::fromStdString(std::string("Daemon unavailable: ") + e.what());
-    }
-
-    emit daemon_status_changed();
-    emit active_profile_id_changed();
+    auto * backend = &profile_backend();
+    submit([this, backend] {
+        const auto status = backend->service_status();
+        return [this, status] {
+            daemon_running_ = status.service_running;
+            active_profile_id_ = QString::fromStdString(status.active_profile);
+            if (daemon_running_) {
+                daemon_status_text_ =
+                    QStringLiteral("Daemon running · active: %1").arg(active_profile_id_);
+            } else {
+                daemon_status_text_ = QStringLiteral("Daemon not running");
+            }
+            emit daemon_status_changed();
+            emit active_profile_id_changed();
+        };
+    });
 }
 
 void ProfileEditorController::refresh_connected_outputs() {
-    connected_output_infos_ = profile_backend().get_connected_outputs();
-    connected_outputs_.clear();
-    for (const profile::ConnectedOutput & output : connected_output_infos_) {
-        connected_outputs_.append(QString::fromStdString(output.display_label()));
-    }
-
-    for (ProfileOutputProperties * output_model : output_models_) {
-        output_model->refresh_match_preview();
-        output_model->refresh_live_position();
-    }
-
-    update_match_warning();
-    emit connected_outputs_changed();
+    auto * backend = &profile_backend();
+    submit([this, backend] {
+        auto outputs = backend->get_connected_outputs();
+        auto monitors = get_monitor_specs_list();
+        return [this, outputs = std::move(outputs), monitors = std::move(monitors)]() mutable {
+            connected_output_infos_ = outputs;
+            live_monitors_ = std::move(monitors);
+            connected_outputs_.clear();
+            for (const auto & output : connected_output_infos_) {
+                connected_outputs_.append(QString::fromStdString(output.display_label()));
+            }
+            for (auto * model : output_models_) {
+                model->refresh_match_preview();
+                model->refresh_live_position();
+            }
+            update_match_warning();
+            emit connected_outputs_changed();
+            refresh_daemon_status();
+        };
+    });
 }
 
 auto ProfileEditorController::get_live_position_for_output(const QString & output_pattern) const
     -> QPoint {
-    const std::vector<ConnectedOutputInfo> connected =
-        AutoWlrRandrPatternMatcher::get_connected_outputs();
-    const std::optional<ConnectedOutputInfo> matched =
+    // QML property reads use the last completed snapshot, never spawn a process.
+    std::vector<ConnectedOutputInfo> connected;
+    connected.reserve(connected_output_infos_.size());
+    for (const auto & output : connected_output_infos_) {
+        connected.push_back({ output.name, output.make, output.model, output.serial });
+    }
+    const auto matched =
         AutoWlrRandrPatternMatcher::find_matching_output(output_pattern.toStdString(), connected);
-    if (!matched.has_value()) {
+    if (!matched) {
         return { 0, 0 };
     }
-
-    const auto monitors = get_monitor_specs_list();
-    for (const MonitorSpecs & monitor : monitors) {
-        if (monitor.get_name() != matched->name) {
-            continue;
+    for (const auto & monitor : live_monitors_) {
+        if (monitor.get_name() == matched->name && monitor.is_enabled() &&
+            monitor.get_enabled_monitor_settings()) {
+            const auto & pos = monitor.get_enabled_monitor_settings()->get_position();
+            return { pos.x, pos.y };
         }
-
-        if (!monitor.is_enabled() || !monitor.get_enabled_monitor_settings().has_value()) {
-            return { 0, 0 };
-        }
-
-        const Position & position = monitor.get_enabled_monitor_settings()->get_position();
-        return { position.x, position.y };
     }
-
     return { 0, 0 };
 }
 
@@ -512,6 +561,7 @@ auto ProfileEditorController::get_output_index(QObject * output) const -> int {
 }
 
 void ProfileEditorController::mark_dirty() {
+    ++revision_;
     if (selected_profile_id_.isEmpty()) {
         return;
     }
@@ -606,6 +656,7 @@ auto ProfileEditorController::get_output_match_preview(const std::string & outpu
 }
 
 void ProfileEditorController::set_dirty(bool dirty) {
+    ++revision_;
     if (dirty_ == dirty) {
         return;
     }

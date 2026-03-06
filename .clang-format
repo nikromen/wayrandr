@@ -20,6 +20,7 @@ AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
+InsertBraces: true
 DerivePointerAlignment: false
 PointerAlignment: Middle
 BinPackArguments: false

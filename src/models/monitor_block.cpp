@@ -2,14 +2,17 @@
 
 #include <qcontainerfwd.h>
 #include <qobject.h>
-#include <qoverload.h>
 #include <qstringview.h>
 #include <qtimer.h>
 #include <qtmetamacros.h>
 #include <spdlog/spdlog.h>
 
-#include <QProcess>
+#include <atomic>
+#include <memory>
+#include <string>
 #include <utility>
+
+#include "utils/helpers.hpp"
 
 namespace {
 constexpr int K_PREVIEW_FPS = 1;
@@ -21,7 +24,6 @@ MonitorBlock::MonitorBlock(QString monitor_name, QObject * parent)
     : QObject(parent),
       monitor_name_(std::move(monitor_name)),
       capture_timer_(new QTimer(this)),
-      capture_process_(nullptr),
       is_capturing_(false) {
     capture_timer_->setInterval(K_PREVIEW_INTERVAL_MS);
     connect(capture_timer_, &QTimer::timeout, this, &MonitorBlock::capture_frame);
@@ -53,12 +55,10 @@ void MonitorBlock::start_capture() {
 void MonitorBlock::stop_capture() {
     capture_timer_->stop();
 
-    if (capture_process_ != nullptr && capture_process_->state() != QProcess::NotRunning) {
-        capture_process_->kill();
-        capture_process_->waitForFinished(100);
+    if (capture_cancelled_) {
+        *capture_cancelled_ = true;
     }
 
-    is_capturing_ = false;
     spdlog::debug("Stopped capture for monitor: {}", monitor_name_.toStdString());
 }
 
@@ -72,61 +72,39 @@ void MonitorBlock::capture_now() {
 
 void MonitorBlock::capture_frame() {
     if (is_capturing_) {
-        spdlog::debug(
-            "Skipping capture for {} - previous grim still running", monitor_name_.toStdString()
-        );
         return;
     }
-
-    if (capture_process_ != nullptr) {
-        if (capture_process_->state() != QProcess::NotRunning) {
-            return;
-        }
-        capture_process_->deleteLater();
-    }
-
     is_capturing_ = true;
-    capture_process_ = new QProcess(this);
-
-    connect(
-        capture_process_,
-        QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+    auto cancelled = std::make_shared<std::atomic_bool>(false);
+    capture_cancelled_ = cancelled;
+    const auto name = monitor_name_.toStdString();
+    run_job(
         this,
-        &MonitorBlock::on_process_finished
-    );
-
-    QStringList const args = { "-t", "jpeg", "-s", K_PREVIEW_SCALE, "-o", monitor_name_, "-" };
-    capture_process_->start("grim", args);
-}
-
-void MonitorBlock::on_process_finished(int exit_code, QProcess::ExitStatus exit_status) {
-    is_capturing_ = false;
-
-    if (exit_status != QProcess::NormalExit || exit_code != 0) {
-        if (capture_process_ != nullptr) {
-            QString const error = capture_process_->readAllStandardError();
-            if (!error.isEmpty()) {
-                spdlog::warn(
-                    "Grim capture failed for monitor {}: {}",
-                    monitor_name_.toStdString(),
-                    error.toStdString()
-                );
+        [this, name, cancelled] {
+            CommandOptions options;
+            options.cancelled = cancelled;
+            options.timeout_ms = 1500;
+            options.output_limit = 8 * 1024 * 1024;
+            auto data = run_command(
+                "grim", { "-t", "jpeg", "-s", K_PREVIEW_SCALE, "-o", name, "-" }, options
+            );
+            return [this, data = std::move(data), cancelled] {
+                is_capturing_ = false;
+                if (*cancelled || data.empty()) {
+                    return;
+                }
+                const auto bytes = QByteArray::fromStdString(data);
+                screen_image_ = QString("data:image/jpeg;base64,%1").arg(QString(bytes.toBase64()));
+                emit screen_image_changed();
+            };
+        },
+        [this, cancelled](const std::string & error) {
+            is_capturing_ = false;
+            if (!*cancelled) {
+                spdlog::warn("Grim capture failed: {}", error);
             }
-        }
-        return;
-    }
-
-    if (capture_process_ == nullptr) {
-        return;
-    }
-
-    QByteArray const image_data = capture_process_->readAllStandardOutput();
-
-    if (image_data.isEmpty()) {
-        return;
-    }
-
-    screen_image_ = QString("data:image/jpeg;base64,%1").arg(QString(image_data.toBase64()));
-
-    emit screen_image_changed();
+        },
+        {},
+        -1
+    );
 }

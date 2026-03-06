@@ -96,7 +96,7 @@ void WlrRandrBackend::apply(const std::vector<MonitorSpecs> & monitors) {
     }
     require_visible_output(monitors);
     const auto args = build_wlr_randr_args(monitors);
-    auto snapshot = get_monitor_specs_list(true);
+    auto snapshot = get_monitor_specs_list();
     require_visible_output(snapshot);
     // The tolerant reader may choose a preferred mode when no current mode exists.
     // Such a snapshot cannot faithfully restore the actual configuration.
@@ -150,7 +150,7 @@ void WlrRandrBackend::revert() {
     }
     // Once recovery starts, only a successful rollback may release the snapshot.
     apply_succeeded_ = false;
-    const auto connected = get_monitor_specs_list(true);
+    const auto connected = get_monitor_specs_list();
     std::vector<MonitorSpecs> saved;
     for (const auto & monitor : *previous_config_) {
         if (std::any_of(connected.begin(), connected.end(), [&](const auto & current) {

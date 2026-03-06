@@ -19,6 +19,7 @@
 #include "models/profile/profile_output_properties.hpp"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
+#include "utils/helpers.hpp"
 
 static void initialize_logger() {
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -80,10 +81,15 @@ auto main(int argc, char * argv[]) -> int {
 
     if (engine.rootObjects().isEmpty()) {
         spdlog::critical("No root objects found after QML load");
+        main_window.reset();
+        shutdown_commands();
         return -1;
     }
 
     spdlog::info("UI loaded successfully");
     spdlog::info("Starting event loop");
-    return QGuiApplication::exec();
+    const int result = QGuiApplication::exec();
+    main_window.reset();
+    shutdown_commands();
+    return result;
 }

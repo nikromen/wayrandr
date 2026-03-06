@@ -3,9 +3,10 @@
 #include <qtmetamacros.h>
 
 #include <QObject>
-#include <QProcess>
 #include <QString>
 #include <QTimer>
+#include <atomic>
+#include <memory>
 
 class MonitorBlock : public QObject {
     Q_OBJECT
@@ -28,12 +29,12 @@ signals:
 
 private slots:
     void capture_frame();
-    void on_process_finished(int exit_code, QProcess::ExitStatus exit_status);
+
 
 private:  // NOLINT
     QString monitor_name_;
     QString screen_image_;
     QTimer * capture_timer_;
-    QProcess * capture_process_;
+    std::shared_ptr<std::atomic_bool> capture_cancelled_;
     bool is_capturing_;
 };

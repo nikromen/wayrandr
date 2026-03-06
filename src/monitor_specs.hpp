@@ -133,4 +133,4 @@ private:
 };
 
 // Safety-critical callers must reject query errors and partially decoded snapshots.
-auto get_monitor_specs_list(bool require_complete = false) -> std::vector<MonitorSpecs>;
+auto get_monitor_specs_list() -> std::vector<MonitorSpecs>;

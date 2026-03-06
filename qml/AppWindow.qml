@@ -18,6 +18,11 @@ ApplicationWindow {
         close.accepted = mainWindow.prepare_close()
     }
 
+    Connections {
+        target: mainWindow
+        function onClose_ready() { window.close() }
+    }
+
     BackendStack {
         anchors.fill: parent
         controller: mainWindow

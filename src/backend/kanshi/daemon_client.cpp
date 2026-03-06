@@ -1,7 +1,5 @@
 #include "backend/kanshi/daemon_client.hpp"
 
-#include <spdlog/spdlog.h>
-
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -61,7 +59,7 @@ auto KanshiDaemonClient::status() -> KanshiDaemonStatus {
             }
         }
     } catch (const std::exception & e) {
-        spdlog::warn("Failed to parse kanshictl status: {}", e.what());
+        throw std::runtime_error(std::string("Daemon status failed: ") + e.what());
     }
 
     for (const auto & monitor : get_monitor_specs_list()) {

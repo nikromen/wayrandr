@@ -64,6 +64,16 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(process_test
+        tests/process_test.cpp src/utils/helpers.cpp
+        src/models/monitor_block.cpp src/models/monitor_block.hpp)
+    target_include_directories(process_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(process_test PRIVATE Qt6::Core spdlog::spdlog)
+    target_compile_definitions(process_test PRIVATE
+        FAKE_COMMAND="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_command.py"
+        FAKE_GRIM="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_grim.py")
+    add_test(NAME processes COMMAND process_test)
+    set_tests_properties(processes PROPERTIES TIMEOUT 15)
     set(CONFIRMATION_TEST_SOURCES ${PROJECT_SOURCES})
     list(REMOVE_ITEM CONFIRMATION_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
     add_executable(wlr_confirmation_test tests/wlr_confirmation_test.cpp ${CONFIRMATION_TEST_SOURCES})
@@ -72,7 +82,8 @@ if(BUILD_TESTING)
         Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
         nlohmann_json::nlohmann_json spdlog::spdlog tomlplusplus::tomlplusplus)
     target_compile_definitions(wlr_confirmation_test PRIVATE
-        FAKE_WLR_CLI="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_wlr_randr.py")
+        FAKE_WLR_CLI="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_wlr_randr.py"
+        FAKE_DAEMON="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_daemon.py")
     add_test(NAME wlr_confirmation COMMAND wlr_confirmation_test)
     set_tests_properties(wlr_confirmation PROPERTIES TIMEOUT 30)
 endif()

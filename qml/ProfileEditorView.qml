@@ -10,6 +10,8 @@ Item {
 
     readonly property var profileEditor: controller.profileEditor
 
+    enabled: !profileEditor.operationBusy
+
     Component.onCompleted: profileEditor.refresh_connected_outputs()
 
     function promptProfileName(title, callback) {
