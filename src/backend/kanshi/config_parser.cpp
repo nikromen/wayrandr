@@ -349,7 +349,11 @@ auto format_criteria(const std::string & criteria) -> std::string {
 
 void write_output_directives(std::ostringstream & out, const KanshiOutputSetting & setting) {
     if (setting.enabled.has_value()) {
-        out << "\t\t" << (setting.enabled.value() ? "enable" : "disable") << '\n';
+        if (setting.enabled.value()) {
+            out << "\t\tenable\n";
+        } else {
+            out << "\t\tdisable\n";
+        }
     }
     if (setting.preferred) {
         out << "\t\tmode preferred\n";
@@ -366,7 +370,11 @@ void write_output_directives(std::ostringstream & out, const KanshiOutputSetting
         out << "\t\ttransform " << setting.transform.value() << '\n';
     }
     if (setting.adaptive_sync.has_value()) {
-        out << "\t\tadaptive_sync " << (setting.adaptive_sync.value() ? "on" : "off") << '\n';
+        if (setting.adaptive_sync.value()) {
+            out << "\t\tadaptive_sync on\n";
+        } else {
+            out << "\t\tadaptive_sync off\n";
+        }
     }
 }
 
@@ -394,8 +402,12 @@ auto count_output_directives(const KanshiOutputSetting & setting) -> int {
 }
 
 void write_output_setting(std::ostringstream & out, const KanshiOutputSetting & setting) {
-    out << "\t" << (setting.multi_output ? "...output " : "output ")
-        << format_criteria(setting.criteria);
+    if (setting.multi_output) {
+        out << "\t...output ";
+    } else {
+        out << "\toutput ";
+    }
+    out << format_criteria(setting.criteria);
     const int directive_count = count_output_directives(setting);
     if (directive_count == 0) {
         out << '\n';
@@ -439,13 +451,21 @@ auto serialize(const KanshiConfig & config) -> std::string {
     }
 
     for (const auto & global_output : config.global_outputs) {
-        out << (global_output.multi_output ? "...output " : "output ")
-            << format_criteria(global_output.criteria);
+        if (global_output.multi_output) {
+            out << "...output ";
+        } else {
+            out << "output ";
+        }
+        out << format_criteria(global_output.criteria);
         if (count_output_directives(global_output) == 0) {
             out << '\n';
         } else if (count_output_directives(global_output) == 1 &&
                    global_output.enabled.has_value()) {
-            out << (global_output.enabled.value() ? " enable" : " disable") << '\n';
+            if (global_output.enabled.value()) {
+                out << " enable\n";
+            } else {
+                out << " disable\n";
+            }
         } else {
             out << " {\n";
             write_output_directives(out, global_output);

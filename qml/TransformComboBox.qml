@@ -8,7 +8,12 @@ ComboBox {
     property var item
     readonly property bool hasItem: item !== null
 
-    model: hasItem ? item.transformList : []
+    model: {
+        if (hasItem) {
+            return item.transformList
+        }
+        return []
+    }
     Layout.fillWidth: true
 
     Component.onCompleted: syncFromItem()

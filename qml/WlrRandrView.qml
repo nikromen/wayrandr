@@ -86,7 +86,12 @@ Item {
                 }
 
                 Button {
-                    text: controller.confirmationAllowed ? qsTr("Cancel") : qsTr("Retry restore")
+                    text: {
+                        if (controller.confirmationAllowed) {
+                            return qsTr("Cancel")
+                        }
+                        return qsTr("Retry restore")
+                    }
                     Layout.fillWidth: true
                     visible: controller.confirmationPending
                     onClicked: controller.cancel_apply()
@@ -111,7 +116,10 @@ Item {
             }
             blockImageSource: function(item, index) {
                 var block = controller.get_monitor_block(item.name)
-                return block ? block.screenImage : ""
+                if (block) {
+                    return block.screenImage
+                }
+                return ""
             }
             blockVisible: function(item, index) {
                 return item.enabled

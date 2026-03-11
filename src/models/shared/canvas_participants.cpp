@@ -26,10 +26,16 @@ auto build_monitor_snap_context(MonitorProperties * current, const QList<QObject
         }
 
         const bool active = monitor->is_enabled() && monitor->has_settings();
+        int position_x = 0;
+        int position_y = 0;
+        if (!is_current) {
+            position_x = monitor->get_position_x();
+            position_y = monitor->get_position_y();
+        }
         context.rects.push_back(
             {
-                is_current ? 0 : monitor->get_position_x(),
-                is_current ? 0 : monitor->get_position_y(),
+                position_x,
+                position_y,
                 monitor->get_layout_width(),
                 monitor->get_layout_height(),
                 active,
@@ -57,10 +63,16 @@ auto build_profile_snap_context(
             context.current_index = context.rects.size();
         }
 
+        int position_x = 0;
+        int position_y = 0;
+        if (!is_current) {
+            position_x = output->get_position_x();
+            position_y = output->get_position_y();
+        }
         context.rects.push_back(
             {
-                is_current ? 0 : output->get_position_x(),
-                is_current ? 0 : output->get_position_y(),
+                position_x,
+                position_y,
                 output->get_layout_width(),
                 output->get_layout_height(),
                 output->is_enabled(),

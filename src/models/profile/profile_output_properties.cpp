@@ -75,7 +75,10 @@ void ProfileOutputProperties::set_enabled(bool enabled) {
 }
 
 auto ProfileOutputProperties::get_mode() const -> QString {
-    return output_.mode.has_value() ? QString::fromStdString(output_.mode.value()) : QString();
+    if (output_.mode.has_value()) {
+        return QString::fromStdString(output_.mode.value());
+    }
+    return {};
 }
 
 auto ProfileOutputProperties::is_preferred() const -> bool {

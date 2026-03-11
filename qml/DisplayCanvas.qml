@@ -71,13 +71,28 @@ Item {
                     model: root.canvasModel
 
                     MonitorBlock {
-                        name: root.hasBlockName ? root.blockName(modelData, index) : ""
+                        name: {
+                            if (root.hasBlockName) {
+                                return root.blockName(modelData, index)
+                            }
+                            return ""
+                        }
                         displayScale: root.displayScale
                         monitorResolutionWidth: modelData.layoutWidth
                         monitorResolutionHeight: modelData.layoutHeight
                         monitorTransform: modelData.transform
-                        imageSource: root.hasBlockImageSource ? root.blockImageSource(modelData, index) : ""
-                        visible: root.hasBlockVisible ? root.blockVisible(modelData, index) : modelData.enabled
+                        imageSource: {
+                            if (root.hasBlockImageSource) {
+                                return root.blockImageSource(modelData, index)
+                            }
+                            return ""
+                        }
+                        visible: {
+                            if (root.hasBlockVisible) {
+                                return root.blockVisible(modelData, index)
+                            }
+                            return modelData.enabled
+                        }
 
                         x: modelData.positionX * root.displayScale
                         y: modelData.positionY * root.displayScale
