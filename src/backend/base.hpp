@@ -16,15 +16,22 @@ public:
 
     virtual void confirm() {}
 
-    [[nodiscard]] virtual auto has_pending_changes() const -> bool { return false; }
+    // Changes awaiting confirmation or cancellation, tracked by this backend.
+    // Profile edits and running operations are tracked separately by controllers.
+    [[nodiscard]] virtual auto has_pending_changes() const -> bool = 0;
 
-    [[nodiscard]] virtual auto can_confirm() const -> bool { return false; }
+    [[nodiscard]] virtual auto can_confirm() const -> bool { return has_pending_changes(); }
 };
 
 class NullDisplayBackend : public Backend {
 public:
     void apply(const std::vector<MonitorSpecs> & monitors) override;
     void revert() override;
+    void confirm() override;
+    [[nodiscard]] auto has_pending_changes() const -> bool override;
+
+private:
+    bool pending_confirmation_ = false;
 };
 
 auto create_display_backend(BackendType type) -> std::unique_ptr<Backend>;

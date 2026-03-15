@@ -13,8 +13,7 @@
 
 BackendManager::BackendManager()
     : active_profile_editor_(&auto_wlr_randr_profile_backend_),
-      current_type_(BackendType::WLR_RANDR),
-      pending_confirmation_(false) {
+      current_type_(BackendType::WLR_RANDR) {
     display_backend_ = create_display_backend(BackendType::WLR_RANDR);
 }
 
@@ -81,8 +80,6 @@ void BackendManager::apply_with_confirmation(
 
     try {
         apply(monitors);
-        // Direct wlr-randr transactions are owned by the display backend.
-        pending_confirmation_ = current_type_ != BackendType::WLR_RANDR;
     } catch (const std::exception & e) {
         spdlog::error("Failed to apply configuration: {}", e.what());
         throw;
@@ -97,7 +94,6 @@ void BackendManager::confirm_apply() {
 
     spdlog::info("Configuration confirmed by user");
     display_backend_->confirm();
-    pending_confirmation_ = false;
 }
 
 void BackendManager::cancel_apply() {
@@ -108,19 +104,12 @@ void BackendManager::cancel_apply() {
 
     spdlog::info("Configuration cancelled by user, reverting");
     revert();
-    pending_confirmation_ = false;
 }
 
 auto BackendManager::has_pending_changes() const -> bool {
-    if (current_type_ == BackendType::WLR_RANDR) {
-        return display_backend_->has_pending_changes();
-    }
-    return pending_confirmation_;
+    return display_backend_->has_pending_changes();
 }
 
 auto BackendManager::can_confirm() const -> bool {
-    if (current_type_ == BackendType::WLR_RANDR) {
-        return display_backend_->can_confirm();
-    }
-    return pending_confirmation_;
+    return display_backend_->can_confirm();
 }

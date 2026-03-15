@@ -64,5 +64,4 @@ private:
     KanshiProfileBackend kanshi_profile_backend_;
     ProfileEditorBackend * active_profile_editor_ = nullptr;
     BackendType current_type_;
-    bool pending_confirmation_;
 };
