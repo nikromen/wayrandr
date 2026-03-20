@@ -1,0 +1,39 @@
+# Project-local permissions for the existing wayrandr container targets.
+# Keep this list explicit: do not allow arbitrary make targets or direct podman.
+prefix_rule(
+    pattern = ["make", [
+        "container-pre-commit",
+        "container-build",
+        "container-test",
+        "container-build-image",
+        "container-run",
+        "container-clean-cache",
+        "container-remove-image",
+        "container-clean",
+    ]],
+    decision = "allow",
+    justification = "The user permits wayrandr container targets without approval, except container-shell.",
+    match = [
+        "make container-pre-commit",
+        "make container-build",
+        "make container-test",
+        "make container-build-image",
+        "make container-run",
+        "make container-clean-cache",
+        "make container-remove-image",
+        "make container-clean",
+    ],
+    not_match = [
+        "make container-shell",
+        "make build",
+        "podman run",
+    ],
+)
+
+prefix_rule(
+    pattern = ["make", "container-shell"],
+    decision = "prompt",
+    justification = "The user explicitly excluded interactive container shells from automatic approval.",
+    match = ["make container-shell"],
+    not_match = ["make container-build"],
+)
