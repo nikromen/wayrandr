@@ -1,0 +1,63 @@
+name: Tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  standard:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: make container-build-image
+      - name: Checks, build and tests
+        run: |
+          make container-pre-commit
+          git diff --exit-code
+          make container-build
+          make container-test TEST_JOBS=2
+          make container-config-check
+          make container-fuzz-build
+          make container-fuzz-replay FUZZ_TARGET=kanshi_config
+          make container-fuzz FUZZ_TARGET=kanshi_config FUZZ_SECONDS=60
+
+      - name: Export test logs
+        if: always()
+        run: make container-export-artifacts
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: standard-test-logs
+          path: build/from-container/reports/
+
+  coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: make container-build-image
+      - run: make container-coverage TEST_JOBS=2
+      - if: always()
+        run: make container-export-artifacts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: build/from-container/reports/
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: make container-build-image
+      - run: make container-sanitizers TEST_JOBS=2
+      - if: always()
+        run: make container-export-artifacts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sanitizer-test-logs
+          path: build/from-container/reports/

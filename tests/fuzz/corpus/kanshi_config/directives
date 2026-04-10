@@ -1,0 +1,11 @@
+include /dev/null
+output "Acme Panel Serial" alias $desk
+output HDMI-1 disable
+profile "work desk" {
+    ...output "Acme \"Panel\" Serial" {
+        scale 1.23456789
+        transform 90
+        adaptive_sync on
+    }
+    exec notify-send "ready"
+}

@@ -1,0 +1,30 @@
+#!/usr/bin/python3
+"""Daemon control stub; logs only to the isolated test directory."""
+import json
+import os
+import pathlib
+import sys
+import time
+
+root = pathlib.Path(os.environ['WAYRANDR_TEST_DIR'])
+with (root / 'daemon_calls').open('a') as log:
+    log.write(json.dumps([pathlib.Path(sys.argv[0]).name, *sys.argv[1:]]) + '\n')
+mode = (root / 'daemon_mode').read_text().strip()
+if mode == 'exit':
+    print('daemon failure detail', file=sys.stderr)
+    sys.exit(17)
+if mode == 'empty':
+    sys.exit(0)
+if mode == 'delay':
+    time.sleep(0.1)
+active_file = root / 'active_profile'
+if sys.argv[1] == 'switch':
+    active_file.write_text(sys.argv[2])
+active = 'test'
+if active_file.exists():
+    active = active_file.read_text()
+if sys.argv[1] == 'status':
+    if pathlib.Path(sys.argv[0]).name == 'kanshictl':
+        print('Current profile: ' + active)
+    else:
+        print(json.dumps({'active_profile': active, 'connected_outputs': ['DP-1']}))

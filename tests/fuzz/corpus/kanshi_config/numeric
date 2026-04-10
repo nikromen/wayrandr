@@ -1,0 +1,6 @@
+output DP-1 scale nan
+output DP-2 scale inf
+output DP-3 scale -inf
+profile numeric {
+    output DP-4 scale 1.23456789
+}
