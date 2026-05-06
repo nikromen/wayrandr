@@ -38,11 +38,6 @@ auto ProfileOutputProperties::to_output() const -> profile::ProfileOutputDefinit
     profile::ProfileOutputDefinition output = output_;
     output.enabled = enabled_;
     output.adaptive_sync = adaptive_sync_;
-    output.pos = std::to_string(get_position_x()) + "," + std::to_string(get_position_y());
-    output.left_of.reset();
-    output.right_of.reset();
-    output.above.reset();
-    output.below.reset();
     return output;
 }
 
@@ -201,6 +196,10 @@ void ProfileOutputProperties::set_position_x(int x) {
         return;
     }
     output_.pos = new_pos;
+    output_.left_of.reset();
+    output_.right_of.reset();
+    output_.above.reset();
+    output_.below.reset();
     emit position_x_changed();
     mark_dirty();
 }
@@ -212,6 +211,10 @@ void ProfileOutputProperties::set_position_y(int y) {
         return;
     }
     output_.pos = new_pos;
+    output_.left_of.reset();
+    output_.right_of.reset();
+    output_.above.reset();
+    output_.below.reset();
     emit position_y_changed();
     mark_dirty();
 }

@@ -24,6 +24,7 @@ Item {
     Dialog {
         id: profileNameDialog
         property var callback: null
+        width: 420
         modal: true
         standardButtons: Dialog.Ok | Dialog.Cancel
         title: qsTr("Profile name")
@@ -44,6 +45,7 @@ Item {
     Dialog {
         id: discardDialog
         property int pendingAction: 0
+        width: 420
         modal: true
         standardButtons: Dialog.Yes | Dialog.No
         title: qsTr("Discard changes?")

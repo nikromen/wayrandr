@@ -15,6 +15,7 @@ struct KanshiOutputSetting {
     std::optional<std::string> transform;
     std::optional<float> scale;
     std::optional<bool> adaptive_sync;
+    std::optional<std::string> alias;
 };
 
 struct KanshiProfile {
