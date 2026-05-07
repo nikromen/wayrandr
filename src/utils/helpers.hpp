@@ -15,6 +15,8 @@ struct CommandOptions {
     size_t output_limit = 4 * 1024 * 1024;  // Combined stdout + stderr, binary safe.
 };
 
+// Resolve with the same Qt/PATH lookup as is_program_available(); no shell parsing.
+// Program and arguments must be valid UTF-8 without embedded NUL bytes.
 auto run_command(
     const std::string & program, const std::vector<std::string> & args, CommandOptions options = {}
 ) -> std::string;

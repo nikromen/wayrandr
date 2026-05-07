@@ -30,6 +30,7 @@ wayrandr_add_cpp_test(unit matching unit/matching.cpp)
 wayrandr_add_cpp_test(unit layout unit/layout.cpp)
 
 wayrandr_add_cpp_test(integration processes integration/processes.cpp)
+wayrandr_add_cpp_test(integration command_security integration/command_security.cpp)
 wayrandr_add_cpp_test(integration capture integration/capture.cpp)
 wayrandr_add_cpp_test(integration shutdown integration/shutdown.cpp)
 wayrandr_add_cpp_test(integration backend_transactions integration/backend_transactions.cpp)

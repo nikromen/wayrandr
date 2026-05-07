@@ -47,6 +47,17 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   and late results before updating GUI state.
 - Pass the executable and arguments separately; do not introduce shell
   interpretation. Retain timeout, output limits, error reporting, and process cleanup.
+- Availability and execution resolve programs with `QStandardPaths::findExecutable`.
+  Program/argument strings must be UTF-8 without NUL. Keep daemon CLI argument
+  boundaries: auto-wlr-randrctl uses `switch [--force] -- <profile>`; kanshictl
+  consumes the profile directly and must not receive an extra `--`.
+- Kanshi serialization targets libscfg syntax (verified with Kanshi 1.9.0).
+  Quoted data cannot contain NUL or LF. Exec entries are individual scfg directives,
+  not arbitrary config fragments; validate their boundaries with libscfg >= 0.2.0
+  without filtering shell operators. The final validation parameter must remain
+  separate to detect incomplete escapes and empty child blocks. Validate before
+  opening the destination for writing. Saving reloads a
+  running daemon and can intentionally trigger exec hooks; loading/editing does not.
 - Preserve the ordering of Apply, confirmation, and rollback. A timeout can mean
   a partially applied monitor change. Keep recovery state until confirmation or
   successful rollback, and prevent conflicting monitor operations from overlapping.

@@ -19,7 +19,11 @@ if mode == 'delay':
     time.sleep(0.1)
 active_file = root / 'active_profile'
 if sys.argv[1] == 'switch':
-    active_file.write_text(sys.argv[2])
+    profile = sys.argv[2]
+    if pathlib.Path(sys.argv[0]).name == 'auto-wlr-randrctl':
+        args = sys.argv[2:]
+        profile = args[args.index('--') + 1]
+    active_file.write_text(profile)
 active = 'test'
 if active_file.exists():
     active = active_file.read_text()

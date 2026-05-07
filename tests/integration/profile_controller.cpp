@@ -108,7 +108,7 @@ private slots:
             );
         } else {
             QVERIFY2(
-                calls.find(R"(["auto-wlr-randrctl", "switch", "test-2", "--force"])") !=
+                calls.find(R"(["auto-wlr-randrctl", "switch", "--force", "--", "test-2"])") !=
                     std::string::npos,
                 "Auto switch arguments"
             );

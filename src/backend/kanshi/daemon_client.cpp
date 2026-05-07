@@ -20,6 +20,12 @@ auto socket_path() -> std::filesystem::path {
     if (runtime_dir == nullptr || wayland_display == nullptr) {
         return {};
     }
+    if (!std::filesystem::path(runtime_dir).is_absolute()) {
+        throw std::runtime_error("XDG_RUNTIME_DIR must be a nonempty absolute path");
+    }
+    if (wayland_display[0] == '\0') {
+        throw std::runtime_error("WAYLAND_DISPLAY must not be empty");
+    }
 
     return std::filesystem::path(runtime_dir) /
         ("fr.emersion.kanshi." + std::string(wayland_display));

@@ -7,8 +7,11 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QTest>
+#include <cstddef>
+#include <nlohmann/json.hpp>
 
 #include "models/monitor_block.hpp"
+#include "nlohmann/json_fwd.hpp"
 #include "support/environment.hpp"
 #include "utils/helpers.hpp"
 
@@ -17,6 +20,29 @@ class CaptureTests : public QObject {
 private slots:
 
     void cleanupTestCase() { shutdown_commands(); }  // NOLINT: Qt Test hook name.
+
+    void literal_output_name() {
+        Environment environment;
+        environment.install(FAKE_GRIM, "grim");
+        QFile mode(environment.dir.filePath("grim_mode"));
+        QVERIFY(mode.open(QIODevice::WriteOnly));
+        mode.write("success");
+        mode.close();
+        const QString name = "--help \"quoted\"\\\nPříliš 🖥 $(payload)";
+        MonitorBlock block(name);
+        block.start_capture();
+        block.capture_now();
+        drain_jobs();
+        block.stop_capture();
+        QVERIFY(!block.get_screen_image().isEmpty());
+        QFile arguments(environment.dir.filePath("grim_args"));
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        const auto args = nlohmann::json::parse(arguments.readAll().toStdString());
+        QCOMPARE(args.size(), size_t{ 7 });
+        QCOMPARE(args[4], nlohmann::json("-o"));
+        QCOMPARE(args[5], nlohmann::json(name.toStdString()));
+        QCOMPARE(args[6], nlohmann::json("-"));
+    }
 
     void retry_and_cancel() {
         Environment env;

@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "backend/auto_wlr_randr/types.hpp"
 #include "nlohmann/json_fwd.hpp"
@@ -18,6 +19,9 @@ namespace {
 
 auto socket_path() -> std::filesystem::path {
     if (const char * runtime_dir = std::getenv("XDG_RUNTIME_DIR")) {
+        if (!std::filesystem::path(runtime_dir).is_absolute()) {
+            throw std::runtime_error("XDG_RUNTIME_DIR must be a nonempty absolute path");
+        }
         return std::filesystem::path(runtime_dir) / "auto-wlr-randr" / "auto-wlr-randr.sock";
     }
 
@@ -67,10 +71,12 @@ void AutoWlrRandrDaemonClient::switch_profile(const std::string & profile_id, bo
         throw std::runtime_error("auto-wlr-randr daemon is not running");
     }
 
+    std::vector<std::string> args{ "switch" };
     if (force) {
-        run_command("auto-wlr-randrctl", { "switch", profile_id, "--force" });
-        return;
+        args.emplace_back("--force");
     }
-
-    run_command("auto-wlr-randrctl", { "switch", profile_id });
+    // Clap supports the end-of-options marker; profile names may start with '-'.
+    args.emplace_back("--");
+    args.push_back(profile_id);
+    run_command("auto-wlr-randrctl", args);
 }

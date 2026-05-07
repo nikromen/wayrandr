@@ -18,6 +18,7 @@
 #include <QProcess>
 #include <QRunnable>
 #include <QStandardPaths>
+#include <QString>
 #include <QThread>
 #include <QThreadPool>
 #include <atomic>
@@ -34,6 +35,14 @@ std::atomic_bool stopping{ false };
 std::atomic_bool cleanup_failed{ false };
 int outstanding_jobs = 0;  // GUI thread only
 
+auto command_string(const std::string & value) -> QString {
+    const auto converted = QString::fromStdString(value);
+    if (value.find('\0') != std::string::npos || converted.toStdString() != value) {
+        throw std::invalid_argument("Program and arguments must be UTF-8 without NUL bytes");
+    }
+    return converted;
+}
+
 auto pool() -> QThreadPool & {
     static QThreadPool worker;
     worker.setMaxThreadCount(1);
@@ -42,7 +51,7 @@ auto pool() -> QThreadPool & {
 }  // namespace
 
 auto is_program_available(const std::string & program) -> bool {
-    return !QStandardPaths::findExecutable(QString::fromStdString(program)).isEmpty();
+    return !QStandardPaths::findExecutable(command_string(program)).isEmpty();
 }
 
 auto run_command(
@@ -58,7 +67,13 @@ auto run_command(
 
     QStringList qargs;
     for (const auto & arg : args) {
-        qargs << QString::fromStdString(arg);
+        qargs << command_string(arg);
+    }
+    // Use exactly the same resolver as availability detection, then start the
+    // resolved path. PATH and the inherited environment remain user-controlled.
+    const auto executable = QStandardPaths::findExecutable(command_string(program));
+    if (executable.isEmpty()) {
+        throw std::runtime_error(program + ": failed to start: executable not found");
     }
     QProcess process;
     // Give the command and its descendants a private process group.
@@ -67,7 +82,7 @@ auto run_command(
             ::_exit(127);
         }
     });
-    process.setProgram(QString::fromStdString(program));
+    process.setProgram(executable);
     process.setArguments(qargs);
     QByteArray output;
     QByteArray errors;
