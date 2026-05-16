@@ -7,6 +7,8 @@
 
 // Mirrors auto-wlr-randr 1.2.0 src/config.rs OutputSetting and Profile.
 
+#include "utils/config_file.hpp"
+
 struct ProfileOutputSetting {
     std::string output;
     std::optional<bool> on;
@@ -32,6 +34,7 @@ struct AutoWlrRandrConfig {
     std::string path;
     std::vector<std::string> on_no_match_exec;
     std::vector<AutoWlrRandrProfile> profiles;
+    ConfigFileSnapshot file_snapshot;
 };
 
 struct ConnectedOutputInfo {

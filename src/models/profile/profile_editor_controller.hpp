@@ -32,6 +32,7 @@ class ProfileEditorController : public QObject {
     Q_PROPERTY(bool daemonRunning READ is_daemon_running NOTIFY daemon_status_changed)
     Q_PROPERTY(QString matchWarning READ get_match_warning NOTIFY match_warning_changed)
     Q_PROPERTY(QString daemonStatusText READ get_daemon_status_text NOTIFY daemon_status_changed)
+    Q_PROPERTY(QString saveStatusText READ get_save_status_text NOTIFY save_status_changed)
     Q_PROPERTY(QList<QObject *> outputs READ get_outputs NOTIFY outputs_changed)
     Q_PROPERTY(QStringList execCommands READ get_exec_commands NOTIFY exec_commands_changed)
     Q_PROPERTY(
@@ -71,6 +72,7 @@ public:
     [[nodiscard]] auto is_daemon_running() const -> bool;
     [[nodiscard]] auto get_match_warning() const -> QString;
     [[nodiscard]] auto get_daemon_status_text() const -> QString;
+    [[nodiscard]] auto get_save_status_text() const -> QString;
     [[nodiscard]] auto get_outputs() const -> QList<QObject *>;
     [[nodiscard]] auto get_exec_commands() const -> QStringList;
     [[nodiscard]] auto get_on_no_match_exec_commands() const -> QStringList;
@@ -122,6 +124,7 @@ signals:
     void is_dirty_changed();
     void active_profile_id_changed();
     void daemon_status_changed();
+    void save_status_changed();
     void match_warning_changed();
     void outputs_changed();
     void exec_commands_changed();
@@ -141,8 +144,12 @@ private:
     [[nodiscard]] auto profile_exists(const QString & profile_id) const -> bool;
     [[nodiscard]] auto ensure_selected_profile_exists() -> profile::ProfileDefinition *;
 
-    bool submit(std::function<Completion()> work);
+    bool submit(
+        std::function<Completion()> work, std::function<void(const std::string &)> failure = {}
+    );
     void report_process_error(const std::string & error);
+    void report_save_result(const ProfileSaveResult & result);
+    void report_save_error(const std::string & error);
     std::vector<MonitorSpecs> live_monitors_;
     unsigned revision_ = 0;
     void clear_outputs();
@@ -159,6 +166,7 @@ private:
     QString active_profile_id_;
     bool daemon_running_ = false;
     QString daemon_status_text_;
+    QString save_status_text_;
     QString match_warning_;
     QStringList connected_outputs_;
     std::vector<profile::ConnectedOutput> connected_output_infos_;

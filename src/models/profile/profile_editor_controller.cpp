@@ -19,6 +19,7 @@
 #include "backend.hpp"
 #include "backend/auto_wlr_randr/pattern_matcher.hpp"
 #include "backend/auto_wlr_randr/types.hpp"
+#include "backend/profile/editor_backend.hpp"
 #include "backend/profile/types.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "monitor_specs.hpp"
@@ -78,6 +79,10 @@ auto ProfileEditorController::get_match_warning() const -> QString {
 
 auto ProfileEditorController::get_daemon_status_text() const -> QString {
     return daemon_status_text_;
+}
+
+auto ProfileEditorController::get_save_status_text() const -> QString {
+    return save_status_text_;
 }
 
 auto ProfileEditorController::get_outputs() const -> QList<QObject *> {
@@ -211,19 +216,45 @@ auto ProfileEditorController::select_profile(const QString & profile_id, bool fo
     return true;
 }
 
-bool ProfileEditorController::submit(std::function<Completion()> work) {
+bool ProfileEditorController::submit(
+    std::function<Completion()> work, std::function<void(const std::string &)> failure
+) {
     if (backend_manager_->is_operation_busy() || backend_manager_->has_pending_changes()) {
         return false;
     }
     backend_manager_->set_operation_busy(true);
     auto manager = backend_manager_->shared_from_this();
+    if (!failure) {
+        failure = [this](const std::string & error) { report_process_error(error); };
+    }
     run_job(
         this,
         [manager, work = std::move(work)] { return work(); },
-        [this](const std::string & error) { report_process_error(error); },
+        std::move(failure),
         [manager] { manager->set_operation_busy(false); }
     );
     return true;
+}
+
+void ProfileEditorController::report_save_error(const std::string & error) {
+    save_status_text_ = QStringLiteral("Configuration not saved: %1. Edits were kept.")
+                            .arg(QString::fromStdString(error));
+    emit save_status_changed();
+}
+
+void ProfileEditorController::report_save_result(const ProfileSaveResult & result) {
+    if (!result.reload_error.empty()) {
+        save_status_text_ = QStringLiteral("Configuration saved to disk; daemon reload failed: %1")
+                                .arg(QString::fromStdString(result.reload_error));
+    } else if (result.daemon_reloaded) {
+        save_status_text_ = QStringLiteral("Configuration saved to disk; daemon reload succeeded.");
+    } else {
+        save_status_text_ = QStringLiteral("Configuration saved to disk; daemon is not running.");
+    }
+    if (dirty_) {
+        save_status_text_ += QStringLiteral(" Newer edits remain unsaved.");
+    }
+    emit save_status_changed();
 }
 
 void ProfileEditorController::report_process_error(const std::string & error) {
@@ -243,19 +274,26 @@ void ProfileEditorController::save_profile() {
     const auto profile = current_profile();
     const auto revision = revision_;
     auto * backend = &profile_backend();
-    submit([this, backend, config, profile, revision]() mutable {
-        backend->add_profile(config, profile);
-        backend->save_config(config);
-        return [this, config, revision] {
-            saved_config_ = config;
-            if (revision == revision_) {
-                working_config_ = config;
-                set_dirty(false);
-            }
-            emit profile_ids_changed();
-            refresh_daemon_status();
-        };
-    });
+    submit(
+        [this, backend, config, profile, revision]() mutable {
+            backend->add_profile(config, profile);
+            const auto result = backend->save_config(config);
+            config.file_snapshot = result.file_snapshot;
+            return [this, config, revision, result] {
+                saved_config_ = config;
+                // Newer edits are based on our completed write, not the old disk version.
+                working_config_.file_snapshot = config.file_snapshot;
+                if (revision == revision_) {
+                    working_config_ = config;
+                    set_dirty(false);
+                }
+                emit profile_ids_changed();
+                report_save_result(result);
+                refresh_daemon_status();
+            };
+        },
+        [this](const std::string & error) { report_save_error(error); }
+    );
 }
 
 void ProfileEditorController::discard_changes() {
@@ -295,6 +333,8 @@ void ProfileEditorController::reload_config_from_disk() {
 }
 
 void ProfileEditorController::on_profile_backend_changed() {
+    save_status_text_.clear();
+    emit save_status_changed();
     emit capabilities_changed();
     reload_config_from_disk();
     refresh_connected_outputs();
@@ -374,29 +414,35 @@ void ProfileEditorController::delete_profile(const QString & profile_id) {
     auto config = working_config_;
     const auto revision = revision_;
     auto * backend = &profile_backend();
-    submit([this, backend, config, profile_id, revision]() mutable {
-        backend->delete_profile(config, profile_id.toStdString());
-        backend->save_config(config);
-        return [this, config, profile_id, revision] {
-            saved_config_ = config;
-            if (revision == revision_) {
-                working_config_ = config;
-                if (selected_profile_id_ == profile_id) {
-                    selected_profile_id_.clear();
-                    clear_outputs();
-                    if (!working_config_.profiles.empty()) {
-                        selected_profile_id_ =
-                            QString::fromStdString(working_config_.profiles.front().id);
-                        rebuild_outputs_from_profile(working_config_.profiles.front());
+    submit(
+        [this, backend, config, profile_id, revision]() mutable {
+            backend->delete_profile(config, profile_id.toStdString());
+            const auto result = backend->save_config(config);
+            config.file_snapshot = result.file_snapshot;
+            return [this, config, profile_id, revision, result] {
+                saved_config_ = config;
+                working_config_.file_snapshot = config.file_snapshot;
+                if (revision == revision_) {
+                    working_config_ = config;
+                    if (selected_profile_id_ == profile_id) {
+                        selected_profile_id_.clear();
+                        clear_outputs();
+                        if (!working_config_.profiles.empty()) {
+                            selected_profile_id_ =
+                                QString::fromStdString(working_config_.profiles.front().id);
+                            rebuild_outputs_from_profile(working_config_.profiles.front());
+                        }
+                        emit selected_profile_id_changed();
                     }
-                    emit selected_profile_id_changed();
+                    set_dirty(false);
                 }
-                set_dirty(false);
-            }
-            emit profile_ids_changed();
-            refresh_daemon_status();
-        };
-    });
+                emit profile_ids_changed();
+                report_save_result(result);
+                refresh_daemon_status();
+            };
+        },
+        [this](const std::string & error) { report_save_error(error); }
+    );
 }
 
 void ProfileEditorController::add_output() {

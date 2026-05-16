@@ -58,6 +58,14 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   separate to detect incomplete escapes and empty child blocks. Validate before
   opening the destination for writing. Saving reloads a
   running daemon and can intentionally trigger exec hooks; loading/editing does not.
+- Configuration documents carry the exact loaded file snapshot through conversions and edits.
+  Saving compares it under a lock on the resolved target and again before `QSaveFile::commit()`;
+  never adopt a newly loaded snapshot as the editor's expected version during saving. Disable
+  direct-write fallback. Symlinks keep pointing to their existing target; dangling links fail
+  explicitly. Preserve ownership, group, mode and POSIX ACLs or fail; create new files with 0600.
+  This is atomic replacement, not guaranteed power-loss durability, and non-cooperating writers
+  can still race the final check/rename. Keep disk-save results separate from daemon reload
+  results, and advance only the disk snapshot when newer edits exist at asynchronous completion.
 - Preserve the ordering of Apply, confirmation, and rollback. A timeout can mean
   a partially applied monitor change. Keep recovery state until confirmation or
   successful rollback, and prevent conflicting monitor operations from overlapping.

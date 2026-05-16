@@ -15,7 +15,8 @@ public:
     [[nodiscard]] auto capabilities() const -> profile::ProfileEditorCapabilities override;
 
     [[nodiscard]] auto load_config() const -> profile::ProfileDocument override;
-    void save_config(const profile::ProfileDocument & config) const override;
+    [[nodiscard]] auto save_config(const profile::ProfileDocument & config) const
+        -> ProfileSaveResult override;
 
     void add_profile(
         profile::ProfileDocument & config, profile::ProfileDefinition profile

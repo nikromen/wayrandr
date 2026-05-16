@@ -167,4 +167,29 @@ TestCase {
         verify(editor.select_profile("desk"))
         compare(editor.outputs[0].scale, 1)
     }
+
+    function test_unsaved_close_data() {
+        return test_unsaved_profile_data()
+    }
+
+    function test_unsaved_close(data) {
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        verify(editor.select_profile("desk"))
+        editor.add_exec_command("notify-send unsaved")
+        verify(editor.isDirty)
+        appWindow.close()
+        const dialog = findChild(appWindow, "closeDiscardDialog")
+        verify(dialog !== null)
+        tryCompare(dialog, "visible", true)
+        click(dialog.standardButton(Dialog.No))
+        verify(appWindow.visible)
+        verify(editor.isDirty)
+        verify(editor.execCommands.indexOf("notify-send unsaved") >= 0)
+        appWindow.close()
+        tryCompare(dialog, "visible", true)
+        click(dialog.standardButton(Dialog.Yes))
+        tryCompare(appWindow, "visible", false)
+    }
 }

@@ -10,7 +10,7 @@ root = pathlib.Path(os.environ['WAYRANDR_TEST_DIR'])
 with (root / 'daemon_calls').open('a') as log:
     log.write(json.dumps([pathlib.Path(sys.argv[0]).name, *sys.argv[1:]]) + '\n')
 mode = (root / 'daemon_mode').read_text().strip()
-if mode == 'exit':
+if mode == 'exit' or (mode == 'reload_exit' and sys.argv[1] == 'reload'):
     print('daemon failure detail', file=sys.stderr)
     sys.exit(17)
 if mode == 'empty':

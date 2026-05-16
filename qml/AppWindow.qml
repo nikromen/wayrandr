@@ -16,6 +16,29 @@ ApplicationWindow {
 
     onClosing: function(close) {
         close.accepted = mainWindow.prepare_close()
+        if (close.accepted && mainWindow.profileEditor.isDirty) {
+            close.accepted = false
+            closeDiscardDialog.open()
+        }
+    }
+
+    Dialog {
+        id: closeDiscardDialog
+        objectName: "closeDiscardDialog"
+        anchors.centerIn: parent
+        width: 420
+        modal: true
+        title: qsTr("Discard changes?")
+        standardButtons: Dialog.Yes | Dialog.No
+        contentItem: Label {
+            text: qsTr("You have unsaved profile changes. Discard them and close?")
+            wrapMode: Text.WordWrap
+            padding: 12
+        }
+        onAccepted: {
+            mainWindow.profileEditor.discard_changes()
+            window.close()
+        }
     }
 
     Connections {

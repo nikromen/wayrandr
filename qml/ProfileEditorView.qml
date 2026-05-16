@@ -287,6 +287,13 @@ Item {
 
             Label {
                 Layout.fillWidth: true
+                visible: profileEditor.saveStatusText.length > 0
+                text: profileEditor.saveStatusText
+                wrapMode: Text.WordWrap
+            }
+
+            Label {
+                Layout.fillWidth: true
                 text: profileEditor.daemonStatusText
                 wrapMode: Text.WordWrap
                 color: palette.placeholderText

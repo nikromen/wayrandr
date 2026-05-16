@@ -56,6 +56,7 @@ auto from_profile_definition(const profile::ProfileDefinition & profile) -> Kans
 auto to_profile_document(const KanshiConfig & config) -> profile::ProfileDocument {
     profile::ProfileDocument document;
     document.path = config.path;
+    document.file_snapshot = config.file_snapshot;
     for (const auto & profile : config.profiles) {
         document.profiles.push_back(to_profile_definition(profile));
     }
@@ -65,6 +66,7 @@ auto to_profile_document(const KanshiConfig & config) -> profile::ProfileDocumen
 auto from_profile_document(const profile::ProfileDocument & document) -> KanshiConfig {
     KanshiConfig config;
     config.path = document.path;
+    config.file_snapshot = document.file_snapshot;
     for (const auto & profile : document.profiles) {
         config.profiles.push_back(from_profile_definition(profile));
     }

@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "utils/config_file.hpp"
+
 namespace profile {
 
 struct ProfileOutputDefinition {
@@ -31,6 +33,7 @@ struct ProfileDocument {
     std::string path;
     std::vector<std::string> on_no_match_exec;
     std::vector<ProfileDefinition> profiles;
+    ConfigFileSnapshot file_snapshot;
 };
 
 struct ConnectedOutput {

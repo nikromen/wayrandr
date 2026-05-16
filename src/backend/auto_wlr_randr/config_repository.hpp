@@ -4,6 +4,7 @@
 #include <string>
 
 #include "backend/auto_wlr_randr/types.hpp"
+#include "utils/config_file.hpp"
 
 class AutoWlrRandrConfigRepository {
 public:
@@ -13,7 +14,7 @@ public:
 
     [[nodiscard]] auto get_config_path() const -> const std::filesystem::path &;
     [[nodiscard]] auto load() const -> AutoWlrRandrConfig;
-    void save(const AutoWlrRandrConfig & config) const;
+    [[nodiscard]] auto save(const AutoWlrRandrConfig & config) const -> ConfigFileSnapshot;
 
     [[nodiscard]] static auto default_config_path() -> std::filesystem::path;
 

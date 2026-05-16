@@ -5,6 +5,8 @@
 #include <utility>
 #include <vector>
 
+#include "utils/config_file.hpp"
+
 struct KanshiOutputSetting {
     std::string criteria;
     bool multi_output = false;
@@ -30,6 +32,7 @@ struct KanshiConfig {
     std::vector<std::string> preserved_directives;
     std::vector<KanshiOutputSetting> global_outputs;
     std::vector<KanshiProfile> profiles;
+    ConfigFileSnapshot file_snapshot;
 };
 
 struct KanshiConnectedOutputInfo {
