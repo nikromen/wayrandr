@@ -13,6 +13,7 @@ auto to_profile_output(const ProfileOutputSetting & setting) -> profile::Profile
     output.enabled = setting.on;
     output.mode = setting.mode;
     output.preferred = setting.preferred;
+    output.preferred_explicit = setting.preferred_explicit;
     output.pos = setting.pos;
     output.left_of = setting.left_of;
     output.right_of = setting.right_of;
@@ -30,6 +31,7 @@ auto from_profile_output(const profile::ProfileOutputDefinition & output) -> Pro
     setting.on = output.enabled;
     setting.mode = output.mode;
     setting.preferred = output.preferred;
+    setting.preferred_explicit = output.preferred_explicit;
     setting.pos = output.pos;
     setting.left_of = output.left_of;
     setting.right_of = output.right_of;

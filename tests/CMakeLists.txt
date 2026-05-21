@@ -38,6 +38,7 @@ wayrandr_add_cpp_test(integration main_window integration/main_window.cpp)
 wayrandr_add_cpp_test(integration profile_lifecycle integration/profile_lifecycle.cpp)
 wayrandr_add_cpp_test(integration profile_controller integration/profile_controller.cpp)
 wayrandr_add_cpp_test(integration config_storage integration/config_storage.cpp)
+wayrandr_add_cpp_test(integration config_roundtrip integration/config_roundtrip.cpp)
 
 # Explicit compatibility check: real parsers, no compositor or daemon connection.
 add_executable(tst_config_compatibility EXCLUDE_FROM_ALL integration/config_compatibility.cpp)

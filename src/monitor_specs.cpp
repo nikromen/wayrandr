@@ -4,8 +4,12 @@
 
 #include <cstddef>
 #include <cstdio>
+#include <iomanip>
+#include <ios>
+#include <locale>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -177,8 +181,13 @@ auto Mode::operator!=(const Mode & other) const -> bool {
 }
 
 auto Mode::to_string() const -> std::string {
-    return std::to_string(width) + "x" + std::to_string(height) + "@" +
-        std::to_string(refresh_rate) + "Hz";
+    // This string is also written to backend configurations; decimal separators
+    // must not depend on the user's locale.
+    std::ostringstream output;
+    output.imbue(std::locale::classic());
+    output << width << 'x' << height << '@' << std::fixed << std::setprecision(6) << refresh_rate
+           << "Hz";
+    return output.str();
 }
 
 auto Mode::to_wlr_randr_arg() const -> std::string {

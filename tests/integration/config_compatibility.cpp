@@ -11,8 +11,13 @@
 #include <QStandardPaths>
 #include <QString>
 #include <QTest>
+#include <string>
 
+#include "backend/auto_wlr_randr/config_repository.hpp"
+#include "backend/auto_wlr_randr/conversions.hpp"
 #include "backend/kanshi/config_parser.hpp"
+#include "backend/kanshi/config_repository.hpp"
+#include "backend/kanshi/conversions.hpp"
 #include "backend/kanshi/types.hpp"
 #include "models/main_window.hpp"
 #include "models/profile/profile_output_properties.hpp"
@@ -111,6 +116,58 @@ private slots:
         validate(fixture, fixture.dir.filePath("serialized"), 1, true);
     }
 
+    void complex_roundtrip_data() {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<std::string>("content");
+        QTest::newRow("kanshi") << 1 << std::string(R"(include /dev/null
+output "Panel 🖥" {
+    alias $panel
+    disable
+    adaptive_sync on
+}
+# Profile priority and unnamed profile identity must survive saving.
+profile "z first" {
+    ...output $panel {
+        scale 0x1.8p+0
+        transform flipped-270
+    }
+    exec echo 'one'"two" \{ \} '$HOME; $(payload)' # shell comment
+}
+profile {
+    output DP-2 mode --custom 1280x720@75Hz position -10,+20
+}
+)");
+        QTest::newRow("auto-wlr-randr") << 2 << std::string(R"(on_no_match_exec = ["""echo
+second line 🖥"""]
+[profile.z_first]
+exec = ['echo "quotes"', 'echo \\path']
+settings = [{ output = 'DP-1', preferred = false, mode = '1920x1080', right_of = 'HDMI-1', scale = 1 }]
+[profile.a_second]
+settings = [{ output = 'DP-2', on = true, adaptive_sync = false, transform = 'normal' }]
+)");
+    }
+
+    void complex_roundtrip() {
+        QFETCH(int, mode);
+        QFETCH(std::string, content);
+        Fixture fixture;
+        fixture.write("source", content);
+        const auto path = fixture.dir.filePath("source");
+        validate(fixture, path, mode, true);
+        if (mode == 1) {
+            KanshiConfigRepository repository(path.toStdString());
+            const auto loaded = repository.load();
+            const auto document = kanshi_conversions::to_profile_document(loaded);
+            (void)repository.save(kanshi_conversions::from_profile_document(document));
+        } else {
+            AutoWlrRandrConfigRepository repository(path.toStdString());
+            const auto loaded = repository.load();
+            const auto document = auto_wlr_randr_conversions::to_profile_document(loaded);
+            (void)repository.save(auto_wlr_randr_conversions::from_profile_document(document));
+        }
+        validate(fixture, path, mode, true);
+    }
+
     void profile_data() {
         QTest::addColumn<int>("mode");
         QTest::newRow("kanshi") << 1;
@@ -150,12 +207,26 @@ private slots:
         editor->delete_profile("copy");
         QTRY_VERIFY_WITH_TIMEOUT(!window.is_busy(), 20000);
         validate(fixture, path, mode, true);
+        editor->create_profile_from_live("live");
+        QTRY_VERIFY_WITH_TIMEOUT(!window.is_busy(), 20000);
+        auto * live_output =
+            qobject_cast<ProfileOutputProperties *>(editor->get_outputs().value(0));
+        QVERIFY(live_output != nullptr);
+        QCOMPARE(live_output->get_mode(), QStringLiteral("1920x1080@60.000000Hz"));
+        editor->save_profile();
+        QTRY_VERIFY_WITH_TIMEOUT(!window.is_busy(), 20000);
+        QVERIFY2(!editor->is_dirty(), qPrintable(editor->get_save_status_text()));
+        validate(fixture, path, mode, true);
     }
 
     void invalid_auto_config_data() {
         QTest::addColumn<QString>("content");
         QTest::newRow("syntax") << QString("profile broken {");
         QTest::newRow("type") << QString("[profile.bad]\n[[profile.bad.settings]]\noutput = 42\n");
+        QTest::newRow("unknown-root") << QString("future = 1\n[profile.p]\n");
+        QTest::newRow("unknown-output")
+            << QString("[profile.p]\nsettings = [{ output = 'DP-1', future = 1 }]\n");
+        QTest::newRow("missing-profile") << QString("on_no_match_exec = []\n");
     }
 
     void invalid_auto_config() {

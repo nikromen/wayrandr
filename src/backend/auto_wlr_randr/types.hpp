@@ -14,6 +14,7 @@ struct ProfileOutputSetting {
     std::optional<bool> on;
     std::optional<std::string> mode;
     bool preferred = false;
+    bool preferred_explicit = false;
     std::optional<std::string> pos;
     std::optional<std::string> left_of;
     std::optional<std::string> right_of;

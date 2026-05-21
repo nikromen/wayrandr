@@ -27,6 +27,11 @@ class ProfileEditorController : public QObject {
         QString selectedProfileId READ get_selected_profile_id WRITE set_selected_profile_id NOTIFY
             selected_profile_id_changed
     )
+    Q_PROPERTY(
+        bool configurationLoaded READ is_configuration_loaded NOTIFY configuration_loaded_changed
+    )
+    Q_PROPERTY(QString loadError READ get_load_error NOTIFY load_error_changed)
+    Q_PROPERTY(QString configurationNotice READ get_configuration_notice NOTIFY profile_ids_changed)
     Q_PROPERTY(bool isDirty READ is_dirty NOTIFY is_dirty_changed)
     Q_PROPERTY(QString activeProfileId READ get_active_profile_id NOTIFY active_profile_id_changed)
     Q_PROPERTY(bool daemonRunning READ is_daemon_running NOTIFY daemon_status_changed)
@@ -67,6 +72,12 @@ public:
 
     [[nodiscard]] auto get_profile_ids() const -> QStringList;
     [[nodiscard]] auto get_selected_profile_id() const -> QString;
+
+    [[nodiscard]] auto is_configuration_loaded() const -> bool { return configuration_loaded_; }
+
+    [[nodiscard]] auto get_load_error() const -> QString { return load_error_; }
+
+    [[nodiscard]] auto get_configuration_notice() const -> QString;
     [[nodiscard]] auto is_dirty() const -> bool;
     [[nodiscard]] auto get_active_profile_id() const -> QString;
     [[nodiscard]] auto is_daemon_running() const -> bool;
@@ -122,6 +133,8 @@ signals:
     void profile_ids_changed();
     void selected_profile_id_changed();
     void is_dirty_changed();
+    void configuration_loaded_changed();
+    void load_error_changed();
     void active_profile_id_changed();
     void daemon_status_changed();
     void save_status_changed();
@@ -171,4 +184,6 @@ private:
     QStringList connected_outputs_;
     std::vector<profile::ConnectedOutput> connected_output_infos_;
     bool dirty_ = false;
+    bool configuration_loaded_ = false;
+    QString load_error_;
 };

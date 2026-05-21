@@ -91,5 +91,6 @@ void KanshiConfigRepository::duplicate_profile(
 
     KanshiProfile copy = *it;
     copy.id = new_id;
+    copy.anonymous = false;
     add_profile(config, std::move(copy));
 }

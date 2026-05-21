@@ -35,10 +35,7 @@ void ProfileOutputProperties::load_from_output(const profile::ProfileOutputDefin
 }
 
 auto ProfileOutputProperties::to_output() const -> profile::ProfileOutputDefinition {
-    profile::ProfileOutputDefinition output = output_;
-    output.enabled = enabled_;
-    output.adaptive_sync = adaptive_sync_;
-    return output;
+    return output_;
 }
 
 void ProfileOutputProperties::refresh_match_preview() {
@@ -64,6 +61,7 @@ void ProfileOutputProperties::set_enabled(bool enabled) {
     }
 
     enabled_ = enabled;
+    output_.enabled = enabled;
     emit enabled_changed();
     notify_layout_changed();
     mark_dirty();
@@ -135,6 +133,7 @@ void ProfileOutputProperties::set_adaptive_sync(bool adaptive_sync) {
     }
 
     adaptive_sync_ = adaptive_sync;
+    output_.adaptive_sync = adaptive_sync;
     emit adaptive_sync_changed();
     mark_dirty();
 }
@@ -185,6 +184,7 @@ void ProfileOutputProperties::set_preferred(bool preferred) {
         return;
     }
     output_.preferred = preferred;
+    output_.preferred_explicit = true;
     emit preferred_changed();
     mark_dirty();
 }

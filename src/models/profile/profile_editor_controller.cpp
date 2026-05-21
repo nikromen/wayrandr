@@ -40,13 +40,31 @@ ProfileEditorController::ProfileEditorController(BackendManager * backend_manage
     try {
         working_config_ = profile_backend().load_config();
         saved_config_ = working_config_;
+        configuration_loaded_ = true;
         if (!working_config_.profiles.empty()) {
             selected_profile_id_ = QString::fromStdString(working_config_.profiles.front().id);
             rebuild_outputs_from_profile(working_config_.profiles.front());
         }
     } catch (const std::exception & e) {
         spdlog::warn("Failed to load profile config: {}", e.what());
+        load_error_ = QStringLiteral("Configuration could not be loaded: %1. Saving is disabled.")
+                          .arg(QString::fromStdString(e.what()));
     }
+}
+
+auto ProfileEditorController::get_configuration_notice() const -> QString {
+    QString notice = QStringLiteral("Saving rewrites formatting and removes comments.");
+    if (!working_config_.includes.empty()) {
+        notice += QStringLiteral(
+            " Only the main configuration file is edited; include directives "
+            "are kept, but included files are not loaded or edited."
+        );
+    }
+    if (!working_config_.global_outputs.empty()) {
+        notice +=
+            QStringLiteral(" Global output defaults are preserved; controls show local overrides.");
+    }
+    return notice;
 }
 
 auto ProfileEditorController::get_profile_ids() const -> QStringList {
@@ -266,6 +284,10 @@ void ProfileEditorController::report_process_error(const std::string & error) {
 }
 
 void ProfileEditorController::save_profile() {
+    if (!configuration_loaded_) {
+        report_save_error("Configuration has not been loaded successfully; retry loading first");
+        return;
+    }
     if (selected_profile_id_.isEmpty() || backend_manager_->is_operation_busy() ||
         backend_manager_->has_pending_changes()) {
         return;
@@ -315,11 +337,19 @@ void ProfileEditorController::reload_config_from_disk() {
     try {
         saved_config_ = profile_backend().load_config();
         working_config_ = saved_config_;
-        if (!selected_profile_id_.isEmpty()) {
+        configuration_loaded_ = true;
+        load_error_.clear();
+        emit configuration_loaded_changed();
+        emit load_error_changed();
+        if (!selected_profile_id_.isEmpty() && profile_exists(selected_profile_id_)) {
             reload_current_profile_into_editor();
         } else if (!working_config_.profiles.empty()) {
             selected_profile_id_ = QString::fromStdString(working_config_.profiles.front().id);
             rebuild_outputs_from_profile(working_config_.profiles.front());
+            emit selected_profile_id_changed();
+        } else {
+            selected_profile_id_.clear();
+            clear_outputs();
             emit selected_profile_id_changed();
         }
         set_dirty(false);
@@ -327,12 +357,25 @@ void ProfileEditorController::reload_config_from_disk() {
         emit on_no_match_exec_commands_changed();
         update_match_warning();
     } catch (const std::exception & e) {
-        daemon_status_text_ = QString::fromStdString(std::string("Reload failed: ") + e.what());
+        load_error_ = QString::fromStdString(std::string("Reload failed: ") + e.what());
+        daemon_status_text_ = load_error_;
+        emit load_error_changed();
         emit daemon_status_changed();
     }
 }
 
 void ProfileEditorController::on_profile_backend_changed() {
+    // A failed backend load must not leave another backend's document editable.
+    configuration_loaded_ = false;
+    working_config_ = {};
+    saved_config_ = {};
+    selected_profile_id_.clear();
+    clear_outputs();
+    set_dirty(false);
+    emit configuration_loaded_changed();
+    emit selected_profile_id_changed();
+    emit profile_ids_changed();
+    emit on_no_match_exec_commands_changed();
     save_status_text_.clear();
     emit save_status_changed();
     emit capabilities_changed();
@@ -407,6 +450,10 @@ void ProfileEditorController::duplicate_profile(const QString & source_id, const
 }
 
 void ProfileEditorController::delete_profile(const QString & profile_id) {
+    if (!configuration_loaded_) {
+        report_save_error("Configuration has not been loaded successfully; retry loading first");
+        return;
+    }
     if (profile_id.isEmpty() || backend_manager_->is_operation_busy() ||
         backend_manager_->has_pending_changes()) {
         return;
@@ -621,6 +668,7 @@ void ProfileEditorController::mark_dirty() {
     profile::ProfileDefinition * existing_profile = find_profile(selected_profile_id_);
     if (existing_profile != nullptr) {
         updated_profile.exec = existing_profile->exec;
+        updated_profile.anonymous = existing_profile->anonymous;
         *existing_profile = std::move(updated_profile);
     } else {
         working_config_.profiles.push_back(std::move(updated_profile));

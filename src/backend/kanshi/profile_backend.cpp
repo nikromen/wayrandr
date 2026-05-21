@@ -38,11 +38,7 @@ auto KanshiProfileBackend::load_config() const -> profile::ProfileDocument {
 auto KanshiProfileBackend::save_config(const profile::ProfileDocument & config) const
     -> ProfileSaveResult {
     KanshiConfig native_config = kanshi_conversions::from_profile_document(config);
-    const KanshiConfig existing = repository_.load();
     native_config.path = repository_.get_config_path().string();
-    native_config.includes = existing.includes;
-    native_config.preserved_directives = existing.preserved_directives;
-    native_config.global_outputs = existing.global_outputs;
     ProfileSaveResult result;
     result.file_snapshot = repository_.save(native_config);
     try {

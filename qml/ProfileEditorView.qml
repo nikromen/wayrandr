@@ -58,7 +58,9 @@ Item {
 
         onAccepted: {
             profileEditor.discard_changes()
-            if (pendingAction === 2) {
+            if (pendingAction === 1) {
+                profileEditor.reload_config_from_disk()
+            } else if (pendingAction === 2) {
                 profileEditor.select_profile(pendingProfileId, true)
             }
             pendingAction = 0
@@ -82,6 +84,36 @@ Item {
             Layout.minimumWidth: 360
             Layout.preferredWidth: 420
             Layout.minimumHeight: 0
+
+            Label {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                visible: profileEditor.loadError.length > 0
+                text: profileEditor.loadError
+                wrapMode: Text.WordWrap
+                color: palette.highlight
+            }
+
+            Button {
+                visible: !profileEditor.configurationLoaded
+                text: qsTr("Retry loading configuration")
+                onClicked: {
+                    if (profileEditor.isDirty) {
+                        discardDialog.pendingAction = 1
+                        discardDialog.open()
+                    } else {
+                        profileEditor.reload_config_from_disk()
+                    }
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                text: profileEditor.configurationNotice
+                wrapMode: Text.WordWrap
+                color: palette.placeholderText
+            }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -141,7 +173,7 @@ Item {
 
                 Button {
                     text: qsTr("Delete")
-                    enabled: profileEditor.selectedProfileId.length > 0
+                    enabled: profileEditor.selectedProfileId.length > 0 && profileEditor.configurationLoaded
                     onClicked: profileEditor.delete_profile(profileEditor.selectedProfileId)
                 }
             }
@@ -261,7 +293,7 @@ Item {
                 Button {
                     text: qsTr("Save")
                     highlighted: true
-                    enabled: profileEditor.isDirty
+                    enabled: profileEditor.isDirty && profileEditor.configurationLoaded
                     onClicked: profileEditor.save_profile()
                 }
 
