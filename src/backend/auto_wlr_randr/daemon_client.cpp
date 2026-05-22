@@ -45,12 +45,8 @@ auto AutoWlrRandrDaemonClient::status() -> DaemonStatus {
     try {
         const std::string output = run_command("auto-wlr-randrctl", { "status" });
         const auto json = nlohmann::json::parse(output);
-        result.active_profile = json.value("active_profile", "None");
-        if (json.contains("connected_outputs") && json["connected_outputs"].is_array()) {
-            for (const auto & connected_output : json["connected_outputs"]) {
-                result.connected_outputs.push_back(connected_output.get<std::string>());
-            }
-        }
+        result.active_profile = json.at("active_profile").get<std::string>();
+        result.connected_outputs = json.at("connected_outputs").get<std::vector<std::string>>();
     } catch (const std::exception & e) {
         throw std::runtime_error(std::string("Daemon status failed: ") + e.what());
     }
