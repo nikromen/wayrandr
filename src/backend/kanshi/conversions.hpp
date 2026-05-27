@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vector>
 
 #include "backend/kanshi/types.hpp"
 #include "backend/profile/types.hpp"
@@ -20,17 +19,7 @@ namespace kanshi_conversions {
 [[nodiscard]] auto to_profile_document(const KanshiConfig & config) -> profile::ProfileDocument;
 [[nodiscard]] auto from_profile_document(const profile::ProfileDocument & document) -> KanshiConfig;
 
-[[nodiscard]] auto to_connected_output(const KanshiConnectedOutputInfo & output)
-    -> profile::ConnectedOutput;
-[[nodiscard]] auto from_connected_output(const profile::ConnectedOutput & output)
-    -> KanshiConnectedOutputInfo;
-
 [[nodiscard]] auto to_service_status(const KanshiDaemonStatus & status)
     -> profile::ProfileServiceStatus;
-
-[[nodiscard]] auto to_connected_outputs(const std::vector<KanshiConnectedOutputInfo> & outputs)
-    -> std::vector<profile::ConnectedOutput>;
-[[nodiscard]] auto from_connected_outputs(const std::vector<profile::ConnectedOutput> & outputs)
-    -> std::vector<KanshiConnectedOutputInfo>;
 
 }  // namespace kanshi_conversions

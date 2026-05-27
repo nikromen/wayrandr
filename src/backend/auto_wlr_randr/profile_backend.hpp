@@ -18,20 +18,6 @@ public:
     [[nodiscard]] auto save_config(const profile::ProfileDocument & config) const
         -> ProfileSaveResult override;
 
-    void add_profile(
-        profile::ProfileDocument & config, profile::ProfileDefinition profile
-    ) const override;
-    void delete_profile(
-        profile::ProfileDocument & config, const std::string & profile_id
-    ) const override;
-    void duplicate_profile(
-        profile::ProfileDocument & config, const std::string & source_id, const std::string & new_id
-    ) const override;
-
-    [[nodiscard]] auto create_profile_from_live(const std::string & profile_id) const
-        -> profile::ProfileDefinition override;
-    [[nodiscard]] auto get_connected_outputs() const
-        -> std::vector<profile::ConnectedOutput> override;
     [[nodiscard]] auto get_match_warning(
         const profile::ProfileDefinition & profile,
         const std::vector<profile::ConnectedOutput> & connected_outputs

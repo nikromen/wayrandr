@@ -36,16 +36,6 @@ struct KanshiConfig {
     ConfigFileSnapshot file_snapshot;
 };
 
-struct KanshiConnectedOutputInfo {
-    std::string name;
-    std::optional<std::string> make;
-    std::optional<std::string> model;
-    std::optional<std::string> serial;
-
-    [[nodiscard]] auto build_identifier() const -> std::optional<std::string>;
-    [[nodiscard]] auto display_label() const -> std::string;
-};
-
 struct KanshiDaemonStatus {
     bool daemon_running = false;
     std::string active_profile;

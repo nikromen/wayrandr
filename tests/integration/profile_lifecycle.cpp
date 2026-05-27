@@ -9,11 +9,16 @@
 #include <QTest>
 #include <cstddef>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "backend/auto_wlr_randr/config_repository.hpp"
+#include "backend/auto_wlr_randr/profile_backend.hpp"
 #include "backend/kanshi/config_repository.hpp"
+#include "backend/kanshi/profile_backend.hpp"
+#include "backend/profile/editor_backend.hpp"
+#include "backend/profile/types.hpp"
 #include "models/main_window.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "support/fixture.hpp"
@@ -44,6 +49,62 @@ private slots:
         QTest::addColumn<int>("mode");
         QTest::newRow("kanshi") << 1;
         QTest::newRow("auto-wlr-randr") << 2;
+    }
+
+    void document_operations_data() { lifecycle_data(); }
+
+    void document_operations() {
+        QFETCH(int, mode);
+        Fixture f;
+        f.profiles();
+        const KanshiProfileBackend kanshi;
+        const AutoWlrRandrProfileBackend auto_wlr;
+        const ProfileEditorBackend * backend = &auto_wlr;
+        if (mode == 1) {
+            backend = &kanshi;
+        }
+        auto document = backend->load_config();
+        const auto original = document;
+        auto replacement = document.profiles[0];
+        replacement.exec = { "echo preserved" };
+        replacement.anonymous = true;
+        replacement.outputs[0].scale = 1.5F;
+        backend->add_profile(document, replacement);
+        QCOMPARE(document.profiles.size(), size_t(2));
+        QCOMPARE(document.profiles[0].id, std::string("desk"));
+        QCOMPARE(document.profiles[0].exec, replacement.exec);
+        QCOMPARE(document.profiles[1].id, original.profiles[1].id);
+        QVERIFY(document.profiles[1].outputs[0].enabled == false);
+        backend->duplicate_profile(document, "desk", "copy");
+        QCOMPARE(document.profiles.size(), size_t(3));
+        QCOMPARE(document.profiles[2].id, std::string("copy"));
+        QVERIFY(!document.profiles[2].anonymous);
+        QCOMPARE(document.profiles[2].exec, replacement.exec);
+        QVERIFY(document.profiles[2].outputs[0].scale == 1.5F);
+        backend->duplicate_profile(document, "desk", "spare");
+        QCOMPARE(document.profiles.size(), size_t(3));
+        QCOMPARE(document.profiles[1].id, std::string("spare"));
+        QCOMPARE(document.profiles[1].exec, replacement.exec);
+        QVERIFY(!document.profiles[1].anonymous);
+        QVERIFY_THROWS_EXCEPTION(
+            std::invalid_argument, backend->duplicate_profile(document, "missing", "new")
+        );
+        backend->delete_profile(document, "missing");
+        QCOMPARE(document.profiles.size(), size_t(3));
+        backend->delete_profile(document, "spare");
+        QCOMPARE(document.profiles.size(), size_t(2));
+        QCOMPARE(document.profiles[1].id, std::string("copy"));
+        QCOMPARE(document.path, original.path);
+        QCOMPARE(document.includes, original.includes);
+        QCOMPARE(document.on_no_match_exec, original.on_no_match_exec);
+        QCOMPARE(document.global_outputs.size(), original.global_outputs.size());
+        if (!original.global_outputs.empty()) {
+            QCOMPARE(document.global_outputs[1].output, original.global_outputs[1].output);
+            QVERIFY(document.global_outputs[1].alias == original.global_outputs[1].alias);
+        }
+        QCOMPARE(document.file_snapshot.target, original.file_snapshot.target);
+        QVERIFY(document.file_snapshot.content == original.file_snapshot.content);
+        QCOMPARE(document.file_snapshot.identity, original.file_snapshot.identity);
     }
 
     void lifecycle() {

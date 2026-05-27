@@ -7,14 +7,6 @@
 #include "backend/kanshi/conversions.hpp"
 #include "backend/profile/layout_utils.hpp"
 
-auto KanshiConnectedOutputInfo::build_identifier() const -> std::optional<std::string> {
-    return kanshi_conversions::to_connected_output(*this).build_identifier();
-}
-
-auto KanshiConnectedOutputInfo::display_label() const -> std::string {
-    return kanshi_conversions::to_connected_output(*this).display_label();
-}
-
 namespace kanshi_profile_mode_utils {
 
 auto parse_mode_string(const std::string & mode) -> std::optional<std::pair<int, int>> {

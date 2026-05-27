@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "backend/profile/types.hpp"
+#include "monitor_specs.hpp"
 #include "utils/config_file.hpp"
 
 struct ProfileSaveResult {
@@ -23,20 +24,16 @@ public:
     [[nodiscard]] virtual auto save_config(const profile::ProfileDocument & config) const
         -> ProfileSaveResult = 0;
 
-    virtual void add_profile(
-        profile::ProfileDocument & config, profile::ProfileDefinition profile
-    ) const = 0;
-    virtual void delete_profile(
-        profile::ProfileDocument & config, const std::string & profile_id
-    ) const = 0;
-    virtual void duplicate_profile(
+    void add_profile(profile::ProfileDocument & config, profile::ProfileDefinition profile) const;
+    void delete_profile(profile::ProfileDocument & config, const std::string & profile_id) const;
+    void duplicate_profile(
         profile::ProfileDocument & config, const std::string & source_id, const std::string & new_id
-    ) const = 0;
+    ) const;
 
-    [[nodiscard]] virtual auto create_profile_from_live(const std::string & profile_id) const
-        -> profile::ProfileDefinition = 0;
-    [[nodiscard]] virtual auto get_connected_outputs() const
-        -> std::vector<profile::ConnectedOutput> = 0;
+    [[nodiscard]] auto create_profile_from_live(const std::string & profile_id) const
+        -> profile::ProfileDefinition;
+    [[nodiscard]] auto get_connected_outputs(const std::vector<MonitorSpecs> & monitors) const
+        -> std::vector<profile::ConnectedOutput>;
     [[nodiscard]] virtual auto get_match_warning(
         const profile::ProfileDefinition & profile,
         const std::vector<profile::ConnectedOutput> & connected_outputs

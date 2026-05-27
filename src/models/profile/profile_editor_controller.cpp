@@ -17,9 +17,8 @@
 #include <vector>
 
 #include "backend.hpp"
-#include "backend/auto_wlr_randr/pattern_matcher.hpp"
-#include "backend/auto_wlr_randr/types.hpp"
 #include "backend/profile/editor_backend.hpp"
+#include "backend/profile/matching.hpp"
 #include "backend/profile/types.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "monitor_specs.hpp"
@@ -601,8 +600,8 @@ void ProfileEditorController::refresh_daemon_status() {
 void ProfileEditorController::refresh_connected_outputs() {
     auto * backend = &profile_backend();
     submit([this, backend] {
-        auto outputs = backend->get_connected_outputs();
         auto monitors = get_monitor_specs_list();
+        auto outputs = backend->get_connected_outputs(monitors);
         return [this, outputs = std::move(outputs), monitors = std::move(monitors)]() mutable {
             connected_output_infos_ = outputs;
             live_monitors_ = std::move(monitors);
@@ -624,13 +623,11 @@ void ProfileEditorController::refresh_connected_outputs() {
 auto ProfileEditorController::get_live_position_for_output(const QString & output_pattern) const
     -> QPoint {
     // QML property reads use the last completed snapshot, never spawn a process.
-    std::vector<ConnectedOutputInfo> connected;
-    connected.reserve(connected_output_infos_.size());
-    for (const auto & output : connected_output_infos_) {
-        connected.push_back({ output.name, output.make, output.model, output.serial });
-    }
-    const auto matched =
-        AutoWlrRandrPatternMatcher::find_matching_output(output_pattern.toStdString(), connected);
+    const auto matched = profile::matching::find_matching_output(
+        output_pattern.toStdString(),
+        connected_output_infos_,
+        profile::matching::InvalidGlobBehavior::NO_MATCH
+    );
     if (!matched) {
         return { 0, 0 };
     }

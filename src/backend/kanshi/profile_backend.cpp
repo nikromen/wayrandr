@@ -8,10 +8,9 @@
 
 #include "backend/kanshi/conversions.hpp"
 #include "backend/kanshi/daemon_client.hpp"
-#include "backend/kanshi/pattern_matcher.hpp"
-#include "backend/kanshi/snapshot.hpp"
 #include "backend/kanshi/types.hpp"
 #include "backend/profile/editor_backend.hpp"
+#include "backend/profile/matching.hpp"
 #include "backend/profile/types.hpp"
 
 KanshiProfileBackend::KanshiProfileBackend() {
@@ -52,50 +51,12 @@ auto KanshiProfileBackend::save_config(const profile::ProfileDocument & config) 
     return result;
 }
 
-void KanshiProfileBackend::add_profile(
-    profile::ProfileDocument & config, profile::ProfileDefinition profile
-) const {
-    KanshiConfig native_config = kanshi_conversions::from_profile_document(config);
-    KanshiConfigRepository::add_profile(
-        native_config, kanshi_conversions::from_profile_definition(profile)
-    );
-    config = kanshi_conversions::to_profile_document(native_config);
-}
-
-void KanshiProfileBackend::delete_profile(
-    profile::ProfileDocument & config, const std::string & profile_id
-) const {
-    KanshiConfig native_config = kanshi_conversions::from_profile_document(config);
-    KanshiConfigRepository::delete_profile(native_config, profile_id);
-    config = kanshi_conversions::to_profile_document(native_config);
-}
-
-void KanshiProfileBackend::duplicate_profile(
-    profile::ProfileDocument & config, const std::string & source_id, const std::string & new_id
-) const {
-    KanshiConfig native_config = kanshi_conversions::from_profile_document(config);
-    KanshiConfigRepository::duplicate_profile(native_config, source_id, new_id);
-    config = kanshi_conversions::to_profile_document(native_config);
-}
-
-auto KanshiProfileBackend::create_profile_from_live(const std::string & profile_id) const
-    -> profile::ProfileDefinition {
-    return kanshi_conversions::to_profile_definition(
-        kanshi_snapshot::create_profile_from_live_state(profile_id)
-    );
-}
-
-auto KanshiProfileBackend::get_connected_outputs() const -> std::vector<profile::ConnectedOutput> {
-    return kanshi_conversions::to_connected_outputs(KanshiPatternMatcher::get_connected_outputs());
-}
-
 auto KanshiProfileBackend::get_match_warning(
     const profile::ProfileDefinition & profile,
     const std::vector<profile::ConnectedOutput> & connected_outputs
 ) const -> std::string {
-    return KanshiPatternMatcher::get_match_warning(
-        kanshi_conversions::from_profile_definition(profile),
-        kanshi_conversions::from_connected_outputs(connected_outputs)
+    return profile::matching::get_match_warning(
+        profile, connected_outputs, profile::matching::InvalidGlobBehavior::LITERAL_NAME
     );
 }
 
@@ -103,9 +64,9 @@ auto KanshiProfileBackend::describe_output_match(
     const std::string & output_selector,
     const std::vector<profile::ConnectedOutput> & connected_outputs
 ) const -> std::string {
-    const auto native_outputs = kanshi_conversions::from_connected_outputs(connected_outputs);
-    if (const auto matched =
-            KanshiPatternMatcher::find_matching_output(output_selector, native_outputs)) {
+    if (const auto matched = profile::matching::find_matching_output(
+            output_selector, connected_outputs, profile::matching::InvalidGlobBehavior::LITERAL_NAME
+        )) {
         return "Matches " + matched->display_label();
     }
     return "No connected output matches this pattern";
