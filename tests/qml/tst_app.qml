@@ -118,6 +118,64 @@ TestCase {
         }
     }
 
+    function test_refreshed_modes_data() {
+        return [{tag: "changed", empty: false}, {tag: "empty", empty: true},
+                {tag: "disabled", disabled: true},
+                {tag: "disconnected", disconnected: true}]
+    }
+
+    function test_refreshed_modes(data) {
+        const monitor = harness.controller.monitors[0]
+        if (data.disabled) {
+            monitor.scale = 1.5
+        }
+        click(control("applyButton"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        verify(harness.controller.confirmationPending)
+        const combo = control("resolutionCombo")
+        compare(combo.count, 1)
+        if (data.disconnected) {
+            harness.disconnect_output()
+        } else {
+            harness.change_modes(!!data.empty, !!data.disabled)
+        }
+        click(control("confirmButton"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        compare(harness.controller.monitors[0], monitor)
+        if (data.disconnected) {
+            verify(!monitor.enabled)
+            verify(!monitor.hasSettings)
+            compare(monitor.resolutionWidth, 0)
+            compare(monitor.resolutionHeight, 0)
+            compare(monitor.activeResolutionIndex, 0)
+            verify(!combo.visible)
+            compare(combo.currentIndex, -1)
+        } else if (data.disabled) {
+            verify(!monitor.hasSettings)
+            monitor.enabled = true
+            compare(monitor.activeResolutionIndex, 1)
+            compare(monitor.resolutionWidth, 1920)
+            compare(combo.currentIndex, 1)
+            compare(monitor.scale, 1.5)
+        } else if (data.empty) {
+            compare(monitor.resolutions.length, 0)
+            compare(combo.count, 0)
+            compare(combo.currentIndex, -1)
+            compare(monitor.resolutionWidth, 0)
+        } else {
+            compare(monitor.resolutions.length, 2)
+            compare(combo.count, 2)
+            compare(combo.currentIndex, 1)
+            compare(monitor.activeResolutionIndex, 1)
+            compare(monitor.resolutionWidth, 2560)
+            compare(combo.currentText, monitor.resolutions[1])
+            combo.forceActiveFocus()
+            keyClick(Qt.Key_Home)
+            compare(monitor.activeResolutionIndex, 0)
+            compare(monitor.resolutionWidth, 1280)
+        }
+    }
+
     function test_unsaved_profile_data() {
         return [{tag: "kanshi", button: "kanshiBackend", mode: 1},
                 {tag: "auto", button: "autoBackend", mode: 2}]

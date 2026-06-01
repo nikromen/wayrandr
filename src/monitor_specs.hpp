@@ -128,7 +128,7 @@ private:
     const std::string description;
     const PhysicalSize physical_size;
     bool enabled;
-    const std::vector<Mode> modes;
+    std::vector<Mode> modes;
     std::optional<EnabledMonitorSettings> enabled_monitor_settings;
 };
 

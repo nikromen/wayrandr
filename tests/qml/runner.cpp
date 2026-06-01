@@ -71,6 +71,31 @@ public:
 
     Q_INVOKABLE void fail_restore() { fixture_->write("failures", "1"); }
 
+    Q_INVOKABLE void disconnect_output() { fixture_->write("state", "[]"); }
+
+    Q_INVOKABLE void change_modes(bool empty, bool disabled) {
+        auto state = fixture_->state();
+        auto mode = state[0]["modes"][0];
+        state[0]["enabled"] = !disabled;
+        state[0]["modes"] = json::array();
+        if (!empty) {
+            mode["width"] = 1280;
+            mode["height"] = 720;
+            mode["current"] = false;
+            state[0]["modes"].push_back(mode);
+            if (disabled) {
+                mode["width"] = 1920;
+                mode["height"] = 1080;
+            } else {
+                mode["width"] = 2560;
+                mode["height"] = 1440;
+            }
+            mode["current"] = true;
+            state[0]["modes"].push_back(mode);
+        }
+        fixture_->write("state", state.dump());
+    }
+
     Q_INVOKABLE [[nodiscard]] double scale() const {
         return fixture_->state()[0]["scale"].get<double>();
     }

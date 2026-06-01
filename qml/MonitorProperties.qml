@@ -51,10 +51,18 @@ ScrollView {
                     Layout.fillWidth: true
                     ComboBox {
                         id: resolutionCombo
+                        objectName: "resolutionCombo"
                         Layout.fillWidth: true
                         model: monitor.resolutions
-                        currentIndex: monitor.activeResolutionIndex
-                        onCurrentIndexChanged: monitor.activeResolutionIndex = currentIndex
+                        currentIndex: {
+                            if (!monitor.hasSettings || count === 0) {
+                                return -1
+                            }
+                            return monitor.activeResolutionIndex
+                        }
+                        onActivated: function(index) {
+                            monitor.activeResolutionIndex = index
+                        }
                     }
                     Button {
                         id: preferredModeButton

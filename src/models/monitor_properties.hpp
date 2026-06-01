@@ -17,7 +17,7 @@ class MonitorProperties : public QObject {
     Q_PROPERTY(bool hasSettings READ has_settings NOTIFY enabled_changed)
     Q_PROPERTY(QString name READ get_name CONSTANT)
     Q_PROPERTY(QString description READ get_description CONSTANT)
-    Q_PROPERTY(QStringList resolutions READ get_resolutions CONSTANT)  // modes
+    Q_PROPERTY(QStringList resolutions READ get_resolutions NOTIFY resolutions_changed)
 
     // Settings properties - only valid when hasSettings is true
     Q_PROPERTY(
@@ -85,6 +85,7 @@ public:
     void notify_all_changed();
 
 signals:
+    void resolutions_changed();
     void enabled_changed();
     void adaptive_sync_changed();
     void active_resolution_index_changed();

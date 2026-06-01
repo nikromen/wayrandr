@@ -312,6 +312,7 @@ void MonitorProperties::activate_preferred_mode() {
 }
 
 void MonitorProperties::notify_all_changed() {
+    emit resolutions_changed();
     emit enabled_changed();
     emit adaptive_sync_changed();
     emit active_resolution_index_changed();
