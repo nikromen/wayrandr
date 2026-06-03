@@ -65,6 +65,32 @@ private slots:
         }
     }
 
+    void auto_wlr_ordered_assignment() {
+        const AutoWlrRandrProfileBackend backend;
+        profile::ProfileDefinition profile;
+        profile::ProfileOutputDefinition wildcard;
+        wildcard.output = "DP-*";
+        wildcard.enabled = false;
+        profile::ProfileOutputDefinition exact;
+        exact.output = "DP-1";
+        profile.outputs = { wildcard, exact };
+        std::vector<profile::ConnectedOutput> outputs = {
+            { "DP-1", std::nullopt, std::nullopt, std::nullopt },
+            { "DP-2", std::nullopt, std::nullopt, std::nullopt }
+        };
+
+        // auto-wlr-randr 1.2.0 consumes DP-1 for DP-* and cannot reuse it for DP-1.
+        QCOMPARE(
+            backend.get_match_warning(profile, outputs),
+            std::string("Profile patterns do not match the currently connected outputs.")
+        );
+        std::reverse(outputs.begin(), outputs.end());
+        QVERIFY(backend.get_match_warning(profile, outputs).empty());
+        std::reverse(outputs.begin(), outputs.end());
+        std::reverse(profile.outputs.begin(), profile.outputs.end());
+        QVERIFY(backend.get_match_warning(profile, outputs).empty());
+    }
+
     void invalid_glob() {
         const KanshiProfileBackend kanshi;
         const AutoWlrRandrProfileBackend auto_wlr;
