@@ -75,6 +75,38 @@ TestCase {
         return [{tag: "confirm"}, {tag: "cancel"}, {tag: "retry"}, {tag: "close"}]
     }
 
+    function test_position_coordinates_data() {
+        return [{tag: "wlr", button: "wlrBackend", mode: 0},
+                {tag: "kanshi", button: "kanshiBackend", mode: 1},
+                {tag: "auto", button: "autoBackend", mode: 2}]
+    }
+
+    function test_position_coordinates(data) {
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        let output = harness.controller.monitors[0]
+        if (data.mode !== 0) {
+            verify(harness.controller.profileEditor.select_profile("desk"))
+            output = harness.controller.profileEditor.outputs[0]
+        }
+        const xSpin = control("positionXSpinBox")
+        const ySpin = control("positionYSpinBox")
+        for (const position of [{x: 80, y: 50}, {x: -1920, y: -1080},
+                                {x: 1000001, y: 1000002}]) {
+            output.positionX = position.x
+            output.positionY = position.y
+            compare(output.positionX, position.x)
+            compare(output.positionY, position.y)
+            compare(xSpin.value, position.x)
+            compare(ySpin.value, position.y)
+        }
+        output.positionX = -1920
+        xSpin.forceActiveFocus()
+        keyClick(Qt.Key_Up)
+        compare(output.positionX, -1919)
+        compare(output.positionY, 1000002)
+    }
+
     function test_apply(data) {
         editScale()
         compare(harness.controller.monitors[0].scale.toFixed(1), "1.1")
