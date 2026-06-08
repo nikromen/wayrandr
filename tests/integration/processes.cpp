@@ -5,10 +5,14 @@
 #include <signal.h>  // NOLINT: POSIX kill() requires this C header.
 
 #include <QFile>
+#include <QScopeGuard>
+#include <QSemaphore>
 #include <QSignalSpy>
 #include <QTest>
 #include <QTimer>
+#include <atomic>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -127,6 +131,32 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(order->size() == 3, 10000);
         QVERIFY2(!*delivered && *order == std::vector<int>({ 0, 1, 2 }), "Lifetime/FIFO failure");
         QVERIFY2(error->empty(), error->c_str());
+    }
+
+    void failure_after_receiver_destruction() {
+        Environment env;
+        auto receiver = std::make_unique<QObject>();
+        auto started = std::make_shared<std::atomic_bool>(false);
+        auto result = std::make_shared<JobResult>();
+        auto released = std::make_shared<QSemaphore>();
+        // Unblock before Environment drains jobs, including after an early assertion return.
+        const auto release_on_exit = qScopeGuard([released] { released->release(); });
+        run_job(
+            receiver.get(),
+            [started, released]() -> Completion {
+                *started = true;
+                released->acquire();
+                throw std::runtime_error("Failure after receiver destruction");
+            },
+            [result](const std::string & error) { result->error = error; },
+            [result] { result->done = true; }
+        );
+        QTRY_VERIFY_WITH_TIMEOUT(started->load(), 10000);
+        receiver.reset();
+        released->release();
+        drain_jobs();
+        QVERIFY2(result->done, "Shared cleanup must run after the worker fails");
+        QVERIFY2(result->error.empty(), "Failure callback reached a destroyed receiver");
     }
 
     void literal_arguments() {
