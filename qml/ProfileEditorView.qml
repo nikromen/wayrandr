@@ -122,6 +122,7 @@ Item {
 
                 ComboBox {
                     id: profileCombo
+                    objectName: "profileCombo"
                     Layout.fillWidth: true
                     model: profileEditor.profileIds
 

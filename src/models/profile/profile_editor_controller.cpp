@@ -224,6 +224,9 @@ auto ProfileEditorController::select_profile(const QString & profile_id, bool fo
     if (profile == nullptr) {
         return false;
     }
+    if (profile_id == selected_profile_id_) {
+        return true;
+    }
 
     selected_profile_id_ = profile_id;
     rebuild_outputs_from_profile(*profile);

@@ -220,6 +220,7 @@ TestCase {
         const editor = harness.controller.profileEditor
         verify(editor.select_profile("desk"))
         // Both profile views exist; choose the visible scale editor.
+        verify(!editor.isDirty)
         const spins = []
         function collect(item) {
             if (item.objectName === "scaleSpinBox" && item.visible) {
@@ -237,6 +238,15 @@ TestCase {
         wait(50)
         spins[0].forceActiveFocus()
         keyClick(Qt.Key_Up)
+        verify(editor.isDirty)
+        compare(editor.outputs[0].scale.toFixed(1), "1.1")
+        const profileCombo = control("profileCombo")
+        profileCombo.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        tryCompare(profileCombo.popup, "visible", true)
+        keyClick(Qt.Key_Return)
+        tryCompare(profileCombo.popup, "visible", false)
+        compare(editor.selectedProfileId, "desk")
         verify(editor.isDirty)
         compare(editor.outputs[0].scale.toFixed(1), "1.1")
         click(control("wlrBackend"))
