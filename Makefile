@@ -219,7 +219,6 @@ container-pre-commit:
 		-v "$(CONTAINER_PRE_COMMIT_VOLUME):/root/.cache/pre-commit:z" \
 		-e PRE_COMMIT_HOME=/root/.cache/pre-commit \
 		-e PRE_COMMIT_FILES="$(PRE_COMMIT_FILES)" \
-		--network host \
 		"$(CONTAINER_IMAGE)" make pre-commit
 
 # Independent configurations share the container volume, never a CMake cache.
