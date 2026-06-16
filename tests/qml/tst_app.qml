@@ -123,7 +123,7 @@ TestCase {
             appWindow.close()
         } else {
             if (data.tag === "retry") {
-                harness.fail_restore()
+                harness.fail_restore("<b>restore failure</b>")
             }
             click(control("cancelButton"))
             if (data.tag === "retry") {
@@ -132,7 +132,8 @@ TestCase {
                 verify(!control("confirmButton").enabled)
                 compare(control("cancelButton").text, "Retry restore")
                 verify(control("applyError").visible)
-                verify(control("applyError").text.length > 0)
+                verify(control("applyError").text.includes("<b>restore failure</b>"))
+                compare(control("applyError").textFormat, Text.PlainText)
                 click(control("cancelButton"))
             }
         }
