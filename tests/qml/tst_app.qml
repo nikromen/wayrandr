@@ -75,6 +75,46 @@ TestCase {
         return [{tag: "confirm"}, {tag: "cancel"}, {tag: "retry"}, {tag: "close"}]
     }
 
+    function test_profile_scroll_data() {
+        return [{tag: "kanshi", mode: 1}, {tag: "auto", mode: 2}]
+    }
+
+    function test_profile_scroll(data) {
+        appWindow.width = 640
+        appWindow.height = 480
+        harness.controller.set_backend_mode(data.mode)
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        verify(editor.select_profile("desk"))
+        for (let i = 0; i < 10; ++i) {
+            editor.add_exec_command("notify-send test")
+        }
+        const scroller = control("profileFormScroll")
+        const save = control("profileSaveButton")
+        verify(waitForRendering(scroller))
+        verify(scroller.contentHeight > scroller.availableHeight)
+        scroller.forceActiveFocus()
+        for (let i = 0; i < 80 && !save.activeFocus; ++i) {
+            keyClick(Qt.Key_Tab)
+        }
+        verify(save.activeFocus, "Save must be reachable by Tab")
+        keyClick(Qt.Key_Tab, Qt.ShiftModifier)
+        verify(!save.activeFocus)
+        keyClick(Qt.Key_Tab)
+        verify(save.activeFocus)
+        for (let i = 0; i < 10; ++i) {
+            keyClick(Qt.Key_Down)
+        }
+        tryVerify(function() {
+            const position = save.mapToItem(scroller, 0, 0)
+            return position.y >= 0 && position.y + save.height <= scroller.height
+        })
+        keyClick(Qt.Key_Space)
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        verify(!editor.isDirty)
+        verify(editor.saveStatusText.includes("saved to disk"))
+    }
+
     function test_position_coordinates_data() {
         return [{tag: "wlr", button: "wlrBackend", mode: 0},
                 {tag: "kanshi", button: "kanshiBackend", mode: 1},
