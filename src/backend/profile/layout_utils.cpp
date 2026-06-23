@@ -1,6 +1,7 @@
 #include "backend/profile/layout_utils.hpp"
 
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -31,7 +32,13 @@ auto parse_mode_string(const std::string & mode) -> std::optional<std::pair<int,
 }
 
 auto is_transform_rotated(const std::string & transform) -> bool {
-    return transform_utils::is_rotated(transform);
+    try {
+        return transform_utils::is_rotated(transform);
+    } catch (const std::invalid_argument &) {
+        // Programmatically supplied models may bypass configuration validation. Use an
+        // unrotated preview without changing the stored value or throwing through QML getters.
+        return false;
+    }
 }
 
 auto layout_width(const ProfileOutputDefinition & output) -> int {

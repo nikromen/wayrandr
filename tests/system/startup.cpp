@@ -21,15 +21,25 @@ private slots:
 
     void startup_data() {
         QTest::addColumn<bool>("query_failure");
-        QTest::newRow("desktop") << false;
-        QTest::newRow("query-failure") << true;
+        QTest::addColumn<bool>("invalid_transform");
+        QTest::newRow("desktop") << false << false;
+        QTest::newRow("query-failure") << true << false;
+        QTest::newRow("direct-invalid-transform") << false << true;
     }
 
     void startup() {
         QFETCH(bool, query_failure);
+        QFETCH(bool, invalid_transform);
         Fixture fixture;
         fixture.profiles();
         fixture.multi_monitor();
+        const std::string broken =
+            "[profile.desk]\n"
+            "settings = [{ output = 'DP-1', transform = 'invalid' }]\n";
+        if (invalid_transform) {
+            fixture.write("auto-wlr-randr/config.toml", broken);
+        }
+        const auto initial_state = fixture.read("state");
         if (query_failure) {
             fixture.write("query_failure", "1");
         }
@@ -55,11 +65,30 @@ private slots:
         if (query_failure) {
             QVERIFY2(output.contains("exit code 1"), output.constData());
         }
+        if (invalid_transform) {
+            QVERIFY2(output.contains("Failed to load profile config"), output.constData());
+            QVERIFY2(output.contains("Unsupported transform 'invalid'"), output.constData());
+            QVERIFY2(output.contains("profile 'desk'"), output.constData());
+            QVERIFY2(output.contains("output 'DP-1'"), output.constData());
+            QCOMPARE(fixture.read("auto-wlr-randr/config.toml"), broken);
+            QCOMPARE(fixture.read("state"), initial_state);
+            // Startup loads all backend views while MainWindow defaults to direct mode.
+            // Only queries are permitted; no Apply, daemon reload or profile activation.
+            const auto calls = fixture.read("calls");
+            QVERIFY(calls.find("--output") == std::string::npos);
+            const auto daemon_calls = fixture.read("daemon_calls");
+            QVERIFY(daemon_calls.find("reload") == std::string::npos);
+            QVERIFY(daemon_calls.find("switch") == std::string::npos);
+        }
         // This is subprocess cleanup, not a test of user closing or monitor rollback.
         process.terminate();
         if (!process.waitForFinished(5000)) {
             process.kill();
             QVERIFY(process.waitForFinished(5000));
+        }
+        if (invalid_transform) {
+            QCOMPARE(fixture.read("auto-wlr-randr/config.toml"), broken);
+            QCOMPARE(fixture.read("state"), initial_state);
         }
     }
 };

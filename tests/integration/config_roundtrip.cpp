@@ -5,10 +5,12 @@
 #include <QObject>
 #include <QString>
 #include <QTest>
+#include <QVariant>
 #include <cstddef>
 #include <exception>
 #include <filesystem>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -17,6 +19,7 @@
 #include "backend/kanshi/config_parser.hpp"
 #include "backend/kanshi/config_repository.hpp"
 #include "backend/kanshi/conversions.hpp"
+#include "backend/profile/types.hpp"
 #include "models/main_window.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "support/fixture.hpp"
@@ -141,6 +144,91 @@ exec = []
         QCOMPARE(after.profiles[1].id, std::string("a"));
     }
 
+    void auto_transform_data() {
+        QTest::addColumn<std::string>("transform");
+        QTest::addColumn<bool>("specified");
+        QTest::addColumn<bool>("valid");
+        QTest::addColumn<int>("width");
+        QTest::addColumn<int>("height");
+        QTest::newRow("unset") << std::string() << false << true << 1280 << 720;
+        QTest::newRow("normal") << std::string("normal") << true << true << 1280 << 720;
+        QTest::newRow("90") << std::string("90") << true << true << 720 << 1280;
+        QTest::newRow("180") << std::string("180") << true << true << 1280 << 720;
+        QTest::newRow("270") << std::string("270") << true << true << 720 << 1280;
+        QTest::newRow("flipped") << std::string("flipped") << true << true << 1280 << 720;
+        QTest::newRow("flipped-90") << std::string("flipped-90") << true << true << 720 << 1280;
+        QTest::newRow("flipped-180") << std::string("flipped-180") << true << true << 1280 << 720;
+        QTest::newRow("flipped-270") << std::string("flipped-270") << true << true << 720 << 1280;
+        QTest::newRow("empty") << std::string() << true << false << 1280 << 720;
+        QTest::newRow("unknown") << std::string("invalid") << true << false << 1280 << 720;
+    }
+
+    void auto_transform() {
+        QFETCH(std::string, transform);
+        QFETCH(bool, specified);
+        QFETCH(bool, valid);
+        Fixture fixture;
+        std::string content = "[profile.desk]\nsettings = [{ output = 'DP-1'";
+        std::optional<std::string> expected;
+        if (specified) {
+            expected = transform;
+            content += ", transform = '" + transform + "'";
+        }
+        content += " }]\n";
+        fixture.write("config.toml", content);
+        AutoWlrRandrConfigRepository repository(fixture.dir.filePath("config.toml").toStdString());
+        if (valid) {
+            const auto config = repository.load();
+            QCOMPARE(config.profiles[0].settings[0].transform, expected);
+            auto document = auto_wlr_randr_conversions::to_profile_document(config);
+            ProfileOutputProperties output(nullptr);
+            output.load_from_output(document.profiles[0].outputs[0]);
+            output.set_mode("1280x720");
+            document.profiles[0].outputs[0] = output.to_output();
+            (void)repository.save(auto_wlr_randr_conversions::from_profile_document(document));
+            const auto after = repository.load();
+            QCOMPARE(after.profiles[0].settings[0].transform, expected);
+            QVERIFY(!after.profiles[0].settings[0].scale.has_value());
+        } else {
+            std::string error;
+            try {
+                (void)repository.load();
+            } catch (const std::runtime_error & e) {
+                error = e.what();
+            }
+            QVERIFY(error.find("Unsupported transform '" + transform + "'") != std::string::npos);
+            QVERIFY(error.find("profile 'desk'") != std::string::npos);
+            QVERIFY(error.find("output 'DP-1'") != std::string::npos);
+            QCOMPARE(fixture.read("config.toml"), content);
+        }
+    }
+
+    void model_transform_data() { auto_transform_data(); }
+
+    void model_transform() {
+        QFETCH(std::string, transform);
+        QFETCH(bool, specified);
+        QFETCH(int, width);
+        QFETCH(int, height);
+        profile::ProfileOutputDefinition definition;
+        definition.output = "DP-1";
+        definition.mode = "2560x1440@60Hz";
+        definition.scale = 2.0F;
+        if (specified) {
+            definition.transform = transform;
+        }
+        ProfileOutputProperties output(nullptr);
+        output.load_from_output(definition);
+        QCOMPARE(output.get_layout_width(), width);
+        QCOMPARE(output.get_layout_height(), height);
+        // Exercise the Qt property boundary used by QML, including repeated reads.
+        QCOMPARE(output.property("layoutWidth").toInt(), width);
+        QCOMPARE(output.property("layoutHeight").toInt(), height);
+        QCOMPARE(output.to_output().transform, definition.transform);
+        output.set_adaptive_sync(true);
+        QCOMPARE(output.to_output().transform, definition.transform);
+    }
+
     void invalid_kanshi_data() {
         QTest::addColumn<std::string>("content");
         QTest::newRow("unknown-root") << std::string("future value\n");
@@ -216,12 +304,20 @@ exec = []
 
     void load_error_data() {
         QTest::addColumn<int>("mode");
-        QTest::newRow("kanshi") << 1;
-        QTest::newRow("auto-wlr-randr") << 2;
+        QTest::addColumn<std::string>("broken");
+        QTest::newRow("kanshi") << 1 << std::string("unsupported = 42\n");
+        QTest::newRow("auto-wlr-randr") << 2 << std::string("unsupported = 42\n");
+        QTest::newRow("auto-invalid-transform")
+            << 2
+            << std::string(
+                   "[profile.desk]\n"
+                   "settings = [{ output = 'DP-1', transform = 'invalid' }]\n"
+               );
     }
 
     void load_error() {
         QFETCH(int, mode);
+        QFETCH(std::string, broken);
         Fixture fixture;
         fixture.profiles();
         std::string name = "kanshi/config";
@@ -229,7 +325,6 @@ exec = []
             name = "auto-wlr-randr/config.toml";
         }
         const auto valid = fixture.read(name.c_str());
-        const std::string broken = "unsupported = 42\n";
         fixture.write(name.c_str(), broken);
         MainWindow window;
         SETTLE(window);

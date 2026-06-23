@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "backend/auto_wlr_randr/types.hpp"
+#include "monitor_specs.hpp"
 #include "utils/config_file.hpp"
 
 namespace {
@@ -70,7 +71,8 @@ auto string_array(const toml::table & table, const char * key) -> std::vector<st
     return values;
 }
 
-auto parse_output_setting(const toml::table & table) -> ProfileOutputSetting {
+auto parse_output_setting(const toml::table & table, const std::string & profile_id)
+    -> ProfileOutputSetting {
     check_keys(
         table,
         { "output",
@@ -104,6 +106,16 @@ auto parse_output_setting(const toml::table & table) -> ProfileOutputSetting {
     setting.above = optional_value<std::string>(table, "above");
     setting.below = optional_value<std::string>(table, "below");
     setting.transform = optional_value<std::string>(table, "transform");
+    if (setting.transform.has_value()) {
+        try {
+            (void)transform_utils::from_string(*setting.transform);
+        } catch (const std::invalid_argument &) {
+            throw std::runtime_error(
+                "Unsupported transform '" + *setting.transform + "' in profile '" + profile_id +
+                "', output '" + setting.output + "'"
+            );
+        }
+    }
     setting.scale = optional_value<float>(table, "scale");
     return setting;
 }
@@ -211,7 +223,7 @@ auto AutoWlrRandrConfigRepository::load() const -> AutoWlrRandrConfig {
                         "Expected TOML table in settings of profile '" + id + "'"
                     );
                 }
-                profile.settings.push_back(parse_output_setting(*setting));
+                profile.settings.push_back(parse_output_setting(*setting, id));
             }
         }
         config.profiles.push_back(std::move(profile));
