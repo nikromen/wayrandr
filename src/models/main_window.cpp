@@ -87,13 +87,15 @@ void MainWindow::finish_close() {
 
 MainWindow::~MainWindow() {
     // Queue recovery behind any in-flight Apply. The job owns the manager even
-    // if the window is destroyed before delivery of its result.
+    // if the window is destroyed before delivery of its result. Receiverless jobs
+    // survive shutdown_commands(), which drains recovery before stopping the worker.
     const auto manager = backend_manager_;
     run_job(
         nullptr,
         [manager] {
             if (manager->has_pending_changes()) {
                 manager->cancel_apply();
+                spdlog::info("Previous monitor configuration restored after window destruction");
             }
             return Completion{};
         },

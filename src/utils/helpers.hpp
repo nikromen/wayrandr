@@ -34,7 +34,8 @@ using Completion = std::function<void()>;
 //   The QObject receiving the result, usually the caller's `this`. Its lifetime
 //   is tracked with QPointer. If it is destroyed, completion and failure are
 //   skipped, but queued/running work is NOT cancelled. nullptr allows work with
-//   no result delivery, such as recovery after a window has been destroyed.
+//   no result delivery. Such jobs are recovery: accepted jobs survive shutdown,
+//   including their external commands. Do not use nullptr for ordinary work.
 // work:
 //   Runs on the worker thread and returns a Completion callback. Capture input
 //   data by value and retain ownership of objects needed by the worker. Never
@@ -60,9 +61,11 @@ using Completion = std::function<void()>;
 // Normal delivery order: work on worker -> settled on GUI -> completion OR failure
 // on GUI. Rejection calls settled and then failure immediately within run_job().
 // Ordinary jobs are rejected at 64 outstanding jobs; nullptr recovery jobs bypass
-// that limit. During shutdown queued jobs are discarded, and results from running
-// work may no longer be delivered if the GUI event loop has stopped. settled is
-// therefore not guaranteed for every submitted job during application shutdown.
+// that limit. Shutdown rejects new jobs, cancels running ordinary commands and skips
+// queued ordinary work. Accepted receiverless recovery runs on the same worker after
+// the interrupted operation, with normal command deadlines and cleanup protections.
+// Recovery errors are logged on the worker even without a GUI receiver. During shutdown
+// GUI result delivery (including settled) is suppressed.
 //
 // Example: the outer lambda gathers data on the worker; the returned lambda uses
 // it on the GUI thread. Capturing `this` outside only passes it to the callback.
@@ -81,5 +84,8 @@ void run_job(
     const Completion & settled = {},
     int priority = 0
 );
-// Stop accepting work, cancel running commands and join the worker at shutdown.
+// Call on the GUI thread after destroying GUI owners so their recovery is queued.
+// Stop ordinary work, finish accepted recovery, then join the worker. Pumps a local
+// Qt event loop until the worker fence finishes; the GUI thread never waits on a
+// process. QCoreApplication must remain alive. Repeated calls after completion are safe.
 void shutdown_commands();

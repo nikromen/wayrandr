@@ -89,6 +89,7 @@ auto main(int argc, char * argv[]) -> int {
     spdlog::info("UI loaded successfully");
     spdlog::info("Starting event loop");
     const int result = QGuiApplication::exec();
+    // Destruction queues receiverless rollback; shutdown drains it while Qt is still alive.
     main_window.reset();
     shutdown_commands();
     return result;

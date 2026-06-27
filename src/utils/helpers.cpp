@@ -14,6 +14,7 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QPointer>
 #include <QProcess>
 #include <QRunnable>
@@ -25,6 +26,7 @@
 #include <cstddef>
 #include <exception>
 #include <functional>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -33,6 +35,7 @@
 namespace {
 std::atomic_bool stopping{ false };
 std::atomic_bool cleanup_failed{ false };
+thread_local bool recovery_command = false;
 int outstanding_jobs = 0;  // GUI thread only
 
 auto command_string(const std::string & value) -> QString {
@@ -98,7 +101,7 @@ auto run_command(
             "Command executor disabled after failed process cleanup: " + program
         );
     }
-    if (stopping) {
+    if (stopping && !recovery_command) {
         throw std::runtime_error("Command cancelled at shutdown: " + program);
     }
 
@@ -132,7 +135,7 @@ auto run_command(
         if (failure.empty() && options.cancelled && *options.cancelled) {
             failure = "cancelled";
         }
-        if (failure.empty() && stopping) {
+        if (failure.empty() && stopping && !recovery_command) {
             failure = "cancelled at shutdown";
         }
         if (failure.empty() && deadline.elapsed() >= options.timeout_ms) {
@@ -192,6 +195,8 @@ void run_job(
         }
         if (receiver != nullptr) {
             failure("Command executor is shutting down");
+        } else {
+            spdlog::error("Recovery job rejected: command executor is shutting down");
         }
         return;
     }
@@ -207,48 +212,77 @@ void run_job(
 
     ++outstanding_jobs;
     const QPointer<QObject> guard(receiver);
+    const bool recovery = receiver == nullptr;
     pool().start(
-        QRunnable::create([guard, work = std::move(work), failure = std::move(failure), settled] {
-            Completion complete;
-            std::string error;
-            try {
-                complete = work();
-            } catch (const std::exception & e) {
-                error = e.what();
-            } catch (...) {
-                error = "Unknown worker failure";
-            }
-            QMetaObject::invokeMethod(
-                QCoreApplication::instance(),
-                [guard, complete = std::move(complete), failure, error, settled] {
-                    --outstanding_jobs;
-                    if (settled) {
-                        settled();
+        QRunnable::create(
+            [guard, recovery, work = std::move(work), failure = std::move(failure), settled] {
+                Completion complete;
+                std::string error;
+                // Keep accepted recovery jobs in the serialized queue. Ordinary queued work
+                // is skipped; an interrupted Apply retains its snapshot for the recovery.
+                if (!stopping || recovery) {
+                    recovery_command = recovery;
+                    try {
+                        complete = work();
+                    } catch (const std::exception & e) {
+                        error = e.what();
+                    } catch (...) {
+                        error = "Unknown worker failure";
                     }
-                    if (!guard) {
-                        return;
-                    }
-                    if (!error.empty()) {
-                        failure(error);
-                    } else if (complete) {
-                        try {
-                            complete();
-                        } catch (const std::exception & e) {
-                            if (guard) {
-                                failure(e.what());
+                    recovery_command = false;
+                }
+                if (recovery && !error.empty()) {
+                    // There is no GUI receiver, and its event loop may already have ended.
+                    spdlog::error("Recovery job failed: {}", error);
+                }
+                QMetaObject::invokeMethod(
+                    QCoreApplication::instance(),
+                    [guard, complete = std::move(complete), failure, error, settled] {
+                        --outstanding_jobs;
+                        if (stopping) {
+                            return;
+                        }
+                        if (settled) {
+                            settled();
+                        }
+                        if (!guard) {
+                            return;
+                        }
+                        if (!error.empty()) {
+                            failure(error);
+                        } else if (complete) {
+                            try {
+                                complete();
+                            } catch (const std::exception & e) {
+                                if (guard) {
+                                    failure(e.what());
+                                }
                             }
                         }
-                    }
-                },
-                Qt::QueuedConnection
-            );
-        }),
+                    },
+                    Qt::QueuedConnection
+                );
+            }
+        ),
         priority
     );
 }
 
 void shutdown_commands() {
-    stopping = true;
-    pool().clear();
+    Q_ASSERT(QThread::currentThread() == QCoreApplication::instance()->thread());
+    if (stopping.exchange(true)) {
+        return;
+    }
+    // A final worker fence follows all accepted jobs, including receiverless recovery.
+    // Pump Qt events while commands finish; never wait for a process on the GUI thread.
+    QEventLoop shutdown_loop;
+    pool().start(
+        QRunnable::create([&shutdown_loop] {
+            QMetaObject::invokeMethod(&shutdown_loop, &QEventLoop::quit, Qt::QueuedConnection);
+        }),
+        std::numeric_limits<int>::min()
+    );
+    shutdown_loop.exec();
+    // The fence has run: only worker bookkeeping remains, with no external commands.
     pool().waitForDone();
 }

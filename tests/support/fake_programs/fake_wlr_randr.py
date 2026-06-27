@@ -24,6 +24,15 @@ if previous.exists():
     except ProcessLookupError:
         pass
 previous.write_text(str(os.getpid()))
+# Shutdown regression controls: reject restoration before mutating, or delay it
+# long enough to verify that the GUI continues processing events during recovery.
+if "--scale" in args and args[args.index("--scale") + 1] == "1.000000":
+    if (root / "reject_restore").exists():
+        print("test restoration rejected", file=sys.stderr)
+        sys.exit(17)
+    delay = root / "restore_delay"
+    if delay.exists():
+        time.sleep(float(delay.read_text()))
 state = json.loads((root / "state").read_text())
 # Model partial application even when the process reports failure.
 output = None
