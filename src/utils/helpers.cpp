@@ -1,5 +1,7 @@
 #include "utils/helpers.hpp"
 
+#include <asm-generic/socket.h>
+#include <bits/types/struct_iovec.h>
 #include <qassert.h>
 #include <qcontainerfwd.h>
 #include <qminmax.h>
@@ -9,24 +11,34 @@
 #include <qtypes.h>
 #include <signal.h>  // NOLINT: POSIX kill() requires this C header.
 #include <spdlog/spdlog.h>
+#include <sys/pidfd.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QEventLoop>
+#include <QFile>
 #include <QPointer>
 #include <QProcess>
 #include <QRunnable>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QString>
 #include <QThread>
 #include <QThreadPool>
+#include <array>
 #include <atomic>
+#include <cerrno>
 #include <cstddef>
+#include <cstring>
 #include <exception>
 #include <functional>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -37,6 +49,115 @@ std::atomic_bool stopping{ false };
 std::atomic_bool cleanup_failed{ false };
 thread_local bool recovery_command = false;
 int outstanding_jobs = 0;  // GUI thread only
+
+auto system_error_message(int error = errno) -> std::string {
+    return QString::fromLocal8Bit(std::strerror(error)).toStdString();
+}
+
+auto group_has_live_members(pid_t group) -> bool {
+    const QDir proc("/proc");
+    if (!proc.isReadable()) {
+        throw std::runtime_error("cannot inspect /proc");
+    }
+    for (const auto & entry : proc.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        bool numeric = false;
+        entry.toLongLong(&numeric);
+        if (!numeric) {
+            continue;
+        }
+        QFile stat(proc.filePath(entry + "/stat"));
+        if (!stat.open(QIODevice::ReadOnly)) {
+            if (!stat.exists()) {
+                continue;
+            }
+            throw std::runtime_error("cannot read process state");
+        }
+        const auto data = stat.readAll().toStdString();
+        const auto end = data.rfind(')');
+        if (end == std::string::npos) {
+            if (!stat.exists()) {
+                continue;
+            }
+            throw std::runtime_error("invalid process state");
+        }
+        std::istringstream fields(data.substr(end + 1));
+        char state = 0;
+        pid_t parent = 0;
+        pid_t process_group = 0;
+        if (!(fields >> state >> parent >> process_group)) {
+            throw std::runtime_error("invalid process group");
+        }
+        if (process_group == group && state != 'Z' && state != 'X' && state != 'x') {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Transfer the leader's own pidfd before exec: Qt can reap it immediately afterwards.
+struct GroupMessage {
+    pid_t group = 0;
+    alignas(cmsghdr) std::array<char, CMSG_SPACE(sizeof(int))> control{};
+    iovec data{ &group, sizeof(group) };
+    msghdr header{ nullptr, 0, &data, 1, control.data(), control.size(), 0 };
+};
+
+void capture_group_pidfd(QProcess & process, int socket) {
+    process.setChildProcessModifier([&process, socket] {
+        if (::setsid() == -1) {
+            process.failChildProcessModifier("setsid", errno);
+        }
+        const int descriptor = static_cast<int>(::syscall(SYS_pidfd_open, ::getpid(), 0));
+        if (descriptor == -1) {
+            process.failChildProcessModifier("pidfd_open", errno);
+        }
+        GroupMessage message;
+        message.group = ::getpid();
+        auto * control = CMSG_FIRSTHDR(&message.header);
+        control->cmsg_level = SOL_SOCKET;
+        control->cmsg_type = SCM_RIGHTS;
+        control->cmsg_len = CMSG_LEN(sizeof(descriptor));
+        std::memcpy(CMSG_DATA(control), &descriptor, sizeof(descriptor));
+        if (::sendmsg(socket, &message.header, MSG_NOSIGNAL) != sizeof(message.group)) {
+            process.failChildProcessModifier("send pidfd", errno);
+        }
+        ::close(descriptor);
+    });
+}
+
+auto receive_group_pidfd(int socket, pid_t & group) -> int {
+    GroupMessage message;
+    const auto received = ::recvmsg(socket, &message.header, MSG_DONTWAIT | MSG_CMSG_CLOEXEC);
+    auto * control = CMSG_FIRSTHDR(&message.header);
+    if (received != sizeof(message.group) || control == nullptr ||
+        control->cmsg_level != SOL_SOCKET || control->cmsg_type != SCM_RIGHTS ||
+        control->cmsg_len != CMSG_LEN(sizeof(int))) {
+        throw std::runtime_error("process group pidfd not received");
+    }
+    int descriptor = -1;
+    std::memcpy(&descriptor, CMSG_DATA(control), sizeof(descriptor));
+    group = message.group;
+    return descriptor;
+}
+
+void terminate_group(int descriptor, pid_t group) {
+    if (::syscall(
+            SYS_pidfd_send_signal, descriptor, SIGKILL, nullptr, PIDFD_SIGNAL_PROCESS_GROUP
+        ) != 0) {
+        if (errno == ESRCH) {
+            return;  // The original group no longer exists.
+        }
+        throw std::runtime_error("process group signal failed: " + system_error_message());
+    }
+    QElapsedTimer deadline;
+    deadline.start();
+    while (group_has_live_members(group)) {
+        if (deadline.elapsed() >= 1000) {
+            throw std::runtime_error("live process group members remain");
+        }
+        QThread::msleep(5);
+    }
+}
 
 auto command_string(const std::string & value) -> QString {
     const auto converted = QString::fromStdString(value);
@@ -79,12 +200,6 @@ auto run_command(
         throw std::runtime_error(program + ": failed to start: executable not found");
     }
     QProcess process;
-    // Give the command and its descendants a private process group.
-    process.setChildProcessModifier([] {
-        if (::setsid() == -1) {
-            ::_exit(127);
-        }
-    });
     process.setProgram(executable);
     process.setArguments(qargs);
     QByteArray output;
@@ -105,8 +220,24 @@ auto run_command(
         throw std::runtime_error("Command cancelled at shutdown: " + program);
     }
 
+    int sockets[2]{ -1, -1 };
+    int group_descriptor = -1;
+    const auto close_descriptors = qScopeGuard([&] {
+        for (const int descriptor : { sockets[0], sockets[1], group_descriptor }) {
+            if (descriptor >= 0) {
+                ::close(descriptor);
+            }
+        }
+    });
+    if (::socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sockets) != 0) {
+        throw std::runtime_error("cannot capture process group: " + system_error_message());
+    }
+    capture_group_pidfd(process, sockets[1]);
+
     spdlog::debug("Starting {} with {} arguments", program, args.size());
     process.start(QIODevice::ReadOnly);
+    ::close(sockets[1]);
+    sockets[1] = -1;
 
     // Short waits are confined to the worker. Drain both pipes on every wakeup;
     // never retain truncated stdout as a valid JSON response or image.
@@ -143,17 +274,6 @@ auto run_command(
                 " ms; operation may have partially completed";
         }
         if (!failure.empty()) {
-            const auto pid = process.processId();
-            if (pid > 0) {
-                ::kill(-static_cast<pid_t>(pid), SIGKILL);
-            }
-            process.kill();
-            if (!process.waitForFinished(1000) && process.state() != QProcess::NotRunning) {
-                // Never let another mutation overlap a process whose death is
-                // unconfirmed. QProcess performs its final cleanup on this worker.
-                cleanup_failed = true;
-                failure += "; process could not be reaped; further commands disabled";
-            }
             break;
         }
     }
@@ -168,6 +288,25 @@ auto run_command(
     if (failure.empty() && process.exitCode() != 0) {
         failure = "exit code " + std::to_string(process.exitCode());
     }
+    try {
+        pid_t group = 0;
+        // FailedToStart means no executable ran; a modifier failure may have sent no pidfd.
+        if (process.error() != QProcess::FailedToStart) {
+            group_descriptor = receive_group_pidfd(sockets[0], group);
+            if (!failure.empty()) {
+                terminate_group(group_descriptor, group);
+            }
+        }
+    } catch (const std::exception & e) {
+        cleanup_failed = true;
+        failure += "; process group cleanup failed: " + std::string(e.what()) +
+            "; further commands disabled";
+    }
+    if (process.state() != QProcess::NotRunning && !process.waitForFinished(1000)) {
+        cleanup_failed = true;
+        failure += "; process could not be reaped; further commands disabled";
+    }
+    drain();
     if (!failure.empty()) {
         std::string message =
             program + ": " + failure + "; stderr: " + errors.left(4096).toStdString();

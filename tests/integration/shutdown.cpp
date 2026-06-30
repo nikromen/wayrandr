@@ -1,8 +1,16 @@
+#include <linux/bpf_common.h>
+#include <linux/filter.h>
+#include <linux/prctl.h>
+#include <linux/seccomp.h>
 #include <qfiledevice.h>
 #include <qobject.h>
 #include <qtestcase.h>
 #include <qtmetamacros.h>
 #include <signal.h>  // NOLINT: POSIX kill() requires this C header.
+#include <sys/pidfd.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 
 #include <QByteArray>
 #include <QCoreApplication>
@@ -16,7 +24,12 @@
 #include <QStringList>
 #include <QTest>
 #include <QTimer>
+#include <array>
 #include <atomic>
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -26,7 +39,34 @@
 #include "models/monitor_properties.hpp"
 #include "support/environment.hpp"
 #include "support/fixture.hpp"
+#include "support/process_tree.hpp"
 #include "utils/helpers.hpp"
+
+namespace {
+void deny_group_kill() {
+    // Only this worker and its fake children inherit the filter. GUI-thread test
+    // cleanup stays unrestricted. Deny only SIGKILL to a pidfd's process group.
+    constexpr auto arg_offset = offsetof(seccomp_data, args);
+    constexpr auto signal_offset = arg_offset + sizeof(seccomp_data::args[0]);
+    constexpr auto flags_offset = arg_offset + (3 * sizeof(seccomp_data::args[0]));
+    std::array<sock_filter, 8> filter = {
+        { BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(seccomp_data, nr)),
+          BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_pidfd_send_signal, 0, 4),
+          BPF_STMT(BPF_LD | BPF_W | BPF_ABS, signal_offset),
+          BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SIGKILL, 0, 2),
+          BPF_STMT(BPF_LD | BPF_W | BPF_ABS, flags_offset),
+          BPF_JUMP(BPF_JMP | BPF_JSET | BPF_K, PIDFD_SIGNAL_PROCESS_GROUP, 1, 0),
+          BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+          BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | EPERM) }
+    };
+    sock_fprog program{ static_cast<std::uint16_t>(filter.size()), filter.data() };
+    require(::prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == 0, "Cannot restrict test worker");
+    require(
+        ::prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program) == 0,
+        "Cannot install cleanup failure filter"
+    );
+}
+}  // namespace
 
 class ShutdownScenario : public QObject {
     Q_OBJECT
@@ -72,6 +112,114 @@ private slots:
     }
 
     void cleanupTestCase() { shutdown_commands(); }  // NOLINT: Qt Test hook name.
+
+    void group_shutdown() {
+        Environment env;
+        auto cancelled = std::make_shared<std::atomic_bool>(false);
+        ProcessTreeCleanup cleanup(cancelled);
+        const auto pidfile = env.dir.filePath("pid");
+        run_job(
+            this,
+            [pidfile, cancelled] {
+                CommandOptions options;
+                options.cancelled = cancelled;
+                run_command(
+                    "/usr/bin/python3",
+                    { FAKE_COMMAND, "group-timeout", pidfile.toStdString() },
+                    options
+                );
+                return Completion{};
+            },
+            [](const std::string &) {}
+        );
+        QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(pidfile + ".ready"), 10000);
+        QFile child_file(pidfile + ".child");
+        QVERIFY(child_file.open(QIODevice::ReadOnly));
+        const auto child = static_cast<pid_t>(child_file.readAll().toInt());
+        QVERIFY(process_is_live(child));
+        auto saw_live = std::make_shared<std::atomic_bool>(true);
+        auto recovered = std::make_shared<std::atomic_bool>(false);
+        run_job(
+            nullptr,
+            [child, saw_live, recovered] {
+                *saw_live = process_is_live(child);
+                (void)run_command("/usr/bin/python3", { FAKE_COMMAND, "success" });
+                *recovered = true;
+                return Completion{};
+            },
+            [](const std::string &) {}
+        );
+        shutdown_commands();
+        QVERIFY(!process_is_live(child));
+        QVERIFY(!saw_live->load());
+        QVERIFY(recovered->load());
+    }
+
+    void cleanup_failure() {
+        Environment env;
+        auto cancelled = std::make_shared<std::atomic_bool>(false);
+        ProcessTreeCleanup cleanup(cancelled);
+        const auto pidfile = env.dir.filePath("pid");
+        auto result = std::make_shared<JobResult>();
+        run_job(
+            this,
+            [pidfile, result, cancelled] {
+                deny_group_kill();
+                CommandOptions options;
+                options.cancelled = cancelled;
+                try {
+                    (void)run_command(
+                        "/usr/bin/python3",
+                        { FAKE_COMMAND, "group-exit", pidfile.toStdString() },
+                        options
+                    );
+                } catch (const std::exception & e) {
+                    result->error = e.what();
+                }
+                try {
+                    result->output = run_command("/usr/bin/python3", { FAKE_COMMAND, "success" });
+                } catch (const std::exception & e) {
+                    result->output = e.what();
+                }
+                return [result] { result->done = true; };
+            },
+            [result](const std::string & error) {
+                result->error = error;
+                result->done = true;
+            }
+        );
+        QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(pidfile + ".ready"), 10000);
+        QFile child_file(pidfile + ".child");
+        QVERIFY(child_file.open(QIODevice::ReadOnly));
+        const auto child = static_cast<pid_t>(child_file.readAll().toInt());
+        QFile release(pidfile + ".release");
+        QVERIFY(release.open(QIODevice::WriteOnly));
+        release.close();
+        QTRY_VERIFY_WITH_TIMEOUT(result->done, 10000);
+        QVERIFY2(result->error.find("exit code 17") != std::string::npos, result->error.c_str());
+        QVERIFY2(result->error.find("failure detail") != std::string::npos, result->error.c_str());
+        QVERIFY2(
+            result->error.find("cleanup failed: process group signal failed:") != std::string::npos,
+            result->error.c_str()
+        );
+        QVERIFY2(
+            result->output.find("disabled after failed process cleanup") != std::string::npos,
+            result->output.c_str()
+        );
+        QVERIFY(process_is_live(child));
+        // Recovery also stays disabled when another mutator might still be alive.
+        run_job(
+            nullptr,
+            [] {
+                (void)run_command("/usr/bin/python3", { FAKE_COMMAND, "success" });
+                return Completion{};
+            },
+            [](const std::string &) {}
+        );
+        shutdown_commands();
+        QVERIFY(process_is_live(child));
+        // ProcessTreeCleanup terminates and reaps the adopted child on the GUI thread.
+    }
 
     void recovery() {
         Fixture fixture;
@@ -222,7 +370,9 @@ private slots:
                                        "failed-restore",
                                        "close",
                                        "idle",
-                                       "confirmed" }) {
+                                       "confirmed",
+                                       "group-shutdown",
+                                       "cleanup-failure" }) {
             QTest::newRow(scenario) << QString::fromUtf8(scenario);
         }
     }
@@ -230,6 +380,8 @@ private slots:
     void shutdown() {
         QFETCH(QString, scenario);
         // Each case owns a fresh global executor in a separate process.
+        // Also adopt descendants if the scenario times out and QProcess kills it.
+        ProcessTreeCleanup cleanup;
         QProcess process;
         process.setProcessEnvironment(QProcessEnvironment::systemEnvironment());
         process.setProcessChannelMode(QProcess::MergedChannels);
@@ -239,7 +391,13 @@ private slots:
         const auto output = process.readAll();
         QVERIFY2(process.exitStatus() == QProcess::NormalExit, output.constData());
         QVERIFY2(process.exitCode() == 0, output.constData());
-        if (scenario == "failed-restore") {
+        if (scenario == "cleanup-failure") {
+            QVERIFY2(
+                output.contains("cleanup failed: process group signal failed:"), output.constData()
+            );
+            QVERIFY2(output.contains("Recovery job failed:"), output.constData());
+            QVERIFY2(output.contains("disabled after failed process cleanup"), output.constData());
+        } else if (scenario == "failed-restore") {
             QVERIFY2(output.contains("Recovery job failed:"), output.constData());
             QVERIFY2(output.contains("test restoration rejected"), output.constData());
             QVERIFY2(!output.contains("restored after window destruction"), output.constData());
@@ -258,6 +416,10 @@ auto main(int argc, char * argv[]) -> int {
         QString function = "recovery";
         if (scenario == "commands") {
             function = "cancel_running_and_drop_queued";
+        } else if (scenario == "group-shutdown") {
+            function = "group_shutdown";
+        } else if (scenario == "cleanup-failure") {
+            function = "cleanup_failure";
         }
         return QTest::qExec(&test, QStringList{ QString::fromUtf8(argv[0]), function });
     }

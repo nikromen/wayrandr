@@ -3,6 +3,7 @@
 #include <qtestcase.h>
 #include <qtmetamacros.h>
 #include <signal.h>  // NOLINT: POSIX kill() requires this C header.
+#include <sys/types.h>
 
 #include <QFile>
 #include <QScopeGuard>
@@ -17,6 +18,7 @@
 #include <vector>
 
 #include "support/environment.hpp"
+#include "support/process_tree.hpp"
 #include "utils/helpers.hpp"
 
 class ProcessTests : public QObject {
@@ -30,6 +32,7 @@ private slots:
         QTest::addColumn<bool>("success");
         QTest::addColumn<QString>("needle");
         QTest::newRow("success") << "success" << true << "success\n";
+        QTest::newRow("wait-children") << "wait-children" << true << "success\n";
         QTest::newRow("empty") << "empty" << true << "";
         QTest::newRow("stderr") << "stderr" << true << "";
         QTest::newRow("exit") << "exit" << false << "exit code 17; stderr: failure detail";
@@ -44,6 +47,7 @@ private slots:
         QFETCH(bool, success);
         QFETCH(QString, needle);
         Environment env;
+        ProcessTreeCleanup cleanup;
         QTimer timer;
         QSignalSpy ticks(&timer, &QTimer::timeout);
         timer.start(5);
@@ -88,6 +92,80 @@ private slots:
         }
     }
 
+    void descendants_data() {
+        QTest::addColumn<QString>("mode");
+        QTest::addColumn<QString>("needle");
+        QTest::newRow("exit") << "group-exit" << "exit code 17; stderr: failure detail";
+        QTest::newRow("crash") << "group-crash" << "crashed";
+        QTest::newRow("timeout") << "group-timeout" << "timeout after 2000 ms";
+        QTest::newRow("cancel") << "group-cancel" << "cancelled";
+        QTest::newRow("flood") << "group-flood" << "output limit exceeded";
+        QTest::newRow("success") << "group-success" << "";
+    }
+
+    void descendants() {
+        QFETCH(QString, mode);
+        QFETCH(QString, needle);
+        Environment env;
+        auto cancelled = std::make_shared<std::atomic_bool>(false);
+        ProcessTreeCleanup cleanup(cancelled);
+        CommandOptions options;
+        options.cancelled = cancelled;
+        options.timeout_ms = 2000;
+        options.output_limit = 65536;
+        const auto pidfile = env.dir.filePath("pid");
+        auto result = start_command(
+            this,
+            "/usr/bin/python3",
+            { FAKE_COMMAND, mode.toStdString(), pidfile.toStdString() },
+            options
+        );
+        QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(pidfile + ".ready"), 10000);
+        QFile child_file(pidfile + ".child");
+        QVERIFY(child_file.open(QIODevice::ReadOnly));
+        const auto child = static_cast<pid_t>(child_file.readAll().toInt());
+        QVERIFY(process_is_live(child));
+        QFile release(pidfile + ".release");
+        QVERIFY(release.open(QIODevice::WriteOnly));
+        release.close();
+        if (mode == "group-cancel") {
+            *cancelled = true;
+        }
+        QTRY_VERIFY_WITH_TIMEOUT(result->done, 10000);
+        if (mode == "group-success") {
+            QVERIFY2(result->error.empty(), result->error.c_str());
+            QVERIFY2(process_is_live(child), "Successful commands must retain legitimate children");
+            return;
+        }
+        QVERIFY2(
+            result->error.find(needle.toStdString()) != std::string::npos, result->error.c_str()
+        );
+        QVERIFY2(!process_is_live(child), "Failure returned with a live descendant");
+        // The next serialized operation observes cleanup, rather than merely waiting
+        // for a later death of the descendant after the first command returned.
+        auto observed_live = std::make_shared<bool>(true);
+        auto next = std::make_shared<JobResult>();
+        run_job(
+            this,
+            [child, observed_live, next] {
+                *observed_live = process_is_live(child);
+                auto output = run_command("/usr/bin/python3", { FAKE_COMMAND, "success" });
+                return [next, output] {
+                    next->output = output;
+                    next->done = true;
+                };
+            },
+            [next](const std::string & error) {
+                next->error = error;
+                next->done = true;
+            }
+        );
+        QTRY_VERIFY_WITH_TIMEOUT(next->done, 10000);
+        QVERIFY2(next->error.empty(), next->error.c_str());
+        QVERIFY(!*observed_live);
+        QCOMPARE(next->output, std::string("success\n"));
+    }
+
     void missing_program() {
         Environment env;
         auto result = std::make_shared<JobResult>();
@@ -107,6 +185,23 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(result->done, 10000);
         QVERIFY2(!*available, "Availability detection");
         QVERIFY2(result->error.find("failed to start") != std::string::npos, "Start error");
+    }
+
+    void failed_exec() {
+        Environment env;
+        ProcessTreeCleanup cleanup;
+        const auto executable = env.dir.filePath("bad-interpreter");
+        QFile file(executable);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("#!/nonexistent-wayrandr-test-interpreter\n") > 0);
+        file.close();
+        QVERIFY(file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        auto result = start_command(this, executable.toStdString(), {});
+        QTRY_VERIFY_WITH_TIMEOUT(result->done, 10000);
+        QVERIFY2(result->error.find("failed to start") != std::string::npos, result->error.c_str());
+        auto next = start_command(this, "/usr/bin/python3", { FAKE_COMMAND, "success" });
+        QTRY_VERIFY_WITH_TIMEOUT(next->done, 10000);
+        QVERIFY2(next->error.empty(), next->error.c_str());
     }
 
     void lifetime_and_fifo() {

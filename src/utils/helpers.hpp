@@ -17,6 +17,10 @@ struct CommandOptions {
 
 // Resolve with the same Qt/PATH lookup as is_program_available(); no shell parsing.
 // Program and arguments must be valid UTF-8 without embedded NUL bytes.
+// Capture the leader's pidfd before exec and signal the private group
+// through PIDFD_SIGNAL_PROCESS_GROUP, never a recycled numeric PID.
+// Successful commands may leave legitimate descendants running; they are not killed.
+// Descendants that leave the private process group are outside this cleanup.
 auto run_command(
     const std::string & program, const std::vector<std::string> & args, CommandOptions options = {}
 ) -> std::string;
