@@ -39,7 +39,12 @@ SpinBox {
             return
         }
         updatingFromItem = true
-        value = Math.round(item.scale * 10)
+        const scaledValue = Math.round(item.scale * 10)
+        if (isFinite(scaledValue)) {
+            value = Math.max(from, Math.min(to, scaledValue))
+        } else {
+            value = from
+        }
         updatingFromItem = false
         ready = true
     }

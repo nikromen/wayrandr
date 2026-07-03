@@ -2,6 +2,20 @@
 
 #include <QMetaObject>
 #include <QPoint>
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
+namespace {
+auto drag_coordinate(int mouse, int start_mouse, int start_pos, float display_scale) -> int {
+    const double delta = std::trunc((static_cast<double>(mouse) - start_mouse) / display_scale);
+    return static_cast<int>(std::clamp(
+        start_pos + delta,
+        static_cast<double>(std::numeric_limits<int>::min()),
+        static_cast<double>(std::numeric_limits<int>::max())
+    ));
+}
+}  // namespace
 
 namespace canvas_drag {
 
@@ -23,14 +37,15 @@ void update_with_snap(
     int canvas_height,
     int snap_threshold
 ) {
-    if (main_window == nullptr || item == nullptr || display_scale <= 0.0F) {
+    if (main_window == nullptr || item == nullptr || !std::isfinite(display_scale) ||
+        display_scale <= 0.0F) {
         return;
     }
 
-    const int delta_x = static_cast<int>((mouse_x - state.start_mouse_x) / display_scale);
-    const int delta_y = static_cast<int>((mouse_y - state.start_mouse_y) / display_scale);
-    const int new_x = state.start_pos_x + delta_x;
-    const int new_y = state.start_pos_y + delta_y;
+    const int new_x =
+        drag_coordinate(mouse_x, state.start_mouse_x, state.start_pos_x, display_scale);
+    const int new_y =
+        drag_coordinate(mouse_y, state.start_mouse_y, state.start_pos_y, display_scale);
 
     QPoint snapped(new_x, new_y);
     QMetaObject::invokeMethod(

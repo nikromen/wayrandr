@@ -28,9 +28,14 @@ struct ResettableItem {
     bool active = false;
 };
 
+// Preview only: nonfinite/nonpositive scale, negative pixels or rounded dimensions
+// outside int range produce 0x0. Stored settings are never normalized by this calculation.
 [[nodiscard]] auto compute_layout_size(int pixel_width, int pixel_height, float scale, bool rotated)
     -> LayoutSize;
 
+// Active rectangles snap into nonnegative int coordinates; negative extents count as zero.
+// Canvas bounds apply only with positive dimensions and a finite positive display scale.
+// Inactive rectangles retain their original coordinates, including negative ones.
 [[nodiscard]] auto snap_position(
     const CanvasRect & current,
     const std::vector<CanvasRect> & others,
@@ -40,6 +45,8 @@ struct ResettableItem {
     float display_scale
 ) -> QPoint;
 
+// Active positions start at zero and saturate at INT_MAX; negative widths count as zero.
+// Saturation may overlap outputs when their complete layout cannot fit in int coordinates.
 void reset_horizontal_layout(std::vector<ResettableItem> & items);
 
 [[nodiscard]] auto snap_from_rects(

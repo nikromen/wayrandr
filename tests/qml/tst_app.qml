@@ -121,6 +121,32 @@ TestCase {
                 {tag: "auto", button: "autoBackend", mode: 2}]
     }
 
+    function test_unusable_profile_scale_data() {
+        return [{tag: "nan", scale: NaN}, {tag: "infinity", scale: Infinity},
+                {tag: "negative-infinity", scale: -Infinity}, {tag: "zero", scale: 0},
+                {tag: "negative", scale: -1}, {tag: "tiny", scale: 1e-30}]
+    }
+
+    function test_unusable_profile_scale(data) {
+        click(control("kanshiBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        verify(editor.select_profile("desk"))
+        const output = editor.outputs[0]
+        output.scale = data.scale
+        const stored = output.scale
+        wait(0)
+        compare(output.layoutWidth, 0)
+        compare(output.layoutHeight, 0)
+        const spin = control("scaleSpinBox")
+        compare(spin.value, spin.from)
+        if (isNaN(stored)) {
+            verify(isNaN(output.scale))
+        } else {
+            compare(output.scale, stored)
+        }
+    }
+
     function test_position_coordinates(data) {
         click(control(data.button))
         tryCompare(harness.controller, "operationBusy", false, 20000)
@@ -132,6 +158,8 @@ TestCase {
         const xSpin = control("positionXSpinBox")
         const ySpin = control("positionYSpinBox")
         for (const position of [{x: 80, y: 50}, {x: -1920, y: -1080},
+                                {x: -2147483648, y: 2147483647},
+                                {x: 2147483647, y: -2147483648},
                                 {x: 1000001, y: 1000002}]) {
             output.positionX = position.x
             output.positionY = position.y

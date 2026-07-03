@@ -5,18 +5,26 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace canvas_layout {
 
 auto compute_layout_size(int pixel_width, int pixel_height, float scale, bool rotated)
     -> LayoutSize {
-    if (scale <= 0.0F) {
-        return { pixel_width, pixel_height };
+    if (!std::isfinite(scale) || scale <= 0.0F || pixel_width < 0 || pixel_height < 0) {
+        return {};
     }
 
-    const int logical_width = static_cast<int>(std::round(pixel_width / scale));
-    const int logical_height = static_cast<int>(std::round(pixel_height / scale));
+    const double width = std::round(pixel_width / static_cast<double>(scale));
+    const double height = std::round(pixel_height / static_cast<double>(scale));
+    if (!std::isfinite(width) || !std::isfinite(height) ||
+        width > std::numeric_limits<int>::max() || height > std::numeric_limits<int>::max()) {
+        return {};
+    }
+    const int logical_width = static_cast<int>(width);
+    const int logical_height = static_cast<int>(height);
     if (rotated) {
         return { logical_height, logical_width };
     }
@@ -35,26 +43,26 @@ auto snap_position(
         return { current.x, current.y };
     }
 
-    int snapped_x = std::max(0, current.x);
-    int snapped_y = std::max(0, current.y);
+    int64_t snapped_x = std::max(0, current.x);
+    int64_t snapped_y = std::max(0, current.y);
 
-    const int layout_width = current.width;
-    const int layout_height = current.height;
+    const int64_t layout_width = std::max(0, current.width);
+    const int64_t layout_height = std::max(0, current.height);
 
     for (const CanvasRect & other : others) {
         if (!other.active) {
             continue;
         }
 
-        const int other_left = other.x;
-        const int other_right = other.x + other.width;
-        const int other_top = other.y;
-        const int other_bottom = other.y + other.height;
+        const int64_t other_left = other.x;
+        const int64_t other_right = other_left + std::max(0, other.width);
+        const int64_t other_top = other.y;
+        const int64_t other_bottom = other_top + std::max(0, other.height);
 
-        int this_left = snapped_x;
-        int this_right = snapped_x + layout_width;
-        int this_top = snapped_y;
-        int this_bottom = snapped_y + layout_height;
+        const int64_t this_left = snapped_x;
+        const int64_t this_right = snapped_x + layout_width;
+        const int64_t this_top = snapped_y;
+        const int64_t this_bottom = snapped_y + layout_height;
 
         if (std::abs(this_left - other_right) < snap_threshold) {
             snapped_x = other_right;
@@ -65,11 +73,6 @@ auto snap_position(
         } else if (std::abs(this_right - other_right) < snap_threshold) {
             snapped_x = other_right - layout_width;
         }
-
-        this_left = snapped_x;
-        this_right = snapped_x + layout_width;
-        this_top = snapped_y;
-        this_bottom = snapped_y + layout_height;
 
         if (std::abs(this_top - other_bottom) < snap_threshold) {
             snapped_y = other_bottom;
@@ -82,19 +85,26 @@ auto snap_position(
         }
     }
 
-    snapped_x = std::max(0, snapped_x);
-    snapped_y = std::max(0, snapped_y);
+    snapped_x = std::clamp<int64_t>(snapped_x, 0, std::numeric_limits<int>::max());
+    snapped_y = std::clamp<int64_t>(snapped_y, 0, std::numeric_limits<int>::max());
 
-    if (canvas_width > 0 && canvas_height > 0 && display_scale > 0.0F) {
-        const int max_x =
-            std::max(0, static_cast<int>(canvas_width / display_scale) - layout_width);
-        const int max_y =
-            std::max(0, static_cast<int>(canvas_height / display_scale) - layout_height);
+    if (canvas_width > 0 && canvas_height > 0 && std::isfinite(display_scale) &&
+        display_scale > 0.0F) {
+        const auto max_x = static_cast<int64_t>(std::clamp(
+            std::trunc(canvas_width / static_cast<double>(display_scale)) - layout_width,
+            0.0,
+            static_cast<double>(std::numeric_limits<int>::max())
+        ));
+        const auto max_y = static_cast<int64_t>(std::clamp(
+            std::trunc(canvas_height / static_cast<double>(display_scale)) - layout_height,
+            0.0,
+            static_cast<double>(std::numeric_limits<int>::max())
+        ));
         snapped_x = std::min(snapped_x, max_x);
         snapped_y = std::min(snapped_y, max_y);
     }
 
-    return { snapped_x, snapped_y };
+    return { static_cast<int>(snapped_x), static_cast<int>(snapped_y) };
 }
 
 auto snap_from_rects(
@@ -136,7 +146,7 @@ void reset_horizontal_layout(std::vector<ResettableItem> & items) {
 
         item.position_x = x;
         item.position_y = y;
-        x += item.layout_width;
+        x += std::clamp(item.layout_width, 0, std::numeric_limits<int>::max() - x);
     }
 }
 

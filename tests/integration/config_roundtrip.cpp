@@ -3,12 +3,15 @@
 
 #include <QFile>
 #include <QObject>
+#include <QSignalSpy>
 #include <QString>
 #include <QTest>
 #include <QVariant>
+#include <cmath>
 #include <cstddef>
 #include <exception>
 #include <filesystem>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -227,6 +230,51 @@ exec = []
         QCOMPARE(output.to_output().transform, definition.transform);
         output.set_adaptive_sync(true);
         QCOMPARE(output.to_output().transform, definition.transform);
+    }
+
+    void kanshi_nonfinite_geometry_data() {
+        QTest::addColumn<std::string>("token");
+        QTest::addColumn<float>("scale");
+        QTest::newRow("nan") << std::string("nan") << std::numeric_limits<float>::quiet_NaN();
+        QTest::newRow("infinity") << std::string("inf") << std::numeric_limits<float>::infinity();
+        QTest::newRow("negative-infinity")
+            << std::string("-inf") << -std::numeric_limits<float>::infinity();
+        QTest::newRow("zero") << std::string("0") << 0.0F;
+        QTest::newRow("negative") << std::string("-1") << -1.0F;
+        QTest::newRow("tiny") << std::string("1e-30") << 1e-30F;
+    }
+
+    void kanshi_nonfinite_geometry() {
+        QFETCH(std::string, token);
+        QFETCH(float, scale);
+        Fixture fixture;
+        const auto content = "profile p {\noutput DP-1 scale " + token + "\n}\n";
+        fixture.write("config", content);
+        KanshiConfigRepository repository(fixture.dir.filePath("config").toStdString());
+        const auto native = repository.load();
+        const auto document = kanshi_conversions::to_profile_document(native);
+        ProfileOutputProperties output(nullptr);
+        output.load_from_output(document.profiles[0].outputs[0]);
+        QSignalSpy changed(&output, &ProfileOutputProperties::setting_changed);
+        QCOMPARE(output.property("layoutWidth").toInt(), 0);
+        QCOMPARE(output.property("layoutHeight").toInt(), 0);
+        const auto after = output.to_output();
+        const auto roundtrip = kanshi_conversions::from_profile_document(document);
+        for (const auto stored : { native.profiles[0].outputs[0].scale,
+                                   document.profiles[0].outputs[0].scale,
+                                   after.scale,
+                                   roundtrip.profiles[0].outputs[0].scale }) {
+            QVERIFY(stored.has_value());
+            if (std::isnan(scale)) {
+                QVERIFY(std::isnan(stored.value()));
+            } else {
+                QCOMPARE(stored.value(), scale);
+            }
+        }
+        QCOMPARE(changed.count(), 0);
+        QVERIFY(!after.mode && !after.transform && !after.pos);
+        QCOMPARE(fixture.read("config"), content);
+        QCOMPARE(fixture.read("calls"), std::string());
     }
 
     void invalid_kanshi_data() {

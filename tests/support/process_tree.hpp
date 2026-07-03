@@ -4,6 +4,7 @@
 #include <qfiledevice.h>
 #include <qtestsupport_core.h>
 #include <signal.h>  // NOLINT: POSIX kill() requires this C header.
+#include <stdlib.h>  // NOLINT: include-cleaner requires this POSIX header for WNOHANG.
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -14,7 +15,6 @@
 #include <QString>
 #include <QTest>
 #include <atomic>
-#include <cstdlib>
 #include <memory>
 #include <sstream>
 #include <utility>

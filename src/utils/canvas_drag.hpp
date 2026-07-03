@@ -13,6 +13,8 @@ struct DragState {
 
 void start(DragState & state, int mouse_x, int mouse_y, int pos_x, int pos_y);
 
+// Invalid display scale leaves positions untouched. Otherwise truncate logical mouse
+// deltas toward zero and saturate the resulting coordinates to int before snapping.
 void update_with_snap(
     const DragState & state,
     int mouse_x,
