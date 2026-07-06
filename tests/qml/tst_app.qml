@@ -35,6 +35,17 @@ TestCase {
             verify(dialog !== null, name)
             return dialog
         }
+        if (name === "profileDiscardDialog") {
+            let parent = control("profileCombo").parent
+            while (parent) {
+                const dialog = findChild(parent, name)
+                if (dialog !== null) {
+                    return dialog
+                }
+                parent = parent.parent
+            }
+            fail("Missing profile discard dialog")
+        }
         function visibleChild(item) {
             if (item.objectName === name && item.visible) {
                 return item
@@ -339,6 +350,173 @@ TestCase {
 
     function test_unsaved_close_data() {
         return test_unsaved_profile_data()
+    }
+
+    function chooseProfile(id) {
+        const combo = control("profileCombo")
+        const index = combo.model.indexOf(id)
+        verify(index >= 0, id)
+        combo.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        tryCompare(combo.popup, "visible", true)
+        keyClick(Qt.Key_Home)
+        for (let i = 0; i < index; ++i) {
+            keyClick(Qt.Key_Down)
+        }
+        keyClick(Qt.Key_Return)
+        tryCompare(combo.popup, "visible", false)
+        compare(harness.warnings.length, 0, harness.warnings.join("\n"))
+    }
+
+    function checkProfile(id, scale) {
+        const editor = harness.controller.profileEditor
+        compare(editor.selectedProfileId, id)
+        compare(control("profileCombo").currentText, id)
+        compare(editor.outputs.length, 1)
+        compare(editor.outputs[0].scale.toFixed(1), scale.toFixed(1))
+        compare(control("scaleSpinBox").value, Math.round(scale * 10))
+    }
+
+    function activateProfileButton(name) {
+        const button = control(name)
+        verify(button.enabled)
+        button.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+    }
+
+    function test_profile_selection_data() {
+        const rows = []
+        for (const backend of test_unsaved_profile_data()) {
+            for (const action of ["no", "yes", "close", "escape"]) {
+                rows.push({tag: backend.tag + "-" + action, button: backend.button,
+                           mode: backend.mode, action: action})
+            }
+        }
+        return rows
+    }
+
+    function test_profile_selection(data) {
+        harness.switching_profiles(true)
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        checkProfile("desk", 1)
+        editScale()
+        verify(editor.isDirty)
+        chooseProfile("spare")
+        const dialog = control("profileDiscardDialog")
+        tryCompare(dialog, "visible", true)
+        checkProfile("desk", 1.1)
+        verify(editor.isDirty)
+
+        if (data.action === "close") {
+            dialog.close()
+        } else if (data.action === "escape") {
+            keyClick(Qt.Key_Escape)
+        } else if (data.action === "no") {
+            click(dialog.standardButton(Dialog.No))
+        } else {
+            click(dialog.standardButton(Dialog.Yes))
+        }
+        tryCompare(dialog, "visible", false)
+
+        if (data.action === "close" || data.action === "escape") {
+            checkProfile("desk", 1.1)
+            verify(editor.isDirty)
+            chooseProfile("travel")
+            tryCompare(dialog, "visible", true)
+            checkProfile("desk", 1.1)
+            click(dialog.standardButton(Dialog.Yes))
+            tryCompare(dialog, "visible", false)
+            checkProfile("travel", 3)
+            verify(!editor.isDirty)
+            chooseProfile("desk")
+            checkProfile("desk", 1)
+        } else {
+            let savedId = "desk"
+            let savedScale = 1.1
+            let remainingId = "spare"
+            let remainingScale = 2
+            if (data.action === "yes") {
+                checkProfile("spare", 2)
+                verify(!editor.isDirty)
+                chooseProfile("desk")
+                checkProfile("desk", 1)
+                chooseProfile("spare")
+                editScale()
+                savedId = "spare"
+                savedScale = 2.1
+                remainingId = "desk"
+                remainingScale = 1
+            }
+            checkProfile(savedId, savedScale)
+            verify(editor.isDirty)
+            activateProfileButton("profileSaveButton")
+            verify(!editor.isDirty)
+            verify(editor.saveStatusText.includes("saved to disk"))
+            editor.reload_config_from_disk()
+            checkProfile(savedId, savedScale)
+            activateProfileButton("profileDeleteButton")
+            verify(editor.profileIds.indexOf(savedId) < 0)
+            checkProfile(remainingId, remainingScale)
+            editor.reload_config_from_disk()
+            verify(editor.profileIds.indexOf(savedId) < 0)
+            checkProfile(remainingId, remainingScale)
+        }
+        // Clean changes and reactivation of the selected item need no discard dialog.
+        chooseProfile("travel")
+        checkProfile("travel", 3)
+        chooseProfile("travel")
+        checkProfile("travel", 3)
+        verify(!dialog.visible)
+        verify(!editor.isDirty)
+    }
+
+    function test_profile_reload_data() {
+        return test_unsaved_profile_data()
+    }
+
+    function test_profile_reload(data) {
+        harness.switching_profiles(true)
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        editScale()
+        chooseProfile("travel")
+        const dialog = control("profileDiscardDialog")
+        tryCompare(dialog, "visible", true)
+        dialog.close()
+        tryCompare(dialog, "visible", false)
+        checkProfile("desk", 1.1)
+        activateProfileButton("profileDiscardButton")
+        checkProfile("desk", 1)
+        verify(!editor.isDirty)
+
+        click(control("wlrBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.switching_profiles(false)
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        verify(!editor.configurationLoaded)
+        editor.create_profile_from_live("draft")
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        checkProfile("draft", 1)
+        verify(editor.isDirty)
+        harness.switching_profiles(true)
+        activateProfileButton("profileReloadButton")
+        tryCompare(dialog, "visible", true)
+        click(dialog.standardButton(Dialog.No))
+        tryCompare(dialog, "visible", false)
+        checkProfile("draft", 1)
+        verify(editor.isDirty)
+        activateProfileButton("profileReloadButton")
+        tryCompare(dialog, "visible", true)
+        click(dialog.standardButton(Dialog.Yes))
+        tryCompare(dialog, "visible", false)
+        verify(editor.configurationLoaded)
+        verify(!editor.isDirty)
+        checkProfile("desk", 1)
     }
 
     function test_unsaved_close(data) {

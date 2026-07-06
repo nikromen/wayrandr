@@ -76,6 +76,28 @@ public:
 
     Q_INVOKABLE void disconnect_output() { fixture_->write("state", "[]"); }
 
+    Q_INVOKABLE void switching_profiles(bool valid) {
+        if (!valid) {
+            fixture_->write("kanshi/config", "invalid directive\n");
+            fixture_->write("auto-wlr-randr/config.toml", "invalid TOML\n");
+            return;
+        }
+        fixture_->write(
+            "kanshi/config",
+            "profile desk {\n output DP-1 mode 1920x1080@60Hz scale 1\n}\n"
+            "profile spare {\n output DP-1 mode 1920x1080@60Hz scale 2\n}\n"
+            "profile travel {\n output DP-1 mode 1920x1080@60Hz scale 3\n}\n"
+        );
+        fixture_->write(
+            "auto-wlr-randr/config.toml",
+            "[profile.desk]\nsettings = [{ output = 'DP-1', mode = '1920x1080@60Hz', scale = 1 }]\n"
+            "[profile.spare]\nsettings = [{ output = 'DP-1', mode = '1920x1080@60Hz', scale = 2 "
+            "}]\n"
+            "[profile.travel]\nsettings = [{ output = 'DP-1', mode = '1920x1080@60Hz', scale = 3 "
+            "}]\n"
+        );
+    }
+
     Q_INVOKABLE void change_modes(bool empty, bool disabled) {
         auto state = fixture_->state();
         auto mode = state[0]["modes"][0];

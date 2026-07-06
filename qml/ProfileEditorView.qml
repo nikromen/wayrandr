@@ -44,7 +44,9 @@ Item {
 
     Dialog {
         id: discardDialog
+        objectName: "profileDiscardDialog"
         property int pendingAction: 0
+        property string pendingProfileId: ""
         width: 420
         modal: true
         standardButtons: Dialog.Yes | Dialog.No
@@ -63,18 +65,14 @@ Item {
             } else if (pendingAction === 2) {
                 profileEditor.select_profile(pendingProfileId, true)
             }
-            pendingAction = 0
-            pendingProfileId = ""
         }
 
-        onRejected: {
+        onClosed: {
             pendingAction = 0
             pendingProfileId = ""
             profileCombo.syncIndex()
         }
     }
-
-    property string pendingProfileId: ""
 
     SplitView {
         anchors.fill: parent
@@ -104,11 +102,13 @@ Item {
                 }
 
                 Button {
+                    objectName: "profileReloadButton"
                     visible: !profileEditor.configurationLoaded
                     text: qsTr("Retry loading configuration")
                     onClicked: {
                         if (profileEditor.isDirty) {
                             discardDialog.pendingAction = 1
+                            discardDialog.pendingProfileId = ""
                             discardDialog.open()
                         } else {
                             profileEditor.reload_config_from_disk()
@@ -136,15 +136,11 @@ Item {
                         model: profileEditor.profileIds
 
                         function syncIndex() {
-                            var idx = model.indexOf(profileEditor.selectedProfileId)
-                            if (idx >= 0) {
-                                currentIndex = idx
-                            } else {
-                                currentIndex = 0
-                            }
+                            currentIndex = model.indexOf(profileEditor.selectedProfileId)
                         }
 
                         Component.onCompleted: syncIndex()
+                        onModelChanged: syncIndex()
 
                         Connections {
                             target: profileEditor
@@ -154,9 +150,11 @@ Item {
                         }
 
                         onActivated: {
-                            if (!profileEditor.select_profile(model[currentIndex])) {
-                                pendingAction = 2
-                                pendingProfileId = model[currentIndex]
+                            const requestedProfileId = model[currentIndex]
+                            if (!profileEditor.select_profile(requestedProfileId)) {
+                                discardDialog.pendingAction = 2
+                                discardDialog.pendingProfileId = requestedProfileId
+                                syncIndex()
                                 discardDialog.open()
                             }
                         }
@@ -182,6 +180,7 @@ Item {
                     }
 
                     Button {
+                        objectName: "profileDeleteButton"
                         text: qsTr("Delete")
                         enabled: profileEditor.selectedProfileId.length > 0 && profileEditor.configurationLoaded
                         onClicked: profileEditor.delete_profile(profileEditor.selectedProfileId)
@@ -309,6 +308,7 @@ Item {
                     }
 
                     Button {
+                        objectName: "profileDiscardButton"
                         text: qsTr("Discard")
                         enabled: profileEditor.isDirty
                         onClicked: profileEditor.discard_changes()
