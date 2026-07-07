@@ -7,6 +7,17 @@ TestCase {
     when: windowShown
     property var appWindow: null
 
+    Component {
+        id: transformModel
+        QtObject {
+            property string transform: "normal"
+            readonly property var transformList: ["normal", "90", "180", "270", "flipped",
+                                                  "flipped-90", "flipped-180", "flipped-270"]
+            signal transform_changed()
+            onTransformChanged: transform_changed()
+        }
+    }
+
     function init() {
         harness.begin()
         tryCompare(harness.controller, "operationBusy", false, 20000)
@@ -84,6 +95,111 @@ TestCase {
 
     function test_apply_data() {
         return [{tag: "confirm"}, {tag: "cancel"}, {tag: "retry"}, {tag: "close"}]
+    }
+
+    function chooseTransform(combo, transform) {
+        const index = combo.model.indexOf(transform)
+        verify(index >= 0)
+        combo.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        tryCompare(combo.popup, "visible", true)
+        keyClick(Qt.Key_Home)
+        for (let i = 0; i < index; ++i) {
+            keyClick(Qt.Key_Down)
+        }
+        keyClick(Qt.Key_Return)
+        tryCompare(combo.popup, "visible", false)
+        compare(combo.currentText, transform)
+        compare(combo.item.transform, transform)
+    }
+
+    function test_transform_item_lifetime() {
+        const first = createTemporaryObject(transformModel, appWindow, {transform: "90"})
+        const second = createTemporaryObject(transformModel, appWindow, {transform: "180"})
+        const component = Qt.createComponent("qrc:/qml/TransformComboBox.qml")
+        compare(component.status, Component.Ready, component.errorString())
+        const combo = createTemporaryObject(component, appWindow.contentItem,
+                                           {item: first, width: 200, height: 40})
+        compare(combo.currentText, "90")
+        combo.item = second
+        compare(combo.currentText, "180")
+        compare(first.transform, "90")
+        compare(second.transform, "180")
+        first.transform = "flipped"
+        compare(combo.currentText, "180")
+        combo.item = null
+        compare(combo.currentIndex, -1)
+        compare(combo.currentText, "")
+        combo.item = undefined
+        compare(combo.currentIndex, -1)
+        compare(combo.currentText, "")
+        combo.item = second
+        compare(combo.currentText, "180")
+        second.destroy()
+        tryCompare(combo, "item", null)
+        compare(combo.currentIndex, -1)
+        compare(combo.currentText, "")
+        combo.item = first
+        compare(combo.currentText, "flipped")
+        first.transform = "270"
+        compare(combo.currentText, "270")
+        chooseTransform(combo, "flipped-180")
+        const empty = createTemporaryObject(component, appWindow.contentItem)
+        compare(empty.currentIndex, -1)
+        compare(empty.currentText, "")
+    }
+
+    function test_transform_tabs_data() {
+        return test_unsaved_profile_data()
+    }
+
+    function chooseOutputTab(tabs, index) {
+        tabs.itemAt(index).forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        tryCompare(tabs, "currentIndex", index)
+    }
+
+    function test_transform_tabs(data) {
+        harness.transform_profiles()
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        const tabs = control("outputTabBar")
+        const combo = control("transformComboBox")
+        const transforms = ["90", "180", "flipped-90", "normal"]
+        compare(editor.outputs.length, transforms.length)
+        for (const index of [0, 1, 2, 0, 3]) {
+            chooseOutputTab(tabs, index)
+            tryCompare(combo, "item", editor.outputs[index])
+            compare(combo.currentText, transforms[index])
+            compare(combo.item.transform, transforms[index])
+            compare(harness.has_transform(editor.outputs[index]), index !== 3)
+            verify(!editor.isDirty)
+        }
+        chooseTransform(combo, "flipped-270")
+        verify(editor.isDirty)
+        verify(harness.has_transform(editor.outputs[3]))
+        for (let i = 0; i < 3; ++i) {
+            compare(editor.outputs[i].transform, transforms[i])
+        }
+        editor.outputs[3].transform = "flipped-180"
+        compare(combo.currentText, "flipped-180")
+        const old = combo.item
+        activateProfileButton("profileDiscardButton")
+        verify(combo.item !== old)
+        compare(combo.item, editor.outputs[0])
+        compare(combo.currentText, "90")
+        verify(!editor.isDirty)
+        chooseOutputTab(tabs, 3)
+        compare(combo.currentText, "normal")
+        verify(!harness.has_transform(editor.outputs[3]))
+        chooseOutputTab(tabs, 2)
+        compare(combo.currentText, "flipped-90")
+        editor.reload_config_from_disk()
+        compare(combo.item, editor.outputs[0])
+        compare(combo.currentText, "90")
+        verify(!harness.has_transform(editor.outputs[3]))
+        verify(!editor.isDirty)
     }
 
     function test_profile_scroll_data() {

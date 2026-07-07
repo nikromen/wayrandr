@@ -189,6 +189,7 @@ Item {
 
                 TabBar {
                     id: outputTabBar
+                    objectName: "outputTabBar"
                     Layout.fillWidth: true
 
                     Repeater {

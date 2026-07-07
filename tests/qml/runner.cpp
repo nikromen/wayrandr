@@ -121,6 +121,29 @@ public:
         fixture_->write("state", state.dump());
     }
 
+    Q_INVOKABLE void transform_profiles() {
+        fixture_->write("kanshi/config", R"(profile desk {
+    output DP-1 mode 1920x1080@60Hz transform 90
+    output HDMI-1 mode 1920x1080@60Hz transform 180
+    output DP-2 mode 1920x1080@60Hz transform flipped-90
+    output HDMI-2 mode 1920x1080@60Hz
+}
+)");
+        fixture_->write("auto-wlr-randr/config.toml", R"([profile.desk]
+settings = [
+    { output = 'DP-1', mode = '1920x1080@60Hz', transform = '90' },
+    { output = 'HDMI-1', mode = '1920x1080@60Hz', transform = '180' },
+    { output = 'DP-2', mode = '1920x1080@60Hz', transform = 'flipped-90' },
+    { output = 'HDMI-2', mode = '1920x1080@60Hz' },
+]
+)");
+    }
+
+    Q_INVOKABLE [[nodiscard]] bool has_transform(QObject * output) const {
+        const auto * model = qobject_cast<ProfileOutputProperties *>(output);
+        return model != nullptr && model->to_output().transform.has_value();
+    }
+
     Q_INVOKABLE [[nodiscard]] double scale() const {
         return fixture_->state()[0]["scale"].get<double>();
     }
