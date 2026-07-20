@@ -76,6 +76,16 @@ public:
 
     Q_INVOKABLE void disconnect_output() { fixture_->write("state", "[]"); }
 
+    Q_INVOKABLE void hold_command(const QString & command) { fixture_->hold_command(command); }
+
+    Q_INVOKABLE void release_command(const QString & command) {
+        fixture_->release_command(command);
+    }
+
+    Q_INVOKABLE [[nodiscard]] bool command_entered(const QString & command) const {
+        return fixture_->command_entered(command);
+    }
+
     Q_INVOKABLE void switching_profiles(bool valid) {
         if (!valid) {
             fixture_->write("kanshi/config", "invalid directive\n");

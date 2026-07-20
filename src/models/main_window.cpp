@@ -191,8 +191,8 @@ void MainWindow::apply() {
         [this, manager, monitors] {
             manager->apply_with_confirmation(monitors, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS);
             return [this] {
-                backend_manager_->set_operation_busy(false);
                 sync_confirmation_state();
+                backend_manager_->set_operation_busy(false);
                 if (cancel_requested_ || close_requested_) {
                     cancel_requested_ = false;
                     cancel_apply();
@@ -204,18 +204,19 @@ void MainWindow::apply() {
             };
         },
         [this](const std::string & error) {
-            backend_manager_->set_operation_busy(false);
             set_apply_error(QString::fromStdString(error));
             stop_confirmation_timers();
             sync_confirmation_state();
             cancel_requested_ = false;
             if (!backend_manager_->has_pending_changes()) {
                 if (close_requested_) {
+                    backend_manager_->set_operation_busy(false);
                     finish_close();
                 } else {
                     reload_monitors_safely();
                 }
             } else {
+                backend_manager_->set_operation_busy(false);
                 close_requested_ = false;
             }
         }
@@ -259,17 +260,15 @@ void MainWindow::stop_confirmation_timers() {
 }
 
 void MainWindow::reload_monitors_safely() {
-    if (backend_manager_->is_operation_busy()) {
-        return;
-    }
+    // Continue the admitted operation without reopening editing before refresh.
     backend_manager_->set_operation_busy(true);
     run_job(
         this,
         [this] {
             auto specs = get_monitor_specs_list();
             return [this, specs = std::move(specs)] {
-                backend_manager_->set_operation_busy(false);
                 reload_monitors(specs);
+                backend_manager_->set_operation_busy(false);
                 if (cancel_requested_) {
                     cancel_requested_ = false;
                     cancel_apply();
@@ -297,6 +296,7 @@ void MainWindow::confirm_apply() {
     if (!is_confirmation_allowed()) {
         return;
     }
+    backend_manager_->set_operation_busy(true);
     backend_manager_->confirm_apply();
     stop_confirmation_timers();
     sync_confirmation_state();
@@ -324,11 +324,11 @@ void MainWindow::cancel_apply() {
         [this, manager] {
             manager->cancel_apply();
             return [this] {
-                backend_manager_->set_operation_busy(false);
                 cancel_requested_ = false;
                 set_apply_error({});
                 sync_confirmation_state();
                 if (close_requested_) {
+                    backend_manager_->set_operation_busy(false);
                     finish_close();
                 } else {
                     reload_monitors_safely();
@@ -577,6 +577,9 @@ auto MainWindow::snap_position(
 }
 
 void MainWindow::reset_canvas_layout(int /*canvas_width*/, float /*display_scale*/) {
+    if (backend_mode_ == K_BACKEND_MODE_WLR_RANDR && !is_direct_editing_allowed()) {
+        return;
+    }
     spdlog::info("Resetting canvas layout");
 
     if ((backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR ||

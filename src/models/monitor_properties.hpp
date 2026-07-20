@@ -96,6 +96,7 @@ signals:
     void layout_dimensions_changed();
 
 private:
+    [[nodiscard]] auto editing_allowed() const -> bool;
     [[nodiscard]] auto get_resolution(bool width) const -> int;
     [[nodiscard]] auto is_transform_rotated() const -> bool;
 

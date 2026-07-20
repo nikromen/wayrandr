@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstddef>
 
+#include "models/main_window.hpp"
 #include "monitor_specs.hpp"
 #include "utils/canvas_drag.hpp"
 #include "utils/canvas_layout.hpp"
@@ -154,8 +155,14 @@ auto MonitorProperties::get_layout_height() const -> int {
 }
 
 // Setters
+auto MonitorProperties::editing_allowed() const -> bool {
+    // Window-owned models share the GUI admission gate; standalone models stay editable.
+    const auto * window = qobject_cast<MainWindow *>(parent());
+    return window == nullptr || window->is_direct_editing_allowed();
+}
+
 void MonitorProperties::set_enabled(bool enabled) {
-    if (is_enabled() == enabled) {
+    if (!editing_allowed() || is_enabled() == enabled) {
         return;
     }
 
@@ -165,7 +172,7 @@ void MonitorProperties::set_enabled(bool enabled) {
 }
 
 void MonitorProperties::set_adaptive_sync(bool adaptive_sync) {
-    if (!has_settings()) {
+    if (!editing_allowed() || !has_settings()) {
         return;
     }
 
@@ -179,7 +186,7 @@ void MonitorProperties::set_adaptive_sync(bool adaptive_sync) {
 }
 
 void MonitorProperties::set_scale(float scale) {
-    if (!has_settings()) {
+    if (!editing_allowed() || !has_settings()) {
         return;
     }
 
@@ -194,7 +201,7 @@ void MonitorProperties::set_scale(float scale) {
 }
 
 void MonitorProperties::set_position_x(int x) {
-    if (!has_settings()) {
+    if (!editing_allowed() || !has_settings()) {
         return;
     }
 
@@ -208,7 +215,7 @@ void MonitorProperties::set_position_x(int x) {
 }
 
 void MonitorProperties::set_position_y(int y) {
-    if (!has_settings()) {
+    if (!editing_allowed() || !has_settings()) {
         return;
     }
 
@@ -222,7 +229,7 @@ void MonitorProperties::set_position_y(int y) {
 }
 
 void MonitorProperties::set_active_resolution_index(size_t index) {
-    if (!has_settings() || index >= monitor_specs->get_modes().size()) {
+    if (!editing_allowed() || !has_settings() || index >= monitor_specs->get_modes().size()) {
         return;
     }
 
@@ -237,7 +244,7 @@ void MonitorProperties::set_active_resolution_index(size_t index) {
 }
 
 void MonitorProperties::set_transform(const QString & transform) {
-    if (!has_settings()) {
+    if (!editing_allowed() || !has_settings()) {
         return;
     }
 
@@ -262,6 +269,9 @@ void MonitorProperties::set_transform(const QString & transform) {
 }
 
 void MonitorProperties::start_drag(int mouse_x, int mouse_y) {
+    if (!editing_allowed()) {
+        return;
+    }
     canvas_drag::start(drag_state_, mouse_x, mouse_y, get_position_x(), get_position_y());
 }
 
@@ -273,6 +283,9 @@ void MonitorProperties::update_drag(
     int canvas_width,
     int canvas_height
 ) {
+    if (!editing_allowed()) {
+        return;
+    }
     canvas_drag::update_with_snap(
         drag_state_,
         mouse_x,
@@ -287,6 +300,9 @@ void MonitorProperties::update_drag(
 }
 
 void MonitorProperties::activate_preferred_mode() {
+    if (!editing_allowed()) {
+        return;
+    }
     if (!has_settings()) {
         spdlog::warn(
             "Cannot activate preferred mode: settings not available for monitor {}",

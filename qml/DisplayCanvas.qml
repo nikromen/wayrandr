@@ -41,6 +41,7 @@ Item {
             Item { Layout.fillWidth: true }
 
             ToolButton {
+                objectName: "resetLayoutButton"
                 text: qsTr("Reset layout")
                 flat: true
                 ToolTip.text: qsTr("Arrange outputs side by side from the top-left corner")
@@ -71,6 +72,7 @@ Item {
                     model: root.canvasModel
 
                     MonitorBlock {
+                        objectName: "monitorCanvasBlock"
                         name: {
                             if (root.hasBlockName) {
                                 return root.blockName(modelData, index)

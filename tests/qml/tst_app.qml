@@ -93,6 +93,39 @@ TestCase {
         keyClick(Qt.Key_Up)
     }
 
+    function verifyDirectInputsLocked() {
+        verify(!harness.controller.directEditingAllowed)
+        const monitor = harness.controller.monitors[0]
+        const x = monitor.positionX
+        const y = monitor.positionY
+        const scale = monitor.scale
+        const transform = monitor.transform
+        const mode = monitor.activeResolutionIndex
+        for (const name of ["scaleSpinBox", "positionXSpinBox", "positionYSpinBox",
+                            "transformComboBox", "resolutionCombo"]) {
+            const item = control(name)
+            verify(!item.enabled, name)
+            item.forceActiveFocus()
+            keyClick(Qt.Key_Up)
+        }
+        const reset = control("resetLayoutButton")
+        verify(!reset.enabled)
+        click(reset)
+        const block = control("monitorCanvasBlock")
+        verify(!block.enabled)
+        verify(waitForRendering(block))
+        mouseDrag(block, block.width / 2, block.height / 2, 40, 30)
+        compare(monitor.scale, scale)
+        compare(monitor.positionX, x)
+        compare(monitor.positionY, y)
+        compare(monitor.transform, transform)
+        compare(monitor.activeResolutionIndex, mode)
+        compare(control("scaleSpinBox").value, Math.round(scale * 10))
+        compare(control("positionXSpinBox").value, x)
+        compare(control("positionYSpinBox").value, y)
+        compare(control("transformComboBox").currentText, transform)
+    }
+
     function test_apply_data() {
         return [{tag: "confirm"}, {tag: "cancel"}, {tag: "retry"}, {tag: "close"}]
     }
@@ -303,12 +336,17 @@ TestCase {
     }
 
     function test_apply(data) {
+        const monitor = harness.controller.monitors[0]
+        monitor.positionX = 240
+        monitor.positionY = 120
         editScale()
         compare(harness.controller.monitors[0].scale.toFixed(1), "1.1")
         click(control("applyButton"))
         tryCompare(harness.controller, "operationBusy", false, 20000)
         tryCompare(harness.controller, "confirmationPending", true)
         compare(harness.scale().toFixed(1), "1.1")
+        verifyDirectInputsLocked()
+        compare(monitor.scale.toFixed(1), "1.1")
         verify(!control("applyButton").visible)
         verify(control("confirmButton").enabled)
         verify(control("cancelButton").visible)
@@ -329,6 +367,7 @@ TestCase {
                 verify(control("applyError").visible)
                 verify(control("applyError").text.includes("<b>restore failure</b>"))
                 compare(control("applyError").textFormat, Text.PlainText)
+                verifyDirectInputsLocked()
                 click(control("cancelButton"))
             }
         }
@@ -343,7 +382,46 @@ TestCase {
             tryCompare(appWindow, "visible", false)
         } else {
             verify(control("applyButton").visible && control("applyButton").enabled)
+            verify(harness.controller.directEditingAllowed)
+            const scale = monitor.scale
+            editScale()
+            compare(monitor.scale.toFixed(1), (scale + 0.1).toFixed(1))
         }
+    }
+
+    function test_inflight_direct_edits() {
+        editScale()
+        harness.hold_command("mutation")
+        click(control("applyButton"))
+        tryVerify(function() { return harness.command_entered("mutation") }, 10000)
+        verify(harness.controller.operationBusy)
+        compare(harness.scale().toFixed(1), "1.1")
+        verifyDirectInputsLocked()
+        harness.controller.monitors[0].scale = 1.2
+        compare(harness.controller.monitors[0].scale.toFixed(1), "1.1")
+        harness.release_command("mutation")
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        tryCompare(harness.controller, "confirmationPending", true)
+        harness.hold_command("query")
+        click(control("confirmButton"))
+        tryVerify(function() { return harness.command_entered("query") }, 10000)
+        verify(harness.controller.operationBusy)
+        verify(!harness.controller.confirmationPending)
+        verifyDirectInputsLocked()
+        harness.release_command("query")
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        verify(harness.controller.directEditingAllowed)
+        editScale()
+        compare(harness.controller.monitors[0].scale.toFixed(1), "1.2")
+        const monitor = harness.controller.monitors[0]
+        const block = control("monitorCanvasBlock")
+        verify(block.enabled)
+        mouseDrag(block, block.width / 2, block.height / 2, 40, 30)
+        verify(monitor.positionX !== 0 || monitor.positionY !== 0)
+        click(control("resetLayoutButton"))
+        compare(monitor.positionX, 0)
+        compare(monitor.positionY, 0)
+        compare(harness.scale().toFixed(1), "1.1")
     }
 
     function test_refreshed_modes_data() {

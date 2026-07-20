@@ -16,6 +16,12 @@
 using json = nlohmann::json;
 
 struct Fixture : Environment {
+    ~Fixture() {
+        // Unblock fake CLI before Environment drains queued work, including recovery.
+        release_command("query");
+        release_command("mutation");
+    }
+
     Fixture() {
         require(dir.isValid(), "Temporary directory unavailable");
         require(std::setlocale(LC_NUMERIC, "cs_CZ.UTF-8") != nullptr, "Czech locale unavailable");
@@ -36,6 +42,19 @@ struct Fixture : Environment {
     }
 
     [[nodiscard]] json state() const { return json::parse(read("state")); }
+
+    void hold_command(const QString & command) const {
+        QFile::remove(dir.filePath(command + "_entered"));
+        write((command.toStdString() + "_hold").c_str(), "");
+    }
+
+    void release_command(const QString & command) const {
+        QFile::remove(dir.filePath(command + "_hold"));
+    }
+
+    [[nodiscard]] auto command_entered(const QString & command) const -> bool {
+        return QFile::exists(dir.filePath(command + "_entered"));
+    }
 
     void reset() const {
         write(

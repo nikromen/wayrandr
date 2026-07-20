@@ -46,6 +46,7 @@ Item {
                     model: controller.monitors
                     MonitorProperties {
                         monitor: modelData
+                        enabled: controller.directEditingAllowed
                         width: parent.width
                     }
                 }
@@ -110,6 +111,7 @@ Item {
         }
 
         DisplayCanvas {
+            enabled: root.controller.directEditingAllowed
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumWidth: 0

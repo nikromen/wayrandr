@@ -1,5 +1,6 @@
 #include "models/main_window.hpp"
 
+#include <qcontainerfwd.h>
 #include <qnamespace.h>
 #include <qobject.h>
 #include <qtenvironmentvariables.h>
@@ -13,10 +14,12 @@
 #include <QGuiApplication>
 #include <QMetaObject>
 #include <QSignalSpy>
+#include <QString>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
 #include <QVariant>
+#include <QVariantMap>
 #include <cstddef>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -28,6 +31,39 @@
 #include "utils/helpers.hpp"
 
 #define SETTLE(window) QTRY_VERIFY_WITH_TIMEOUT(!(window).is_busy(), 20000)
+
+namespace {
+auto draft_state(const MonitorProperties & monitor) -> QVariantMap {
+    QVariantMap state;
+    for (const auto * name : { "enabled",
+                               "adaptiveSync",
+                               "activeResolutionIndex",
+                               "scale",
+                               "transform",
+                               "positionX",
+                               "positionY" }) {
+        state.insert(QString::fromUtf8(name), monitor.property(name));
+    }
+    return state;
+}
+
+void verify_edits_locked(MainWindow & window, MonitorProperties & monitor) {
+    QVERIFY(!window.is_direct_editing_allowed());
+    const auto before = draft_state(monitor);
+    monitor.set_scale(2);
+    monitor.set_transform("flipped-180");
+    monitor.set_active_resolution_index(0);
+    monitor.activate_preferred_mode();
+    monitor.set_position_x(400);
+    monitor.set_position_y(500);
+    monitor.set_adaptive_sync(true);
+    monitor.start_drag(0, 0);
+    monitor.update_drag(400, 500, 1, &window, 2000, 2000);
+    window.reset_canvas_layout(2000, 1);
+    monitor.set_enabled(false);
+    QCOMPARE(draft_state(monitor), before);
+}
+}  // namespace
 
 class MainWindowTests : public QObject {
     Q_OBJECT
@@ -185,6 +221,96 @@ private slots:
         QVERIFY2(!window.is_confirmation_pending(), "UI manual cancel");
     }
 
+    void locked_transaction_data() {
+        QTest::addColumn<QString>("action");
+        for (const auto * action :
+             { "confirm", "cancel", "timeout", "failed-rollback", "failed-refresh" }) {
+            QTest::newRow(action) << QString::fromUtf8(action);
+        }
+    }
+
+    void locked_transaction() {
+        QFETCH(QString, action);
+        Fixture fixture;
+        fixture.multi_monitor();
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        QVERIFY(monitor != nullptr);
+        monitor->set_scale(1.1F);
+        monitor->set_active_resolution_index(1);
+        monitor->set_position_x(240);
+        monitor->set_position_y(120);
+        const auto applied_draft = draft_state(*monitor);
+        int unlocked = 0;
+        // A permitted edit made synchronously on unlock must survive the older result.
+        connect(&window, &MainWindow::confirmation_pending_changed, &window, [&] {
+            if (window.is_direct_editing_allowed()) {
+                ++unlocked;
+                monitor->set_scale(1.2F);
+            }
+        });
+        fixture.hold_command("mutation");
+        window.apply();
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("mutation"), 10000);
+        verify_edits_locked(window, *monitor);
+        QCOMPARE(draft_state(*monitor), applied_draft);
+        QCOMPARE(fixture.state()[0]["scale"].get<double>(), 1.1);
+        fixture.release_command("mutation");
+        SETTLE(window);
+        QVERIFY(window.is_confirmation_allowed());
+        verify_edits_locked(window, *monitor);
+        QCOMPARE(unlocked, 0);
+
+        double live_scale = 1;
+        if (action == "confirm" || action == "failed-refresh") {
+            live_scale = 1.1;
+            fixture.hold_command("query");
+            window.confirm_apply();
+            QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
+            QVERIFY(window.is_busy());
+            QVERIFY(!window.is_confirmation_pending());
+            verify_edits_locked(window, *monitor);
+            if (action == "failed-refresh") {
+                fixture.write("query_failure", "1");
+            }
+            fixture.release_command("query");
+        } else {
+            fixture.hold_command("mutation");
+            if (action == "failed-rollback") {
+                fixture.write("failures", "1");
+            }
+            if (action == "timeout") {
+                QVERIFY(QMetaObject::invokeMethod(&window, "on_confirmation_timeout"));
+            } else {
+                window.cancel_apply();
+            }
+            QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("mutation"), 10000);
+            verify_edits_locked(window, *monitor);
+            QCOMPARE(fixture.state()[0]["scale"].get<double>(), live_scale);
+            fixture.release_command("mutation");
+            if (action == "failed-rollback") {
+                SETTLE(window);
+                QVERIFY(window.is_confirmation_pending());
+                QVERIFY(!window.is_confirmation_allowed());
+                QVERIFY(window.get_apply_error().contains("Restore failed"));
+                verify_edits_locked(window, *monitor);
+                QCOMPARE(unlocked, 0);
+                window.cancel_apply();
+            }
+        }
+        SETTLE(window);
+        QVERIFY(!window.is_confirmation_pending());
+        QVERIFY(window.is_direct_editing_allowed());
+        QCOMPARE(unlocked, 1);
+        QCOMPARE(monitor->get_scale(), 1.2F);
+        QCOMPARE(fixture.state()[0]["scale"].get<double>(), live_scale);
+        if (action == "failed-refresh") {
+            QVERIFY(window.get_apply_error().contains("Could not refresh monitors"));
+        }
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
     void close_and_timeout() {
         Fixture f;
         auto initial_state = f.state();
@@ -308,6 +434,7 @@ private slots:
             !window.is_confirmation_pending() && !window.get_apply_error().isEmpty(),
             "Recovered Apply failure remains visible"
         );
+        QVERIFY(window.is_direct_editing_allowed());
         f.write("failures", "2");
         window.apply();
         SETTLE(window);
@@ -316,9 +443,11 @@ private slots:
                 window.get_confirmation_seconds_left() == 0 && !window.get_apply_error().isEmpty(),
             "Failed Apply and rollback show recovery UI"
         );
+        QVERIFY(!window.is_direct_editing_allowed());
         window.cancel_apply();
         SETTLE(window);
         QVERIFY2(!window.is_confirmation_pending(), "UI can retry failed Apply recovery");
+        QVERIFY(window.is_direct_editing_allowed());
     }
 
     void confirmed_refresh_failure() {

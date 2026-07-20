@@ -8,12 +8,24 @@ import time
 
 root = pathlib.Path(os.environ["WAYRANDR_TEST_DIR"])
 args = sys.argv[1:]
+
+
+def wait_for_release(command):
+    hold = root / (command + "_hold")
+    if hold.exists():
+        (root / (command + "_entered")).touch()
+        while hold.exists():
+            time.sleep(0.005)
+
+
 with (root / "calls").open("a") as log:
     log.write(json.dumps(args) + "\n")
 if args == ["--json"]:
+    result = (root / "state").read_text()
+    wait_for_release("query")
     if (root / "query_failure").exists():
         sys.exit(1)
-    print((root / "state").read_text())
+    print(result)
     sys.exit(0)
 previous = root / "mutator_pid"
 if previous.exists():
@@ -68,6 +80,7 @@ for arg in arguments:
     elif arg == "--scale":
         output["scale"] = float(next(arguments))
 (root / "state").write_text(json.dumps(state))
+wait_for_release("mutation")
 # A timeout is deliberately after a partial mutation.
 hangs = root / "hangs"
 if hangs.exists() and int(hangs.read_text()):

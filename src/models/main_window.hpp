@@ -21,6 +21,9 @@ class MonitorBlock;
 class MainWindow : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool operationBusy READ is_busy NOTIFY confirmation_pending_changed)
+    Q_PROPERTY(
+        bool directEditingAllowed READ is_direct_editing_allowed NOTIFY confirmation_pending_changed
+    )
     Q_PROPERTY(QList<QObject *> monitors READ get_monitors NOTIFY monitors_changed)
     Q_PROPERTY(
         int backendMode READ get_backend_mode WRITE set_backend_mode NOTIFY backend_mode_changed
@@ -46,6 +49,12 @@ public:
 
     [[nodiscard]] bool is_busy() const {
         return backend_manager_->is_operation_busy() || !initialized_;
+    }
+
+    // Direct inputs remain locked through Apply/recovery and its refresh.
+    // Pending snapshots, including failed recovery, also keep them locked.
+    [[nodiscard]] auto is_direct_editing_allowed() const -> bool {
+        return !is_busy() && !confirmation_pending_;
     }
 
     [[nodiscard]] auto get_monitors() const -> QList<QObject *>;
