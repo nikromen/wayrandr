@@ -111,6 +111,7 @@ private:  // NOLINT: Qt moc requires this to end the slots section.
     void set_apply_error(const QString & error);
     void stop_confirmation_timers();
     void reload_monitors_safely();
+    void start_restore();
     void set_confirmation_pending(bool pending);
     void set_confirmation_seconds_left(int seconds);
     void set_backend_mode_internal(int backend_mode);
@@ -134,6 +135,9 @@ private:  // NOLINT: Qt moc requires this to end the slots section.
     int backend_mode_ = K_BACKEND_MODE_WLR_RANDR;
     bool kanshi_available_ = false;
     bool auto_wlr_randr_available_ = false;
+    // The GUI gate spans Apply/restore and its refresh, not a single run_job.
+    // Release it after state updates; settled runs before those GUI updates.
+    // Receiver destruction instead hands recovery to an owning job (see destructor).
     std::shared_ptr<BackendManager> backend_manager_;
     std::unique_ptr<ProfileEditorController> profile_editor_;
 };

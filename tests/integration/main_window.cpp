@@ -221,6 +221,204 @@ private slots:
         QVERIFY2(!window.is_confirmation_pending(), "UI manual cancel");
     }
 
+    void reentrant_apply_admission() {
+        Fixture fixture;
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        monitor->set_scale(2);
+        bool attempted = false;
+        bool gate_closed = false;
+        connect(&window, &MainWindow::apply_error_changed, &window, [&] {
+            if (!attempted && window.get_apply_error().isEmpty()) {
+                attempted = true;
+                gate_closed = window.is_busy();
+                window.apply();
+            }
+        });
+        fixture.hold_command("mutation");
+        window.apply();
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("mutation"), 10000);
+        fixture.release_command("mutation");
+        drain_jobs();
+        QVERIFY(attempted);
+        QVERIFY2(gate_closed, "Apply must close admission before emitting error notifications");
+        QVERIFY(window.get_apply_error().isEmpty());
+        QVERIFY(window.is_confirmation_allowed());
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), 2);
+        window.cancel_apply();
+        SETTLE(window);
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), 1);
+    }
+
+    void reentrant_confirmation_data() {
+        QTest::addColumn<QString>("action");
+        for (const auto * action : { "confirm", "cancel", "close" }) {
+            QTest::newRow(action) << QString::fromUtf8(action);
+        }
+    }
+
+    void reentrant_confirmation() {
+        QFETCH(QString, action);
+        Fixture fixture;
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        monitor->set_scale(2);
+        QSignalSpy closed(&window, &MainWindow::close_ready);
+        bool attempted = false;
+        int countdown_on_admission = 0;
+        connect(&window, &MainWindow::confirmation_pending_changed, &window, [&] {
+            if (!attempted && window.is_confirmation_allowed()) {
+                attempted = true;
+                countdown_on_admission = window.get_confirmation_seconds_left();
+                if (action == "confirm") {
+                    window.confirm_apply();
+                } else if (action == "cancel") {
+                    window.cancel_apply();
+                } else {
+                    window.prepare_close();
+                }
+            }
+        });
+        window.apply();
+        QTRY_VERIFY_WITH_TIMEOUT(attempted, 10000);
+        SETTLE(window);
+        QCOMPARE(countdown_on_admission, 15);
+        QCOMPARE(window.get_confirmation_seconds_left(), 0);
+        for (auto * timer : window.findChildren<QTimer *>(QString(), Qt::FindDirectChildrenOnly)) {
+            QVERIFY(!timer->isActive());
+        }
+        QVERIFY(!window.is_confirmation_pending());
+        QVERIFY(window.is_direct_editing_allowed());
+        int expected_scale = 1;
+        if (action == "confirm") {
+            expected_scale = 2;
+        }
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), expected_scale);
+        if (action == "close") {
+            QCOMPARE(closed.count(), 1);
+            QVERIFY(window.prepare_close());
+            // Closing skips the GUI refresh after restoring the live configuration.
+            QCOMPARE(monitor->get_scale(), 2.0F);
+        } else {
+            QCOMPARE(monitor->get_scale(), static_cast<float>(expected_scale));
+        }
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
+    void reentrant_deferred_cancel() {
+        Fixture fixture;
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        monitor->set_scale(2);
+        int confirmable = 0;
+        connect(&window, &MainWindow::confirmation_pending_changed, &window, [&] {
+            if (window.is_confirmation_allowed()) {
+                ++confirmable;
+                window.confirm_apply();
+            }
+        });
+        fixture.hold_command("mutation");
+        window.apply();
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("mutation"), 10000);
+        window.cancel_apply();
+        fixture.release_command("mutation");
+        SETTLE(window);
+        QCOMPARE(confirmable, 0);
+        QVERIFY(!window.is_confirmation_pending());
+        QVERIFY(window.is_direct_editing_allowed());
+        QCOMPARE(monitor->get_scale(), 1.0F);
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), 1);
+        const auto calls = fixture.read("calls");
+        const auto apply = calls.find("2.000000");
+        const auto restore = calls.find("1.000000", apply);
+        QVERIFY(apply != std::string::npos);
+        QVERIFY(restore != std::string::npos && restore > apply);
+        QVERIFY(calls.find("2.000000", restore) == std::string::npos);
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
+    void reentrant_restore_failure_close() {
+        Fixture fixture;
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        monitor->set_scale(2);
+        window.apply();
+        SETTLE(window);
+        fixture.write("failures", "1");
+        QSignalSpy closed(&window, &MainWindow::close_ready);
+        bool attempted = false;
+        bool diagnostic_ready = false;
+        connect(&window, &MainWindow::confirmation_pending_changed, &window, [&] {
+            if (!attempted && !window.is_busy() && window.is_confirmation_pending() &&
+                !window.is_confirmation_allowed()) {
+                attempted = true;
+                diagnostic_ready = window.get_apply_error().contains("Restore failed");
+                window.prepare_close();
+            }
+        });
+        window.cancel_apply();
+        QTRY_VERIFY_WITH_TIMEOUT(attempted, 10000);
+        SETTLE(window);
+        QVERIFY2(diagnostic_ready, "Publish the recovery error before admitting a retry");
+        QCOMPARE(closed.count(), 1);
+        QVERIFY(window.prepare_close());
+        QVERIFY(!window.is_confirmation_pending());
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), 1);
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
+    void reentrant_refresh_data() {
+        QTest::addColumn<bool>("fail");
+        QTest::newRow("success") << false;
+        QTest::newRow("error") << true;
+    }
+
+    void reentrant_refresh() {
+        QFETCH(bool, fail);
+        Fixture fixture;
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        monitor->set_scale(2);
+        window.apply();
+        SETTLE(window);
+        fixture.hold_command("query");
+        window.confirm_apply();
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
+        // This Cancel belongs to the finishing refresh, never to the next Apply.
+        window.cancel_apply();
+        if (fail) {
+            fixture.write("query_failure", "1");
+        }
+        bool attempted = false;
+        bool diagnostic_ready = false;
+        connect(&window, &MainWindow::confirmation_pending_changed, &window, [&] {
+            if (!attempted && window.is_direct_editing_allowed()) {
+                attempted = true;
+                diagnostic_ready = window.get_apply_error().contains("Could not refresh");
+                QFile::remove(fixture.dir.filePath("query_failure"));
+                monitor->set_scale(3);
+                window.apply();
+            }
+        });
+        fixture.release_command("query");
+        QTRY_VERIFY_WITH_TIMEOUT(attempted, 10000);
+        SETTLE(window);
+        QCOMPARE(diagnostic_ready, fail);
+        QVERIFY(window.is_confirmation_allowed());
+        QVERIFY(window.get_apply_error().isEmpty());
+        QCOMPARE(monitor->get_scale(), 3.0F);
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), 3);
+        window.cancel_apply();
+        SETTLE(window);
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), 2);
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
     void locked_transaction_data() {
         QTest::addColumn<QString>("action");
         for (const auto * action :

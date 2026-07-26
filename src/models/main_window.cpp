@@ -182,8 +182,8 @@ void MainWindow::apply() {
         backend_mode_ != K_BACKEND_MODE_WLR_RANDR || backend_manager_->has_pending_changes()) {
         return;
     }
-    set_apply_error({});
     backend_manager_->set_operation_busy(true);
+    set_apply_error({});
     const auto manager = backend_manager_;
     const auto monitors = monitors_;
     run_job(
@@ -192,15 +192,16 @@ void MainWindow::apply() {
             manager->apply_with_confirmation(monitors, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS);
             return [this] {
                 sync_confirmation_state();
-                backend_manager_->set_operation_busy(false);
-                if (cancel_requested_ || close_requested_) {
-                    cancel_requested_ = false;
-                    cancel_apply();
-                    return;
-                }
-                set_confirmation_seconds_left(K_CONFIRMATION_TIMEOUT_SECONDS);
                 confirmation_timer_->start(K_CONFIRMATION_TIMEOUT_SECONDS * 1000);
                 countdown_timer_->start();
+                set_confirmation_seconds_left(K_CONFIRMATION_TIMEOUT_SECONDS);
+                if (cancel_requested_ || close_requested_) {
+                    cancel_requested_ = false;
+                    start_restore();
+                    return;
+                }
+                // Reentrant notify handlers may Confirm/Cancel as soon as the gate opens.
+                backend_manager_->set_operation_busy(false);
             };
         },
         [this](const std::string & error) {
@@ -216,8 +217,8 @@ void MainWindow::apply() {
                     reload_monitors_safely();
                 }
             } else {
-                backend_manager_->set_operation_busy(false);
                 close_requested_ = false;
+                backend_manager_->set_operation_busy(false);
             }
         }
     );
@@ -268,24 +269,22 @@ void MainWindow::reload_monitors_safely() {
             auto specs = get_monitor_specs_list();
             return [this, specs = std::move(specs)] {
                 reload_monitors(specs);
+                // Refresh has no pending recovery. Consume its Cancel before admitting
+                // another Apply, which may start synchronously from the unlock notification.
+                cancel_requested_ = false;
                 backend_manager_->set_operation_busy(false);
-                if (cancel_requested_) {
-                    cancel_requested_ = false;
-                    cancel_apply();
-                } else if (close_requested_) {
+                if (close_requested_) {
                     finish_close();
                 }
             };
         },
         [this](const std::string & error) {
-            backend_manager_->set_operation_busy(false);
             set_apply_error(
                 apply_error_ + "\nCould not refresh monitors: " + QString::fromStdString(error)
             );
-            if (cancel_requested_) {
-                cancel_requested_ = false;
-                cancel_apply();
-            } else if (close_requested_) {
+            cancel_requested_ = false;
+            backend_manager_->set_operation_busy(false);
+            if (close_requested_) {
                 finish_close();
             }
         }
@@ -305,19 +304,26 @@ void MainWindow::confirm_apply() {
 }
 
 void MainWindow::cancel_apply() {
-    stop_confirmation_timers();
     if (backend_manager_->is_operation_busy()) {
         cancel_requested_ = true;
+        stop_confirmation_timers();
         return;
     }
     if (!backend_manager_->has_pending_changes()) {
+        stop_confirmation_timers();
         if (close_requested_) {
             finish_close();
         }
         return;
     }
     backend_manager_->set_operation_busy(true);
-    emit confirmation_pending_changed();
+    start_restore();
+}
+
+void MainWindow::start_restore() {
+    // Both an explicit Cancel and an Apply with queued Cancel/close arrive with the gate
+    // held. Hand off to recovery without exposing an intermediate confirmation state.
+    stop_confirmation_timers();
     const auto manager = backend_manager_;
     run_job(
         this,
@@ -336,11 +342,11 @@ void MainWindow::cancel_apply() {
             };
         },
         [this](const std::string & error) {
-            backend_manager_->set_operation_busy(false);
             close_requested_ = false;
             cancel_requested_ = false;
             set_apply_error("Restore failed. Retry: " + QString::fromStdString(error));
             sync_confirmation_state();
+            backend_manager_->set_operation_busy(false);
         }
     );
 }
