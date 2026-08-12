@@ -224,9 +224,9 @@ private slots:
             false,
             { Mode(9999, 9999, 60, true, false) }
         );
-        MonitorProperties first(&first_specs);
-        MonitorProperties rotated(&rotated_specs);
-        MonitorProperties disabled(&disabled_specs);
+        MonitorProperties first(first_specs);
+        MonitorProperties rotated(rotated_specs);
+        MonitorProperties disabled(disabled_specs);
         const QList<QObject *> monitors = { &first, &disabled, &rotated };
         QCOMPARE(first.get_layout_width(), 1920);
         QCOMPARE(first.get_layout_height(), 1080);

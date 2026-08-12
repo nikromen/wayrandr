@@ -6,6 +6,7 @@
 #include <qtenvironmentvariables.h>
 #include <qtestcase.h>
 #include <qtmetamacros.h>
+#include <signal.h>  // NOLINT: POSIX kill() verifies fake process cleanup.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -25,6 +26,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#include "models/monitor_block.hpp"
 #include "models/monitor_properties.hpp"
 #include "support/environment.hpp"
 #include "support/fixture.hpp"
@@ -131,6 +133,322 @@ private slots:
         QTest::addColumn<bool>("confirm");
         QTest::newRow("confirm") << true;
         QTest::newRow("cancel") << false;
+    }
+
+    void refreshed_output_set_data() {
+        QTest::addColumn<bool>("confirm");
+        QTest::newRow("confirm") << true;
+        QTest::newRow("cancel") << false;
+    }
+
+    void refreshed_output_set() {
+        QFETCH(bool, confirm);
+        Fixture fixture;
+        MainWindow window;
+        SETTLE(window);
+        auto * first = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        first->set_scale(2);
+        window.apply();
+        SETTLE(window);
+        auto state = fixture.state();
+        auto second = state[0];
+        second["name"] = "DP-NEW";
+        second["description"] = "New monitor";
+        second["scale"] = 1.5;
+        state.insert(state.begin(), second);
+        fixture.write("state", state.dump());
+        if (confirm) {
+            window.confirm_apply();
+        } else {
+            window.cancel_apply();
+        }
+        SETTLE(window);
+        QCOMPARE(window.get_monitors().size(), 2);
+        auto * added = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        QCOMPARE(added->get_name(), "DP-NEW");
+        QCOMPARE(added->get_description(), "New monitor");
+        QCOMPARE(added->get_scale(), 1.5F);
+        QCOMPARE(window.get_monitors()[1], first);
+        QVERIFY(window.get_monitor_block("DP-NEW") != nullptr);
+        int expected_scale = 1;
+        if (confirm) {
+            expected_scale = 2;
+        }
+        QCOMPARE(first->get_scale(), static_cast<float>(expected_scale));
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
+    void return_to_direct_data() {
+        QTest::addColumn<int>("mode");
+        QTest::newRow("kanshi") << 1;
+        QTest::newRow("auto-wlr-randr") << 2;
+    }
+
+    void return_to_direct() {
+        QFETCH(int, mode);
+        Fixture fixture;
+        fixture.profiles();
+        MainWindow window;
+        SETTLE(window);
+        auto * first = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        bool gate_closed_at_notify = false;
+        connect(&window, &MainWindow::backend_mode_changed, &window, [&] {
+            if (window.get_backend_mode() == 0) {
+                gate_closed_at_notify = window.is_busy();
+                window.apply();
+            }
+        });
+        window.set_backend_mode(mode);
+        SETTLE(window);
+        auto state = fixture.state();
+        state[0]["scale"] = 2;
+        state[0]["transform"] = "90";
+        state[0]["position"] = { { "x", -240 }, { "y", 80 } };
+        state[0]["description"] = "Current monitor";
+        fixture.write("state", state.dump());
+        window.set_backend_mode(0);
+        SETTLE(window);
+        QVERIFY(gate_closed_at_notify);
+        QVERIFY(!window.is_confirmation_pending());
+        QCOMPARE(first->get_scale(), 2.0F);
+        QCOMPARE(first->get_transform(), "90");
+        QCOMPARE(first->get_position_x(), -240);
+        QCOMPARE(first->get_description(), "Current monitor");
+        QCOMPARE(window.get_monitors()[0], first);
+    }
+
+    void output_identity_and_draft_data() { return_to_direct_data(); }
+
+    void output_identity_and_draft() {
+        QFETCH(int, mode);
+        Fixture fixture;
+        fixture.profiles();
+        fixture.multi_monitor();
+        auto initial = fixture.state();
+        initial[1]["enabled"] = true;
+        fixture.write("state", initial.dump());
+        MainWindow window;
+        SETTLE(window);
+        auto * first = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        auto * second = qobject_cast<MonitorProperties *>(window.get_monitors()[1]);
+        auto * first_capture = window.get_monitor_block("DP-1");
+        first->set_scale(1.3F);
+        first->set_active_resolution_index(1);
+        first->set_transform("flipped-90");
+        first->set_position_x(-320);
+        first->set_position_y(80);
+        first->set_adaptive_sync(true);
+        first->set_enabled(false);
+        first->set_enabled(true);
+        const auto draft = draft_state(*first);
+        QVERIFY(first->is_dirty());
+        window.set_backend_mode(mode);
+        SETTLE(window);
+        auto state = initial;
+        state[1]["scale"] = 3;
+        auto added = state[1];
+        added["name"] = "DP-NEW";
+        added["scale"] = 1.7;
+        state = json::array({ state[1], added });
+        fixture.write("state", state.dump());
+        fixture.hold_command("query");
+        window.set_backend_mode(0);
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
+        verify_edits_locked(window, *first);
+        window.apply();
+        window.set_backend_mode(mode);
+        QCOMPARE(window.get_backend_mode(), 0);
+        fixture.release_command("query");
+        SETTLE(window);
+        QCOMPARE(window.get_monitors().size(), 3);
+        QCOMPARE(window.get_monitors()[0], second);
+        QCOMPARE(second->get_scale(), 3.0F);
+        auto * new_model = qobject_cast<MonitorProperties *>(window.get_monitors()[1]);
+        QCOMPARE(new_model->get_name(), "DP-NEW");
+        QCOMPARE(new_model->get_scale(), 1.7F);
+        QCOMPARE(window.get_monitors()[2], first);
+        QVERIFY(!first->is_connected());
+        QVERIFY(!first->is_enabled());
+        QVERIFY(first->is_dirty());
+        QCOMPARE(first->get_layout_width(), 0);
+        QCOMPARE(first->get_specs().get_enabled_monitor_settings()->get_scale(), 1.3F);
+        first->set_enabled(true);
+        first->set_scale(4);
+        QVERIFY(!first->is_enabled());
+        QCOMPARE(first->get_specs().get_enabled_monitor_settings()->get_scale(), 1.3F);
+        QCOMPARE(window.get_monitor_block("DP-1"), first_capture);
+        for (auto * timer : first_capture->findChildren<QTimer *>()) {
+            QVERIFY(!timer->isActive());
+        }
+        // The disconnected draft is excluded from Apply and survives another transaction.
+        window.apply();
+        SETTLE(window);
+        window.confirm_apply();
+        SETTLE(window);
+        QVERIFY(first->is_dirty());
+        QVERIFY(fixture.read("calls").find("\"DP-1\"") == std::string::npos);
+
+        window.set_backend_mode(mode);
+        SETTLE(window);
+        auto reconnected = initial[0];
+        reconnected["scale"] = 2.2;
+        reconnected["description"] = "Reconnected monitor";
+        auto modes = reconnected["modes"];
+        reconnected["modes"] = json::array({ modes[1], modes[0] });
+        state = json::array({ reconnected, added, state[0] });
+        fixture.write("state", state.dump());
+        window.set_backend_mode(0);
+        SETTLE(window);
+        QCOMPARE(window.get_monitors()[0], first);
+        QCOMPARE(window.get_monitors()[1], new_model);
+        QCOMPARE(window.get_monitors()[2], second);
+        QVERIFY(first->is_connected());
+        QCOMPARE(draft_state(*first), draft);
+        QCOMPARE(fixture.state()[0]["scale"].get<double>(), 2.2);
+        QCOMPARE(first->get_resolution_width(), 1280);
+        window.apply();
+        SETTLE(window);
+        QVERIFY(!first->is_dirty());
+        QCOMPARE(fixture.state()[0]["scale"].get<double>(), 1.3);
+        window.confirm_apply();
+        SETTLE(window);
+        QCOMPARE(first->get_description(), "Reconnected monitor");
+        QCOMPARE(first->get_active_resolution_index(), size_t{ 0 });
+        QCOMPARE(first->get_resolution_width(), 1280);
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
+    void return_refresh_error_data() {
+        QTest::addColumn<QString>("error");
+        for (const auto * error : { "exit", "non-array", "duplicate", "partial-decode" }) {
+            QTest::newRow(error) << QString::fromUtf8(error);
+        }
+    }
+
+    void return_refresh_error() {
+        QFETCH(QString, error);
+        Fixture fixture;
+        fixture.profiles();
+        fixture.multi_monitor();
+        auto original = fixture.state();
+        original[1]["enabled"] = true;
+        fixture.write("state", original.dump());
+        MainWindow window;
+        SETTLE(window);
+        const auto models = window.get_monitors();
+        auto * first = qobject_cast<MonitorProperties *>(models[0]);
+        auto * second = qobject_cast<MonitorProperties *>(models[1]);
+        first->set_scale(1.4F);
+        window.set_backend_mode(1);
+        SETTLE(window);
+        auto state = original;
+        state[1]["scale"] = 3;
+        if (error == "exit") {
+            fixture.write("query_failure", "1");
+        } else if (error == "duplicate") {
+            state[1]["name"] = "DP-1";
+        } else if (error == "partial-decode") {
+            state[1].erase("scale");
+        }
+        if (error == "non-array") {
+            fixture.write("state", "{}");
+        } else {
+            fixture.write("state", state.dump());
+        }
+        fixture.hold_command("query");
+        window.set_backend_mode(0);
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
+        verify_edits_locked(window, *first);
+        window.set_backend_mode(2);
+        QCOMPARE(window.get_backend_mode(), 0);
+        fixture.release_command("query");
+        SETTLE(window);
+        QCOMPARE(window.get_monitors(), models);
+        QVERIFY(window.get_apply_error().contains("Could not refresh monitors"));
+        QVERIFY(first->is_connected());
+        QVERIFY(second->is_connected());
+        QCOMPARE(first->get_scale(), 1.4F);
+        QCOMPARE(second->get_scale(), 1.0F);
+        QVERIFY(window.is_direct_editing_allowed());
+        first->set_scale(1.5F);
+        // A later permitted edit made on unlock must survive the old query's completion.
+        fixture.write("state", original.dump());
+        QFile::remove(fixture.dir.filePath("query_failure"));
+        window.set_backend_mode(1);
+        SETTLE(window);
+        original[1]["scale"] = 3;
+        fixture.write("state", original.dump());
+        fixture.hold_command("query");
+        window.set_backend_mode(0);
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
+        verify_edits_locked(window, *first);
+        bool edited = false;
+        connect(&window, &MainWindow::confirmation_pending_changed, &window, [&] {
+            if (window.is_direct_editing_allowed()) {
+                edited = true;
+                first->set_scale(1.6F);
+            }
+        });
+        fixture.release_command("query");
+        SETTLE(window);
+        QVERIFY(edited);
+        QCOMPARE(first->get_scale(), 1.6F);
+        QCOMPARE(second->get_scale(), 3.0F);
+        QCOMPARE(window.get_monitors(), models);
+        QVERIFY(window.get_apply_error().isEmpty());
+        QCOMPARE(fixture.state()[0]["scale"].get<int>(), 1);
+        QVERIFY(!QFile::exists(fixture.dir.filePath("overlap")));
+    }
+
+    void disconnect_during_capture() {
+        Fixture fixture;
+        fixture.profiles();
+        fixture.install(FAKE_GRIM, "grim");
+        fixture.write("grim_mode", "success");
+        const auto original = fixture.state();
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
+        auto * block = qobject_cast<MonitorBlock *>(window.get_monitor_block("DP-1"));
+        QVERIFY(block != nullptr);
+        block->stop_capture();
+        drain_jobs();
+        const auto image_before = block->get_screen_image();
+        QSignalSpy images(block, &MonitorBlock::screen_image_changed);
+        window.set_backend_mode(1);
+        SETTLE(window);
+        fixture.write("state", "[]");
+        fixture.hold_command("query");
+        window.set_backend_mode(0);
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
+        // Accepted capture is queued behind the query. Its completion arrives after
+        // reconciliation, whether its process starts before or after GUI delivery.
+        block->start_capture();
+        block->capture_now();
+        fixture.release_command("query");
+        SETTLE(window);
+        QVERIFY(!monitor->is_connected());
+        drain_jobs();
+        QCOMPARE(images.count(), 0);
+        QCOMPARE(block->get_screen_image(), image_before);
+        if (QFile::exists(fixture.dir.filePath("grim_pid"))) {
+            QCOMPARE(::kill(std::stoi(fixture.read("grim_pid")), 0), -1);
+        }
+        block->capture_now();
+        drain_jobs();
+        QCOMPARE(images.count(), 0);
+        fixture.write("grim_mode", "success");
+        window.set_backend_mode(1);
+        SETTLE(window);
+        fixture.write("state", original.dump());
+        window.set_backend_mode(0);
+        SETTLE(window);
+        QCOMPARE(window.get_monitors()[0], monitor);
+        QCOMPARE(window.get_monitor_block("DP-1"), block);
+        block->capture_now();
+        drain_jobs();
+        QCOMPARE(images.count(), 1);
+        QVERIFY(!block->get_screen_image().isEmpty());
     }
 
     void complete_transaction() {

@@ -17,6 +17,7 @@
 #include "monitor_specs.hpp"
 
 class MonitorBlock;
+class MonitorProperties;
 
 class MainWindow : public QObject {
     Q_OBJECT
@@ -105,12 +106,15 @@ private slots:
 
 private:  // NOLINT: Qt moc requires this to end the slots section.
     void finish_close();
-    void initialize_monitors(std::vector<MonitorSpecs> specs);
-    void reload_monitors(const std::vector<MonitorSpecs> & fresh_specs);
+    void initialize_monitors(const std::vector<MonitorSpecs> & specs);
+    auto create_monitor(const MonitorSpecs & specs) -> MonitorProperties *;
+    void reload_monitors(
+        const std::vector<MonitorSpecs> & fresh_specs, bool preserve_drafts = false
+    );
     void sync_confirmation_state();
     void set_apply_error(const QString & error);
     void stop_confirmation_timers();
-    void reload_monitors_safely();
+    void reload_monitors_safely(bool preserve_drafts = false);
     void start_restore();
     void set_confirmation_pending(bool pending);
     void set_confirmation_seconds_left(int seconds);
@@ -121,7 +125,8 @@ private:  // NOLINT: Qt moc requires this to end the slots section.
     static constexpr int K_BACKEND_MODE_KANSHI = 1;
     static constexpr int K_BACKEND_MODE_AUTO_WLR_RANDR = 2;
 
-    std::vector<MonitorSpecs> monitors_;
+    // Models own their specs and keep connector-name identity across reorder/reconnect.
+    // Disconnected entries stay inert until reconnect or window destruction.
     QList<QObject *> monitors_models_;
     QHash<QString, MonitorBlock *> monitor_blocks_;
     QTimer * confirmation_timer_;

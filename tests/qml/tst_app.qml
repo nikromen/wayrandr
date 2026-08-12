@@ -424,6 +424,138 @@ TestCase {
         compare(harness.scale().toFixed(1), "1.1")
     }
 
+    function test_output_set_data() {
+        return [{tag: "kanshi", button: "kanshiBackend"},
+                {tag: "auto", button: "autoBackend"}]
+    }
+
+    function test_output_set(data) {
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.output_set(["DP-1", "DP-2"], 1)
+        click(control("wlrBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const first = harness.controller.monitors[0]
+        const second = harness.controller.monitors[1]
+        compare(first.name, "DP-1")
+        compare(second.name, "DP-2")
+        click(control("monitorTab_DP-2"))
+        compare(control("monitorTabBar").currentIndex, 1)
+        compare(control("scaleSpinBox").value, 20)
+        compare(control("transformComboBox").currentText, "flipped-90")
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.output_set(["DP-2", "DP-NEW", "DP-1"], 4)
+        click(control("wlrBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        tryCompare(control("monitorTabBar"), "currentIndex", 0)
+        compare(harness.controller.monitors[0], second)
+        compare(harness.controller.monitors[2], first)
+        compare(control("scaleSpinBox").value, 40)
+        const added = harness.controller.monitors[1]
+        verify(!first.dirty && !second.dirty && !added.dirty)
+        compare(added.name, "DP-NEW")
+        verify(harness.controller.get_monitor_block(added.name) !== null)
+        function findBlock(item) {
+            if (item.objectName === "monitorCanvasBlock" && item.name === "DP-NEW") {
+                return item
+            }
+            if (item.children) {
+                for (const child of item.children) {
+                    const result = findBlock(child)
+                    if (result) {
+                        return result
+                    }
+                }
+            }
+            return null
+        }
+        const block = findBlock(appWindow.contentItem)
+        verify(block !== null && block.visible && block.enabled)
+        click(block)
+        compare(control("monitorTabBar").currentIndex, 1)
+        compare(control("scaleSpinBox").value, 50)
+        chooseTransform(control("transformComboBox"), "270")
+        compare(added.transform, "270")
+        compare(second.transform, "flipped-90")
+        verify(added.dirty)
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.output_set(["DP-1"], 7)
+        click(control("wlrBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        tryCompare(control("monitorTabBar"), "currentIndex", 0)
+        compare(harness.controller.monitors[0], first)
+        compare(control("scaleSpinBox").value, 70)
+        verify(!second.connected && !added.connected)
+        verify(!control("monitorTab_DP-2").enabled)
+        verify(!control("monitorTab_DP-NEW").enabled)
+        verify(added.dirty)
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.output_set([], 0)
+        click(control("wlrBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        tryCompare(control("monitorTabBar"), "currentIndex", -1)
+        verify(!first.connected)
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.output_set(["DP-NEW", "DP-1", "DP-2"], 10)
+        click(control("wlrBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        tryCompare(control("monitorTabBar"), "currentIndex", 0)
+        compare(harness.controller.monitors[0], added)
+        compare(harness.controller.monitors[1], first)
+        compare(harness.controller.monitors[2], second)
+        verify(added.connected)
+        compare(added.transform, "270")
+        compare(control("transformComboBox").currentText, "270")
+        compare(control("scaleSpinBox").value, 50)
+        compare(harness.scale(), 10)
+        editScale()
+        compare(added.scale.toFixed(1), "5.1")
+        compare(harness.scale(), 10)
+    }
+
+    function test_return_refresh_error_and_draft() {
+        const monitor = harness.controller.monitors[0]
+        editScale()
+        click(control("kanshiBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.output_set(["DP-1"], 2)
+        harness.hold_command("query")
+        click(control("wlrBackend"))
+        tryVerify(function() { return harness.command_entered("query") }, 10000)
+        verifyDirectInputsLocked()
+        harness.controller.monitors[0].scale = 1.2
+        compare(monitor.scale.toFixed(1), "1.1")
+        harness.fail_query(true)
+        harness.release_command("query")
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        compare(harness.controller.monitors[0], monitor)
+        compare(monitor.scale.toFixed(1), "1.1")
+        verify(monitor.connected && monitor.dirty)
+        verify(control("applyError").text.indexOf("Could not refresh monitors") >= 0)
+        editScale()
+        compare(monitor.scale.toFixed(1), "1.2")
+        compare(harness.scale(), 2)
+        harness.fail_query(false)
+        click(control("kanshiBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        harness.output_set(["DP-1"], 3)
+        harness.hold_command("query")
+        click(control("wlrBackend"))
+        tryVerify(function() { return harness.command_entered("query") }, 10000)
+        verifyDirectInputsLocked()
+        harness.release_command("query")
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        compare(control("scaleSpinBox").value, 12)
+        compare(control("applyError").text, "")
+        editScale()
+        compare(monitor.scale.toFixed(1), "1.3")
+        compare(harness.scale(), 3)
+    }
+
     function test_refreshed_modes_data() {
         return [{tag: "changed", empty: false}, {tag: "empty", empty: true},
                 {tag: "disabled", disabled: true},

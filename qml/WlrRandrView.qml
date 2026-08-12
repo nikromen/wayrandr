@@ -7,6 +7,37 @@ Item {
     id: root
 
     required property var controller
+    property string selectedMonitorName: ""
+
+    function selectMonitor(index) {
+        const models = controller.monitors
+        if (index >= 0 && index < models.length && models[index].connected) {
+            selectedMonitorName = models[index].name
+            monitorTabBar.currentIndex = index
+            return
+        }
+        selectedMonitorName = ""
+        monitorTabBar.currentIndex = -1
+    }
+
+    function restoreSelection() {
+        const models = controller.monitors
+        let first = -1
+        for (let i = 0; i < models.length; ++i) {
+            if (models[i].connected) {
+                if (first < 0) {
+                    first = i
+                }
+                if (models[i].name === selectedMonitorName) {
+                    selectMonitor(i)
+                    return
+                }
+            }
+        }
+        selectMonitor(first)
+    }
+
+    Component.onCompleted: restoreSelection()
 
     SplitView {
         anchors.fill: parent
@@ -19,12 +50,22 @@ Item {
 
             TabBar {
                 id: monitorTabBar
+                objectName: "monitorTabBar"
                 Layout.fillWidth: true
 
                 Repeater {
                     model: controller.monitors
                     TabButton {
-                        text: modelData.name
+                        objectName: "monitorTab_" + modelData.name
+                        enabled: modelData.connected
+                        text: {
+                            if (!modelData.connected) {
+                                return modelData.name + qsTr(" (disconnected)")
+                            }
+                            return modelData.name
+                        }
+                        onClicked: root.selectedMonitorName = modelData.name
+                        onEnabledChanged: Qt.callLater(root.restoreSelection)
                     }
                 }
             }
@@ -32,8 +73,10 @@ Item {
             Connections {
                 target: controller
                 function onSwitch_to_monitor_tab(index) {
-                    monitorTabBar.currentIndex = index
+                    root.selectMonitor(index)
                 }
+                // Repeaters may reset the index while replacing their delegates.
+                function onMonitors_changed() { Qt.callLater(root.restoreSelection) }
             }
 
             StackLayout {
@@ -46,7 +89,7 @@ Item {
                     model: controller.monitors
                     MonitorProperties {
                         monitor: modelData
-                        enabled: controller.directEditingAllowed
+                        enabled: controller.directEditingAllowed && modelData.connected
                         width: parent.width
                     }
                 }

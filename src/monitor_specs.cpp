@@ -423,6 +423,9 @@ auto get_monitor_specs_list() -> std::vector<MonitorSpecs> {
         throw std::runtime_error("Empty wlr-randr snapshot");
     }
     auto j = json::parse(output);
+    if (!j.is_array()) {
+        throw std::runtime_error("Expected an array in wlr-randr snapshot");
+    }
 
     spdlog::info("Found {} monitors", j.size());
 

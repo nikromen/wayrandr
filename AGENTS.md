@@ -104,6 +104,14 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
 
 ## Test infrastructure
 
+- Keep test additions proportional to the behavioral change and its risk. Inspect existing
+  coverage first; prefer extending existing cases and reusing fixtures/fakes. Add the smallest
+  regression that fails before the fix and verifies the observable result afterward.
+- Each additional scenario, backend variant or test layer must cover a distinct failure risk.
+  Avoid repeating the same workflow across C++ and QML or adding speculative edge-case matrices.
+  Use real QML interactions when the defect concerns UI behavior.
+- Keep test setup direct; do not build general test frameworks for individual fixes.
+  Documentation, formatting and changes without behavioral impact need no new tests.
 - Use fake external programs and isolated files/environment. Never change actual
   monitor settings or invoke real monitor/daemon tools in automated tests.
 - Only `container-config-check` may invoke real configuration parsers. Use its container

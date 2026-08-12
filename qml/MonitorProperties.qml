@@ -28,6 +28,13 @@ ScrollView {
                 adaptiveSyncEnabled: monitor.hasSettings
             }
 
+            Label {
+                visible: monitor.dirty && root.enabled
+                text: qsTr("Unapplied edits are kept when switching backends.")
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
             GridLayout {
                 columns: 2
                 columnSpacing: 10

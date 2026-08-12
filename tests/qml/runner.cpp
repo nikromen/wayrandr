@@ -3,6 +3,7 @@
 #include <qqml.h>
 #include <qtmetamacros.h>
 
+#include <QFile>
 #include <QGuiApplication>
 #include <QObject>
 #include <QQmlContext>
@@ -58,6 +59,7 @@ public:
         emit warnings_changed();
         fixture_ = std::make_unique<Fixture>();
         fixture_->profiles();
+        output_template_ = fixture_->state()[0];
         window_ = std::make_unique<MainWindow>();
         engine_->rootContext()->setContextProperty("mainWindow", window_.get());
         emit controller_changed();
@@ -75,6 +77,31 @@ public:
     }
 
     Q_INVOKABLE void disconnect_output() { fixture_->write("state", "[]"); }
+
+    Q_INVOKABLE void output_set(const QStringList & names, int scale) {
+        auto state = json::array();
+        for (const auto & name : names) {
+            auto output = output_template_;
+            output["name"] = name.toStdString();
+            output["scale"] = scale + state.size();
+            output["position"]["x"] = state.size() * 2400;
+            if (name == "DP-2") {
+                output["transform"] = "flipped-90";
+            } else if (name == "DP-NEW") {
+                output["transform"] = "180";
+            }
+            state.push_back(output);
+        }
+        fixture_->write("state", state.dump());
+    }
+
+    Q_INVOKABLE void fail_query(bool fail) {
+        if (fail) {
+            fixture_->write("query_failure", "1");
+        } else {
+            QFile::remove(fixture_->dir.filePath("query_failure"));
+        }
+    }
 
     Q_INVOKABLE void hold_command(const QString & command) { fixture_->hold_command(command); }
 
@@ -171,6 +198,7 @@ private:
     QQmlEngine * engine_ = nullptr;
     std::unique_ptr<Fixture> fixture_;
     std::unique_ptr<MainWindow> window_;
+    json output_template_;
 };
 
 auto main(int argc, char ** argv) -> int {

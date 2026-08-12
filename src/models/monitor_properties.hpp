@@ -7,6 +7,7 @@
 #include <QString>
 #include <QStringList>
 #include <cstddef>
+#include <memory>
 
 #include "monitor_specs.hpp"
 #include "utils/canvas_drag.hpp"
@@ -15,8 +16,10 @@ class MonitorProperties : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool enabled READ is_enabled WRITE set_enabled NOTIFY enabled_changed)
     Q_PROPERTY(bool hasSettings READ has_settings NOTIFY enabled_changed)
+    Q_PROPERTY(bool connected READ is_connected NOTIFY connected_changed)
+    Q_PROPERTY(bool dirty READ is_dirty NOTIFY dirty_changed)
     Q_PROPERTY(QString name READ get_name CONSTANT)
-    Q_PROPERTY(QString description READ get_description CONSTANT)
+    Q_PROPERTY(QString description READ get_description NOTIFY description_changed)
     Q_PROPERTY(QStringList resolutions READ get_resolutions NOTIFY resolutions_changed)
 
     // Settings properties - only valid when hasSettings is true
@@ -40,7 +43,23 @@ class MonitorProperties : public QObject {
     Q_PROPERTY(QStringList transformList READ get_transform_list CONSTANT)
 
 public:
-    explicit MonitorProperties(MonitorSpecs * specs, QObject * parent = nullptr);
+    explicit MonitorProperties(MonitorSpecs specs, QObject * parent = nullptr);
+
+    // Own the draft independently of the window's output list. The connector name is
+    // its identity; disconnected models remain inert and retain drafts for reconnect.
+    // GUI-only read: copy the returned specs before queuing worker jobs.
+    [[nodiscard]] auto get_specs() const -> const MonitorSpecs & { return *monitor_specs; }
+
+    [[nodiscard]] auto is_connected() const -> bool { return connected_; }
+
+    [[nodiscard]] auto is_dirty() const -> bool { return dirty_; }
+
+    void mark_clean() { set_dirty(false); }
+
+    void set_connected(bool connected);
+    // On backend return, keep the entire edited draft (including its mode list).
+    // Transaction refreshes adopt live data and clear dirty state, as before.
+    void refresh_from(const MonitorSpecs & specs, bool preserve_draft);
 
     // Getters
     [[nodiscard]] auto is_enabled() const -> bool;
@@ -85,6 +104,9 @@ public:
     void notify_all_changed();
 
 signals:
+    void connected_changed();
+    void dirty_changed();
+    void description_changed();
     void resolutions_changed();
     void enabled_changed();
     void adaptive_sync_changed();
@@ -96,10 +118,13 @@ signals:
     void layout_dimensions_changed();
 
 private:
+    void set_dirty(bool dirty);
     [[nodiscard]] auto editing_allowed() const -> bool;
     [[nodiscard]] auto get_resolution(bool width) const -> int;
     [[nodiscard]] auto is_transform_rotated() const -> bool;
 
-    MonitorSpecs * monitor_specs;
+    std::unique_ptr<MonitorSpecs> monitor_specs;
+    bool connected_ = true;
+    bool dirty_ = false;
     canvas_drag::DragState drag_state_;
 };

@@ -10,8 +10,9 @@
 #include <QVariantMap>
 #include <algorithm>
 #include <memory>
+#include <stdexcept>
 #include <string>
-#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -59,9 +60,9 @@ MainWindow::MainWindow(QObject * parent)
         this,
         [this] {
             auto specs = get_monitor_specs_list();
-            return [this, specs = std::move(specs)]() mutable {
+            return [this, specs = std::move(specs)] {
                 backend_manager_->set_operation_busy(false);
-                initialize_monitors(std::move(specs));
+                initialize_monitors(specs);
                 if (close_requested_) {
                     finish_close();
                 }
@@ -103,43 +104,27 @@ MainWindow::~MainWindow() {
     );
 }
 
-void MainWindow::initialize_monitors(std::vector<MonitorSpecs> specs) {
-    monitors_ = std::move(specs);
-    spdlog::debug("Found {} monitors", monitors_.size());
-
-    for (auto & monitor_spec : monitors_) {
-        spdlog::debug("Creating model for monitor: {}", monitor_spec.get_name());
-        auto * monitor_props = new MonitorProperties(&monitor_spec, this);
-        monitors_models_.append(monitor_props);
-
-        QString const monitor_name = QString::fromStdString(monitor_spec.get_name());
-        auto * block = new MonitorBlock(monitor_name, this);
-        monitor_blocks_[monitor_name] = block;
-
-        if (monitor_spec.is_enabled()) {
-            block->start_capture();
-        }
-
-        connect(
-            monitor_props,
-            &MonitorProperties::enabled_changed,
-            this,
-            [this, block, monitor_props]() {
-                if (monitor_props->is_enabled()) {
-                    block->start_capture();
-                } else {
-                    block->stop_capture();
-                }
-            }
-        );
-    }
-
+void MainWindow::initialize_monitors(const std::vector<MonitorSpecs> & specs) {
+    reload_monitors(specs);
     initialized_ = true;
     emit confirmation_pending_changed();
-    emit monitors_changed();
     if (!close_requested_) {
         profile_editor_->refresh_connected_outputs();
     }
+}
+
+auto MainWindow::create_monitor(const MonitorSpecs & specs) -> MonitorProperties * {
+    auto * model = new MonitorProperties(specs, this);
+    auto * block = new MonitorBlock(model->get_name(), this);
+    monitor_blocks_.insert(model->get_name(), block);
+    connect(model, &MonitorProperties::enabled_changed, this, [model, block] {
+        if (model->is_enabled()) {
+            block->start_capture();
+        } else {
+            block->stop_capture();
+        }
+    });
+    return model;
 }
 
 auto MainWindow::get_monitors() const -> QList<QObject *> {
@@ -185,12 +170,24 @@ void MainWindow::apply() {
     backend_manager_->set_operation_busy(true);
     set_apply_error({});
     const auto manager = backend_manager_;
-    const auto monitors = monitors_;
+    std::vector<MonitorSpecs> monitors;
+    for (auto * object : monitors_models_) {
+        const auto * model = qobject_cast<MonitorProperties *>(object);
+        if (model->is_connected()) {
+            monitors.push_back(model->get_specs());
+        }
+    }
     run_job(
         this,
         [this, manager, monitors] {
             manager->apply_with_confirmation(monitors, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS);
             return [this] {
+                for (auto * object : monitors_models_) {
+                    auto * model = qobject_cast<MonitorProperties *>(object);
+                    if (model->is_connected()) {
+                        model->mark_clean();
+                    }
+                }
                 sync_confirmation_state();
                 confirmation_timer_->start(K_CONFIRMATION_TIMEOUT_SECONDS * 1000);
                 countdown_timer_->start();
@@ -260,15 +257,15 @@ void MainWindow::stop_confirmation_timers() {
     set_confirmation_seconds_left(0);
 }
 
-void MainWindow::reload_monitors_safely() {
+void MainWindow::reload_monitors_safely(bool preserve_drafts) {
     // Continue the admitted operation without reopening editing before refresh.
     backend_manager_->set_operation_busy(true);
     run_job(
         this,
-        [this] {
+        [this, preserve_drafts] {
             auto specs = get_monitor_specs_list();
-            return [this, specs = std::move(specs)] {
-                reload_monitors(specs);
+            return [this, specs = std::move(specs), preserve_drafts] {
+                reload_monitors(specs, preserve_drafts);
                 // Refresh has no pending recovery. Consume its Cancel before admitting
                 // another Apply, which may start synchronously from the unlock notification.
                 cancel_requested_ = false;
@@ -429,6 +426,11 @@ void MainWindow::set_backend_mode_internal(int backend_mode) {
         return;
     }
 
+    // Admit the return refresh before any mode notify can allow Apply on stale models.
+    if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
+        backend_manager_->set_operation_busy(true);
+        set_apply_error({});
+    }
     backend_mode_ = backend_mode;
     if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
         backend_manager_->set_backend(BackendType::WLR_RANDR);
@@ -449,48 +451,58 @@ void MainWindow::set_backend_mode_internal(int backend_mode) {
 
     spdlog::info("Switched UI backend mode to {}", backend_mode);
     emit backend_mode_changed();
+    if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
+        reload_monitors_safely(true);
+    }
 }
 
-void MainWindow::reload_monitors(const std::vector<MonitorSpecs> & fresh_specs) {
-    std::unordered_map<std::string, const MonitorSpecs *> fresh_by_name;
+void MainWindow::reload_monitors(
+    const std::vector<MonitorSpecs> & fresh_specs, bool preserve_drafts
+) {
+    // Validate identity before changing any GUI state. Empty arrays are real disconnects;
+    // query/decoding errors are handled by the caller and never reach reconciliation.
+    std::unordered_set<std::string> names;
     for (const auto & spec : fresh_specs) {
-        fresh_by_name[spec.get_name()] = &spec;
-    }
-
-    int synced = 0;
-    for (auto & monitor_spec : monitors_) {
-        const auto it = fresh_by_name.find(monitor_spec.get_name());
-        if (it == fresh_by_name.end()) {
-            monitor_spec.set_enabled(false);
-            continue;
-        }
-
-        monitor_spec.sync_from(*it->second);
-        synced++;
-    }
-
-    for (auto * monitor_obj : monitors_models_) {
-        auto * monitor_props = qobject_cast<MonitorProperties *>(monitor_obj);
-        if (monitor_props != nullptr) {
-            monitor_props->notify_all_changed();
+        if (spec.get_name().empty() || !names.insert(spec.get_name()).second) {
+            throw std::runtime_error("Invalid or duplicate output name in wlr-randr snapshot");
         }
     }
-
-    for (auto it = monitor_blocks_.begin(); it != monitor_blocks_.end(); ++it) {
-        const auto spec_it = fresh_by_name.find(it.key().toStdString());
-        if (spec_it == fresh_by_name.end()) {
-            it.value()->stop_capture();
-            continue;
-        }
-
-        if (spec_it->second->is_enabled()) {
-            it.value()->start_capture();
+    QList<QObject *> models;
+    for (const auto & spec : fresh_specs) {
+        const auto name = QString::fromStdString(spec.get_name());
+        const auto found = std::find_if(
+            monitors_models_.cbegin(), monitors_models_.cend(), [&name](const auto * object) {
+                return qobject_cast<const MonitorProperties *>(object)->get_name() == name;
+            }
+        );
+        MonitorProperties * model = nullptr;
+        if (found == monitors_models_.cend()) {
+            model = create_monitor(spec);
         } else {
-            it.value()->stop_capture();
+            model = qobject_cast<MonitorProperties *>(*found);
+            model->refresh_from(spec, preserve_drafts);
+        }
+        model->set_connected(true);
+        models.append(model);
+        auto * block = monitor_blocks_.value(name);
+        if (spec.is_enabled()) {
+            block->start_capture();
+        } else {
+            block->stop_capture();
         }
     }
-
-    spdlog::info("Reloaded {} monitors from wlr-randr", synced);
+    for (auto * object : monitors_models_) {
+        if (!models.contains(object)) {
+            auto * model = qobject_cast<MonitorProperties *>(object);
+            monitor_blocks_.value(model->get_name())->stop_capture();
+            model->set_connected(false);
+            models.append(model);
+        }
+    }
+    if (models != monitors_models_) {
+        monitors_models_ = std::move(models);
+        emit monitors_changed();
+    }
 }
 
 void MainWindow::set_confirmation_pending(bool pending) {
