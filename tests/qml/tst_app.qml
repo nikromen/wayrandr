@@ -825,6 +825,9 @@ TestCase {
         click(control(data.button))
         tryCompare(harness.controller, "operationBusy", false, 20000)
         verify(!editor.configurationLoaded)
+        if (data.mode === 2) {
+            verify(!control("onNoMatchCommandEditor").enabled)
+        }
         editor.create_profile_from_live("draft")
         tryCompare(harness.controller, "operationBusy", false, 20000)
         checkProfile("draft", 1)
@@ -864,5 +867,48 @@ TestCase {
         tryCompare(dialog, "visible", true)
         click(dialog.standardButton(Dialog.Yes))
         tryCompare(appWindow, "visible", false)
+    }
+
+    function test_global_commands_without_profile() {
+        harness.empty_auto_config()
+        click(control("autoBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        verify(editor.configurationLoaded)
+        compare(editor.profileIds.length, 0)
+        compare(editor.selectedProfileId, "")
+        const commands = control("onNoMatchCommandEditor")
+        const add = findChild(commands, "addCommandButton")
+        add.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        compare(editor.onNoMatchExecCommands.length, 1)
+        verify(editor.isDirty)
+        const field = findChild(commands, "commandField")
+        field.forceActiveFocus()
+        for (const character of "echo saved") {
+            keyClick(character)
+        }
+        keyClick(Qt.Key_Return)
+        compare(editor.onNoMatchExecCommands[0], "echo saved")
+        activateProfileButton("profileSaveButton")
+        verify(!editor.isDirty)
+        editor.reload_config_from_disk()
+        compare(editor.onNoMatchExecCommands[0], "echo saved")
+        compare(editor.profileIds.length, 0)
+        const remove = findChild(commands, "removeCommandButton")
+        remove.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        verify(editor.isDirty)
+        compare(editor.onNoMatchExecCommands.length, 0)
+        appWindow.close()
+        const dialog = findChild(appWindow, "closeDiscardDialog")
+        tryCompare(dialog, "visible", true)
+        click(dialog.standardButton(Dialog.No))
+        verify(appWindow.visible && editor.isDirty)
+        activateProfileButton("profileDiscardButton")
+        verify(!editor.isDirty)
+        compare(editor.onNoMatchExecCommands[0], "echo saved")
+        verify(!control("profileSaveButton").enabled)
+        verify(!control("profileDiscardButton").enabled)
     }
 }

@@ -243,7 +243,9 @@ Item {
                 }
 
                 CommandListEditor {
+                    objectName: "onNoMatchCommandEditor"
                     visible: profileEditor.supportsOnNoMatchExec
+                    enabled: profileEditor.configurationLoaded
                     Layout.fillWidth: true
                     commands: profileEditor.onNoMatchExecCommands
                     onSetCommand: function(index, text) {

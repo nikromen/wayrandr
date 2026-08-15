@@ -102,6 +102,7 @@ public:
     void set_selected_profile_id(const QString & profile_id);
 
     Q_INVOKABLE bool select_profile(const QString & profile_id, bool force = false);
+    // Save the whole loaded document, including globals without a selected profile.
     Q_INVOKABLE void save_profile();
     Q_INVOKABLE void discard_changes();
     Q_INVOKABLE void switch_profile(bool force = false);
@@ -122,6 +123,8 @@ public:
     Q_INVOKABLE void on_profile_backend_changed();
     Q_INVOKABLE int get_output_index(QObject * output) const;
 
+    // Materialize output-model edits into the selected profile. Document-only mutators
+    // call set_dirty directly, so they cannot overwrite profiles from stale projections.
     void mark_dirty();
     void reload_current_profile_into_editor();
     [[nodiscard]] auto get_output_match_preview(const std::string & output_selector) const

@@ -135,6 +135,10 @@ public:
         );
     }
 
+    Q_INVOKABLE void empty_auto_config() {
+        fixture_->write("auto-wlr-randr/config.toml", "[profile]\n");
+    }
+
     Q_INVOKABLE void change_modes(bool empty, bool disabled) {
         auto state = fixture_->state();
         auto mode = state[0]["modes"][0];

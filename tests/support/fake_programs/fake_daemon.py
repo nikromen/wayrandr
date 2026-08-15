@@ -9,6 +9,9 @@ import time
 root = pathlib.Path(os.environ['WAYRANDR_TEST_DIR'])
 with (root / 'daemon_calls').open('a') as log:
     log.write(json.dumps([pathlib.Path(sys.argv[0]).name, *sys.argv[1:]]) + '\n')
+while (root / (sys.argv[1] + '_hold')).exists():
+    (root / (sys.argv[1] + '_entered')).touch()
+    time.sleep(0.005)
 mode = (root / 'daemon_mode').read_text().strip()
 if mode == 'exit' or (mode == 'reload_exit' and sys.argv[1] == 'reload'):
     print('daemon failure detail', file=sys.stderr)

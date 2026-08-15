@@ -9,6 +9,7 @@
 #include <qtmetamacros.h>
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
 #include <exception>
 #include <functional>
 #include <optional>
@@ -290,17 +291,15 @@ void ProfileEditorController::save_profile() {
         report_save_error("Configuration has not been loaded successfully; retry loading first");
         return;
     }
-    if (selected_profile_id_.isEmpty() || backend_manager_->is_operation_busy() ||
-        backend_manager_->has_pending_changes()) {
+    if (backend_manager_->is_operation_busy() || backend_manager_->has_pending_changes()) {
         return;
     }
+    // Mutators already materialize profile edits into the document; globals need no profile.
     auto config = working_config_;
-    const auto profile = current_profile();
     const auto revision = revision_;
     auto * backend = &profile_backend();
     submit(
-        [this, backend, config, profile, revision]() mutable {
-            backend->add_profile(config, profile);
+        [this, backend, config, revision]() mutable {
             const auto result = backend->save_config(config);
             config.file_snapshot = result.file_snapshot;
             return [this, config, revision, result] {
@@ -564,20 +563,32 @@ void ProfileEditorController::set_exec_command(int index, const QString & comman
 }
 
 void ProfileEditorController::add_on_no_match_exec_command(const QString & command) {
+    if (!configuration_loaded_) {
+        return;
+    }
     string_list_edit::add(working_config_.on_no_match_exec, command.toStdString());
-    mark_dirty();
+    set_dirty(true);
     emit on_no_match_exec_commands_changed();
 }
 
 void ProfileEditorController::remove_on_no_match_exec_command(int index) {
+    if (!configuration_loaded_ || index < 0 ||
+        static_cast<size_t>(index) >= working_config_.on_no_match_exec.size()) {
+        return;
+    }
     string_list_edit::remove_at(working_config_.on_no_match_exec, index);
-    mark_dirty();
+    set_dirty(true);
     emit on_no_match_exec_commands_changed();
 }
 
 void ProfileEditorController::set_on_no_match_exec_command(int index, const QString & command) {
+    if (!configuration_loaded_ || index < 0 ||
+        static_cast<size_t>(index) >= working_config_.on_no_match_exec.size() ||
+        working_config_.on_no_match_exec[static_cast<size_t>(index)] == command.toStdString()) {
+        return;
+    }
     string_list_edit::set_at(working_config_.on_no_match_exec, index, command.toStdString());
-    mark_dirty();
+    set_dirty(true);
     emit on_no_match_exec_commands_changed();
 }
 

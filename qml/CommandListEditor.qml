@@ -17,6 +17,7 @@ ColumnLayout {
         RowLayout {
             Layout.fillWidth: true
             TextField {
+                objectName: "commandField"
                 Layout.fillWidth: true
                 text: modelData
                 onEditingFinished: {
@@ -26,6 +27,7 @@ ColumnLayout {
                 }
             }
             ToolButton {
+                objectName: "removeCommandButton"
                 text: "×"
                 Accessible.name: qsTr("Remove command")
                 onClicked: {
@@ -38,6 +40,7 @@ ColumnLayout {
     }
 
     Button {
+        objectName: "addCommandButton"
         text: qsTr("Add command")
         onClicked: {
             if (root.onAddCommand) {

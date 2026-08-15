@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFile>
 #include <QString>
+#include <QStringList>
 #include <QTest>
 #include <cstddef>
 #include <filesystem>
@@ -52,6 +53,135 @@ private slots:
     }
 
     void document_operations_data() { lifecycle_data(); }
+
+    void global_commands_data() {
+        QTest::addColumn<QString>("kind");
+        for (const auto * kind :
+             { "empty", "last-profile", "selected", "load-error", "conflict", "reload-error" }) {
+            QTest::newRow(kind) << QString::fromUtf8(kind);
+        }
+    }
+
+    void global_commands() {
+        QFETCH(QString, kind);
+        Fixture f;
+        f.profiles();
+        std::string original = "[profile]\n";
+        if (kind == "selected" || kind == "last-profile") {
+            original = "[profile.desk]\nsettings = [{ output = 'DP-1' }]\n";
+        } else if (kind == "load-error") {
+            original = "invalid TOML\n";
+        }
+        f.write(config_name(2), original);
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(2);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        if (kind == "load-error") {
+            QVERIFY(!editor->is_configuration_loaded());
+            editor->add_on_no_match_exec_command("echo unsafe");
+            editor->save_profile();
+            SETTLE(window);
+            QVERIFY(editor->get_on_no_match_exec_commands().isEmpty());
+            QVERIFY(!editor->is_dirty());
+            QVERIFY(editor->get_save_status_text().contains("not saved"));
+            QCOMPARE(f.read(config_name(2)), original);
+            return;
+        }
+        if (kind == "last-profile") {
+            editor->delete_profile("desk");
+            SETTLE(window);
+        } else if (kind == "selected") {
+            // A global edit must not materialize a stale QObject projection.
+            auto stale = output(editor)->to_output();
+            stale.scale = 3;
+            output(editor)->load_from_output(stale);
+        }
+        editor->set_on_no_match_exec_command(0, "ignored");
+        editor->remove_on_no_match_exec_command(-1);
+        QVERIFY(!editor->is_dirty());
+        editor->add_on_no_match_exec_command("echo initial");
+        QVERIFY(editor->is_dirty());
+        editor->set_on_no_match_exec_command(0, "echo saved");
+        editor->add_on_no_match_exec_command("echo removed");
+        editor->remove_on_no_match_exec_command(1);
+        if (kind == "conflict") {
+            original += "# external edit\n";
+            f.write(config_name(2), original);
+        } else if (kind == "reload-error") {
+            f.write("auto-wlr-randr/auto-wlr-randr.sock", "");
+            f.write("daemon_mode", "reload_exit");
+        }
+        editor->save_profile();
+        SETTLE(window);
+        if (kind == "conflict") {
+            QCOMPARE(f.read(config_name(2)), original);
+            QVERIFY(editor->is_dirty());
+            QCOMPARE(editor->get_on_no_match_exec_commands(), QStringList{ "echo saved" });
+            QVERIFY(editor->get_save_status_text().contains("not saved"));
+            QCOMPARE(f.read("daemon_calls").find("reload"), std::string::npos);
+            return;
+        }
+        QVERIFY2(!editor->is_dirty(), qPrintable(editor->get_save_status_text()));
+        if (kind == "reload-error") {
+            QVERIFY(editor->get_save_status_text().contains("saved to disk"));
+            QVERIFY(editor->get_save_status_text().contains("reload failed"));
+            QVERIFY(editor->get_save_status_text().contains("exit code 17"));
+        }
+        const auto saved = AutoWlrRandrProfileBackend().load_config();
+        QVERIFY(saved.on_no_match_exec == std::vector<std::string>{ "echo saved" });
+        if (kind == "selected") {
+            QCOMPARE(saved.profiles.size(), size_t(1));
+            const auto & setting = saved.profiles[0].outputs[0];
+            QVERIFY(!setting.enabled && !setting.mode && !setting.scale && !setting.transform);
+            QVERIFY(!setting.pos && !setting.adaptive_sync && !setting.preferred_explicit);
+        } else {
+            QVERIFY(saved.profiles.empty());
+            QVERIFY(editor->get_selected_profile_id().isEmpty());
+        }
+        editor->set_on_no_match_exec_command(0, "echo draft");
+        QVERIFY(editor->is_dirty());
+        editor->discard_changes();
+        QCOMPARE(editor->get_on_no_match_exec_commands(), QStringList{ "echo saved" });
+        editor->remove_on_no_match_exec_command(0);
+        QVERIFY(editor->is_dirty());
+        editor->discard_changes();
+        QVERIFY(!editor->is_dirty());
+        editor->reload_config_from_disk();
+        QCOMPARE(editor->get_on_no_match_exec_commands(), QStringList{ "echo saved" });
+        editor->set_on_no_match_exec_command(0, "echo saved");
+        QVERIFY(!editor->is_dirty());
+    }
+
+    void global_save_revision() {
+        Fixture f;
+        f.profiles();
+        f.write(config_name(2), "[profile]\n");
+        f.write("auto-wlr-randr/auto-wlr-randr.sock", "");
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(2);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        editor->add_on_no_match_exec_command("echo saved");
+        f.hold_command("reload");
+        editor->save_profile();
+        QTRY_VERIFY_WITH_TIMEOUT(f.command_entered("reload"), 10000);
+        editor->set_on_no_match_exec_command(0, "echo newer");
+        f.release_command("reload");
+        SETTLE(window);
+        const AutoWlrRandrProfileBackend backend;
+        QVERIFY(backend.load_config().on_no_match_exec == std::vector<std::string>{ "echo saved" });
+        QCOMPARE(editor->get_on_no_match_exec_commands(), QStringList{ "echo newer" });
+        QVERIFY(editor->is_dirty());
+        QVERIFY(editor->get_save_status_text().contains("Newer edits remain unsaved"));
+        // This write needs the completed save's snapshot, not the initial disk version.
+        editor->save_profile();
+        SETTLE(window);
+        QVERIFY2(!editor->is_dirty(), qPrintable(editor->get_save_status_text()));
+        QVERIFY(backend.load_config().on_no_match_exec == std::vector<std::string>{ "echo newer" });
+    }
 
     void document_operations() {
         QFETCH(int, mode);

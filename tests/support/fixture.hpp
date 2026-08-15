@@ -20,6 +20,7 @@ struct Fixture : Environment {
         // Unblock fake CLI before Environment drains queued work, including recovery.
         release_command("query");
         release_command("mutation");
+        release_command("reload");
     }
 
     Fixture() {
