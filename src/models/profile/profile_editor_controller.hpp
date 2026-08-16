@@ -108,6 +108,7 @@ public:
     Q_INVOKABLE void switch_profile(bool force = false);
     Q_INVOKABLE void create_profile_from_live(const QString & profile_id);
     Q_INVOKABLE void duplicate_profile(const QString & source_id, const QString & new_id);
+    // Delete immediately saves the whole document; newer edits remain an unsaved draft.
     Q_INVOKABLE void delete_profile(const QString & profile_id);
     Q_INVOKABLE void add_output();
     Q_INVOKABLE void remove_output(int index);
@@ -124,7 +125,7 @@ public:
     Q_INVOKABLE int get_output_index(QObject * output) const;
 
     // Materialize output-model edits into the selected profile. Document-only mutators
-    // call set_dirty directly, so they cannot overwrite profiles from stale projections.
+    // call mark_document_dirty, so they cannot overwrite profiles from stale projections.
     void mark_dirty();
     void reload_current_profile_into_editor();
     [[nodiscard]] auto get_output_match_preview(const std::string & output_selector) const
@@ -167,14 +168,17 @@ private:
     void report_save_result(const ProfileSaveResult & result);
     void report_save_error(const std::string & error);
     std::vector<MonitorSpecs> live_monitors_;
+    // Edits/replacements invalidate async snapshots; selection and dirty flags do not.
     unsigned revision_ = 0;
     void clear_outputs();
     void rebuild_outputs_from_profile(const profile::ProfileDefinition & profile);
     [[nodiscard]] auto current_profile() const -> profile::ProfileDefinition;
     void update_match_warning();
+    void mark_document_dirty();
     void set_dirty(bool dirty);
 
     BackendManager * backend_manager_;
+    // Authoritative draft and last accepted disk contents (also when newer edits remain).
     profile::ProfileDocument working_config_;
     profile::ProfileDocument saved_config_;
     QList<ProfileOutputProperties *> output_models_;

@@ -324,6 +324,14 @@ void ProfileEditorController::discard_changes() {
         return;
     }
     working_config_ = saved_config_;
+    ++revision_;
+    if (!profile_exists(selected_profile_id_)) {
+        selected_profile_id_.clear();
+        if (!working_config_.profiles.empty()) {
+            selected_profile_id_ = QString::fromStdString(working_config_.profiles.front().id);
+        }
+        emit selected_profile_id_changed();
+    }
     reload_current_profile_into_editor();
     set_dirty(false);
     emit profile_ids_changed();
@@ -338,6 +346,7 @@ void ProfileEditorController::reload_config_from_disk() {
     try {
         saved_config_ = profile_backend().load_config();
         working_config_ = saved_config_;
+        ++revision_;
         configuration_loaded_ = true;
         load_error_.clear();
         emit configuration_loaded_changed();
@@ -369,6 +378,7 @@ void ProfileEditorController::on_profile_backend_changed() {
     // A failed backend load must not leave another backend's document editable.
     configuration_loaded_ = false;
     working_config_ = {};
+    ++revision_;
     saved_config_ = {};
     selected_profile_id_.clear();
     clear_outputs();
@@ -416,8 +426,7 @@ void ProfileEditorController::create_profile_from_live(const QString & profile_i
             profile_backend().add_profile(working_config_, std::move(profile));
             selected_profile_id_ = profile_id;
             reload_current_profile_into_editor();
-            set_dirty(true);
-            ++revision_;
+            mark_document_dirty();
             emit profile_ids_changed();
             emit selected_profile_id_changed();
         };
@@ -441,7 +450,7 @@ void ProfileEditorController::duplicate_profile(const QString & source_id, const
         );
         selected_profile_id_ = new_id;
         reload_current_profile_into_editor();
-        set_dirty(true);
+        mark_document_dirty();
         emit profile_ids_changed();
         emit selected_profile_id_changed();
     } catch (const std::exception & e) {
@@ -472,6 +481,7 @@ void ProfileEditorController::delete_profile(const QString & profile_id) {
                 working_config_.file_snapshot = config.file_snapshot;
                 if (revision == revision_) {
                     working_config_ = config;
+                    ++revision_;
                     if (selected_profile_id_ == profile_id) {
                         selected_profile_id_.clear();
                         clear_outputs();
@@ -567,7 +577,7 @@ void ProfileEditorController::add_on_no_match_exec_command(const QString & comma
         return;
     }
     string_list_edit::add(working_config_.on_no_match_exec, command.toStdString());
-    set_dirty(true);
+    mark_document_dirty();
     emit on_no_match_exec_commands_changed();
 }
 
@@ -577,7 +587,7 @@ void ProfileEditorController::remove_on_no_match_exec_command(int index) {
         return;
     }
     string_list_edit::remove_at(working_config_.on_no_match_exec, index);
-    set_dirty(true);
+    mark_document_dirty();
     emit on_no_match_exec_commands_changed();
 }
 
@@ -588,7 +598,7 @@ void ProfileEditorController::set_on_no_match_exec_command(int index, const QStr
         return;
     }
     string_list_edit::set_at(working_config_.on_no_match_exec, index, command.toStdString());
-    set_dirty(true);
+    mark_document_dirty();
     emit on_no_match_exec_commands_changed();
 }
 
@@ -665,7 +675,6 @@ auto ProfileEditorController::get_output_index(QObject * output) const -> int {
 }
 
 void ProfileEditorController::mark_dirty() {
-    ++revision_;
     if (selected_profile_id_.isEmpty()) {
         return;
     }
@@ -686,7 +695,7 @@ void ProfileEditorController::mark_dirty() {
         emit profile_ids_changed();
     }
 
-    set_dirty(true);
+    mark_document_dirty();
     update_match_warning();
 }
 
@@ -710,6 +719,9 @@ void ProfileEditorController::clear_outputs() {
     qDeleteAll(output_models_);
     output_models_.clear();
     emit outputs_changed();
+    if (selected_profile_id_.isEmpty() || !profile_exists(selected_profile_id_)) {
+        emit exec_commands_changed();
+    }
 }
 
 void ProfileEditorController::rebuild_outputs_from_profile(
@@ -760,8 +772,12 @@ auto ProfileEditorController::get_output_match_preview(const std::string & outpu
     );
 }
 
-void ProfileEditorController::set_dirty(bool dirty) {
+void ProfileEditorController::mark_document_dirty() {
     ++revision_;
+    set_dirty(true);
+}
+
+void ProfileEditorController::set_dirty(bool dirty) {
     if (dirty_ == dirty) {
         return;
     }

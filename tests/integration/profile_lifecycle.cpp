@@ -5,6 +5,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QSignalSpy>
 #include <QString>
 #include <QStringList>
 #include <QTest>
@@ -154,10 +155,27 @@ private slots:
         QVERIFY(!editor->is_dirty());
     }
 
+    void global_save_revision_data() {
+        QTest::addColumn<bool>("remove");
+        QTest::addColumn<bool>("last_profile");
+        QTest::newRow("save") << false << false;
+        QTest::newRow("delete") << true << false;
+        QTest::newRow("delete-last") << true << true;
+    }
+
     void global_save_revision() {
+        QFETCH(bool, remove);
+        QFETCH(bool, last_profile);
         Fixture f;
         f.profiles();
-        f.write(config_name(2), "[profile]\n");
+        std::string config = "[profile]\n";
+        if (remove) {
+            config = "[profile.desk]\nexec = ['echo desk']\nsettings = [{ output = 'DP-1' }]\n";
+            if (!last_profile) {
+                config += "[profile.spare]\nsettings = [{ output = 'DP-2' }]\n";
+            }
+        }
+        f.write(config_name(2), config);
         f.write("auto-wlr-randr/auto-wlr-randr.sock", "");
         MainWindow window;
         SETTLE(window);
@@ -166,7 +184,11 @@ private slots:
         auto * editor = window.get_profile_editor();
         editor->add_on_no_match_exec_command("echo saved");
         f.hold_command("reload");
-        editor->save_profile();
+        if (remove) {
+            editor->delete_profile("desk");
+        } else {
+            editor->save_profile();
+        }
         QTRY_VERIFY_WITH_TIMEOUT(f.command_entered("reload"), 10000);
         editor->set_on_no_match_exec_command(0, "echo newer");
         f.release_command("reload");
@@ -176,11 +198,60 @@ private slots:
         QCOMPARE(editor->get_on_no_match_exec_commands(), QStringList{ "echo newer" });
         QVERIFY(editor->is_dirty());
         QVERIFY(editor->get_save_status_text().contains("Newer edits remain unsaved"));
+        QSignalSpy exec_updates(editor, &ProfileEditorController::exec_commands_changed);
+        editor->discard_changes();
+        QVERIFY(!editor->is_dirty());
+        QCOMPARE(editor->get_on_no_match_exec_commands(), QStringList{ "echo saved" });
+        if (remove) {
+            QVERIFY(!editor->get_profile_ids().contains("desk"));
+            if (last_profile) {
+                QVERIFY(editor->get_selected_profile_id().isEmpty());
+                QVERIFY(editor->get_outputs().isEmpty());
+            } else {
+                QCOMPARE(editor->get_selected_profile_id(), QString("spare"));
+                QVERIFY(output(editor) != nullptr);
+                const auto restored = output(editor)->to_output();
+                QVERIFY(
+                    !restored.enabled && !restored.mode && !restored.scale && !restored.transform
+                );
+            }
+            QVERIFY(editor->get_exec_commands().isEmpty());
+            QVERIFY(exec_updates.count() > 0);
+        }
+        editor->set_on_no_match_exec_command(0, "echo newer");
         // This write needs the completed save's snapshot, not the initial disk version.
         editor->save_profile();
         SETTLE(window);
         QVERIFY2(!editor->is_dirty(), qPrintable(editor->get_save_status_text()));
         QVERIFY(backend.load_config().on_no_match_exec == std::vector<std::string>{ "echo newer" });
+        if (remove) {
+            for (const auto & profile : backend.load_config().profiles) {
+                QVERIFY(profile.id != "desk");
+            }
+        }
+    }
+
+    void delete_with_clean_selection() {
+        Fixture f;
+        f.profiles();
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(2);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        bool selected = false;
+        connect(editor, &ProfileEditorController::operation_busy_changed, editor, [&] {
+            if (!editor->is_operation_busy() && !selected) {
+                selected = editor->select_profile("spare");
+            }
+        });
+        editor->delete_profile("desk");
+        SETTLE(window);
+        QVERIFY(selected);
+        QCOMPARE(AutoWlrRandrProfileBackend().load_config().profiles.size(), size_t(1));
+        QVERIFY(!editor->get_profile_ids().contains("desk"));
+        QCOMPARE(editor->get_selected_profile_id(), QString("spare"));
+        QVERIFY(!editor->is_dirty());
     }
 
     void document_operations() {
