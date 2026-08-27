@@ -3,6 +3,7 @@
 
 #include <QFile>
 #include <QObject>
+#include <QPoint>
 #include <QSignalSpy>
 #include <QString>
 #include <QTest>
@@ -24,6 +25,7 @@
 #include "backend/kanshi/conversions.hpp"
 #include "backend/profile/types.hpp"
 #include "models/main_window.hpp"
+#include "models/profile/profile_editor_controller.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "support/fixture.hpp"
 #include "utils/helpers.hpp"
@@ -230,6 +232,58 @@ exec = []
         QCOMPARE(output.to_output().transform, definition.transform);
         output.set_adaptive_sync(true);
         QCOMPARE(output.to_output().transform, definition.transform);
+    }
+
+    void kanshi_custom_geometry_data() {
+        QTest::addColumn<QString>("options");
+        QTest::addColumn<int>("width");
+        QTest::addColumn<int>("height");
+        QTest::newRow("native-size") << QString("scale 1") << 2560 << 1440;
+        QTest::newRow("scaled") << QString("scale 2") << 1280 << 720;
+        QTest::newRow("scaled-flipped-rotation")
+            << QString("scale 2 transform flipped-90") << 720 << 1280;
+    }
+
+    void kanshi_custom_geometry() {
+        QFETCH(QString, options);
+        QFETCH(int, width);
+        QFETCH(int, height);
+        Fixture fixture;
+        fixture.profiles();
+        const auto content = QString(
+                                 "profile desk {\n"
+                                 "output DP-1 mode --custom 2560x1440@60Hz %1\n"
+                                 "output DP-2 mode 1920x1080@60Hz\n}\n"
+        )
+                                 .arg(options)
+                                 .toStdString();
+        fixture.write("kanshi/config", content);
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(1);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        QVERIFY(editor->is_configuration_loaded());
+        QCOMPARE(editor->get_outputs().size(), 2);
+        auto * first = qobject_cast<ProfileOutputProperties *>(editor->get_outputs()[0]);
+        auto * second = qobject_cast<ProfileOutputProperties *>(editor->get_outputs()[1]);
+        QVERIFY(first != nullptr && second != nullptr);
+        const auto before = first->to_output();
+        QCOMPARE(first->property("layoutWidth").toInt(), width);
+        QCOMPARE(first->property("layoutHeight").toInt(), height);
+        QCOMPARE(first->get_mode(), QString("--custom 2560x1440@60Hz"));
+        QVERIFY(!editor->is_dirty());
+        window.reset_canvas_layout(0, 1);
+        QCOMPARE(first->get_position_x(), 0);
+        QCOMPARE(second->get_position_x(), width);
+        QCOMPARE(first->get_position_y(), 0);
+        QCOMPARE(second->get_position_y(), 0);
+        QCOMPARE(window.snap_position(second, width + 20, 0, 50, 0, 0, 1), QPoint(width, 0));
+        QCOMPARE(first->to_output().mode, before.mode);
+        QCOMPARE(first->to_output().scale, before.scale);
+        QCOMPARE(first->to_output().transform, before.transform);
+        QVERIFY(editor->is_dirty());
+        QCOMPARE(fixture.read("kanshi/config"), content);
     }
 
     void kanshi_nonfinite_geometry_data() {

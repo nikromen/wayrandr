@@ -12,10 +12,14 @@
 namespace profile::layout_utils {
 
 auto parse_mode_string(const std::string & mode) -> std::optional<std::pair<int, int>> {
-    const auto at_pos = mode.find('@');
     std::string resolution = mode;
+    // Interpret Kanshi's native custom mode without changing its stored representation.
+    if (resolution.rfind("--custom ", 0) == 0) {
+        resolution.erase(0, 9);
+    }
+    const auto at_pos = resolution.find('@');
     if (at_pos != std::string::npos) {
-        resolution = mode.substr(0, at_pos);
+        resolution.resize(at_pos);
     }
     const auto x_pos = resolution.find('x');
     if (x_pos == std::string::npos) {
