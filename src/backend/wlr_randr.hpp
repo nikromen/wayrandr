@@ -17,5 +17,8 @@ public:
 private:
     std::vector<MonitorSpecs> previous_config_;
 
-    static auto build_wlr_randr_command(const std::vector<MonitorSpecs> & monitors) -> std::string;
+    void apply(const std::vector<MonitorSpecs> & monitors, bool snapshot_current);
+
+    static auto build_wlr_randr_args(const std::vector<MonitorSpecs> & monitors)
+        -> std::vector<std::string>;
 };

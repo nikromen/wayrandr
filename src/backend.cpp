@@ -48,11 +48,6 @@ void BackendManager::apply_with_confirmation(
     try {
         apply(monitors);
         pending_confirmation_ = true;
-
-        // TODO this:
-        // In a real implementation, we'd start a timer here
-        // For now, we'll just mark it as pending
-        // The GUI should handle the timer and call confirm_apply() or cancel_apply()
     } catch (const std::exception & e) {
         spdlog::error("Failed to apply configuration: {}", e.what());
         pending_confirmation_ = false;

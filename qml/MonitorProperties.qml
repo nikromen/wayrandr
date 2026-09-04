@@ -21,14 +21,23 @@ ScrollView {
                     id: enabledSwitch
                     text: qsTr("Enabled")
                     checked: monitor.enabled
-                    onCheckedChanged: monitor.enabled = checked
+                    onCheckedChanged: {
+                        if (monitor.enabled !== checked) {
+                            monitor.enabled = checked
+                        }
+                    }
                 }
 
                 Switch {
                     id: adaptiveSyncSwitch
                     visible: monitor.hasSettings
                     text: qsTr("Adaptive Sync")
-                    onCheckedChanged: monitor.adaptiveSync = checked
+                    checked: monitor.adaptiveSync
+                    onCheckedChanged: {
+                        if (monitor.hasSettings && monitor.adaptiveSync !== checked) {
+                            monitor.adaptiveSync = checked
+                        }
+                    }
                 }
 
                 Item { Layout.fillWidth: true }

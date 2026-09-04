@@ -2,7 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include <QString>
+#include <cstdio>
 #include <algorithm>
 #include <cstddef>
 #include <nlohmann/json.hpp>
@@ -88,7 +88,6 @@ auto transform_utils::is_flipped(Transform transform) -> bool {
 
 auto transform_utils::get_flipped(Transform transform) -> Transform {
     Transform result;
-    spdlog::debug("Getting flipped transform for: {}", static_cast<int>(transform));
 
     switch (transform) {
         case Transform::NORMAL:
@@ -121,9 +120,6 @@ auto transform_utils::get_flipped(Transform transform) -> Transform {
             );
     }
 
-    spdlog::debug(
-        "Flipped transform result: {} -> {}", static_cast<int>(transform), static_cast<int>(result)
-    );
     return result;
 }
 
@@ -177,6 +173,12 @@ auto Mode::to_string() const -> std::string {
         std::to_string(refresh_rate) + "Hz";
 }
 
+auto Mode::to_wlr_randr_arg() const -> std::string {
+    char buffer[64];
+    std::snprintf(buffer, sizeof(buffer), "%dx%d@%.6fHz", width, height, refresh_rate);
+    return buffer;
+}
+
 MonitorSpecs::MonitorSpecs(
     std::string name,
     const std::optional<std::string> & make,
@@ -215,6 +217,10 @@ auto MonitorSpecs::get_modes() const -> const std::vector<Mode> & {
     return modes;
 }
 
+auto MonitorSpecs::get_enabled_monitor_settings() const -> const std::optional<EnabledMonitorSettings> & {
+    return enabled_monitor_settings;
+}
+
 auto MonitorSpecs::get_enabled_monitor_settings() -> std::optional<EnabledMonitorSettings> & {
     return enabled_monitor_settings;
 }
@@ -222,7 +228,34 @@ auto MonitorSpecs::get_enabled_monitor_settings() -> std::optional<EnabledMonito
 // Setters
 void MonitorSpecs::set_enabled(bool enabled) {
     this->enabled = enabled;
-    // No need for deleting settings when disabling; user may re-enable it, so remember them
+
+    if (enabled && !enabled_monitor_settings.has_value()) {
+        size_t mode_index = 0;
+        for (size_t i = 0; i < modes.size(); ++i) {
+            if (modes[i].is_preferred) {
+                mode_index = i;
+                break;
+            }
+        }
+
+        enabled_monitor_settings = EnabledMonitorSettings(
+            mode_index, Position{ 0, 0 }, Transform::NORMAL, 1.0F, false
+        );
+        spdlog::info("Created default settings for monitor {}", name);
+    }
+}
+
+void MonitorSpecs::sync_from(const MonitorSpecs & other) {
+    if (name != other.name) {
+        throw std::invalid_argument("Cannot sync monitors with different names");
+    }
+
+    enabled = other.enabled;
+    if (other.enabled_monitor_settings.has_value()) {
+        enabled_monitor_settings = other.enabled_monitor_settings;
+    } else if (other.enabled) {
+        enabled_monitor_settings = std::nullopt;
+    }
 }
 
 EnabledMonitorSettings::EnabledMonitorSettings(
@@ -289,73 +322,120 @@ void EnabledMonitorSettings::set_adaptive_sync(bool adaptive_sync) {
     this->adaptive_sync = adaptive_sync;
 }
 
+namespace {
+
+auto resolve_active_mode_index(const std::vector<Mode> & modes, int active_mode_index) -> size_t {
+    if (active_mode_index >= 0 && static_cast<size_t>(active_mode_index) < modes.size()) {
+        return static_cast<size_t>(active_mode_index);
+    }
+
+    for (size_t i = 0; i < modes.size(); ++i) {
+        if (modes[i].is_preferred) {
+            spdlog::warn("No current mode found, using preferred mode index {}", i);
+            return i;
+        }
+    }
+
+    spdlog::warn("No current or preferred mode found, using index 0");
+    return 0;
+}
+
+}  // namespace
+
 auto get_monitor_specs_list() -> std::vector<MonitorSpecs> {
     std::vector<MonitorSpecs> monitor_specs_list;
 
-    std::string const output = run_command("wlr-randr --json");
-    json j = json::parse(output);
+    std::string output;
+    try {
+        output = run_command("wlr-randr", { "--json" });
+    } catch (const std::exception & e) {
+        spdlog::error("Failed to run wlr-randr: {}", e.what());
+        return monitor_specs_list;
+    }
+
+    if (output.empty()) {
+        spdlog::error("wlr-randr returned empty output");
+        return monitor_specs_list;
+    }
+
+    json j;
+    try {
+        j = json::parse(output);
+    } catch (const json::exception & e) {
+        spdlog::error("Failed to parse wlr-randr JSON: {}", e.what());
+        return monitor_specs_list;
+    }
+
     spdlog::info("Found {} monitors", j.size());
 
     for (auto & monitor : j) {
-        spdlog::debug("Processing monitor: {}", monitor["name"].get<std::string>());
-        bool is_enabled = monitor["enabled"].get<bool>();
-        spdlog::debug("Monitor is enabled: {}", is_enabled);
+        try {
+            spdlog::debug("Processing monitor: {}", monitor["name"].get<std::string>());
+            bool const is_enabled = monitor["enabled"].get<bool>();
+            spdlog::debug("Monitor is enabled: {}", is_enabled);
 
-        std::vector<Mode> modes;
-        int active_mode_index = -1;
-        for (auto & mode : monitor["modes"]) {
-            modes.emplace_back(Mode(
-                mode["width"].get<int>(),
-                mode["height"].get<int>(),
-                mode["refresh"].get<float>(),
-                mode["preferred"].get<bool>(),
-                mode["current"].get<bool>()
-            ));
+            std::vector<Mode> modes;
+            int active_mode_index = -1;
+            for (auto & mode : monitor["modes"]) {
+                modes.emplace_back(Mode(
+                    mode["width"].get<int>(),
+                    mode["height"].get<int>(),
+                    mode["refresh"].get<float>(),
+                    mode["preferred"].get<bool>(),
+                    mode["current"].get<bool>()
+                ));
 
-            if (mode["current"]) {
-                active_mode_index = modes.size() - 1;
+                if (mode["current"]) {
+                    active_mode_index = static_cast<int>(modes.size()) - 1;
+                }
             }
-        }
 
-        std::optional<EnabledMonitorSettings> enabled_monitor_settings = std::nullopt;
-        if (is_enabled) {
-            enabled_monitor_settings = EnabledMonitorSettings(
-                static_cast<size_t>(active_mode_index),
-                Position{ monitor["position"]["x"].get<int>(),
-                          monitor["position"]["y"].get<int>() },
-                transform_utils::from_string(monitor["transform"].get<std::string>()),
-                monitor["scale"].get<float>(),
-                monitor["adaptive_sync"].get<bool>()
-            );
-        }
+            std::optional<EnabledMonitorSettings> enabled_monitor_settings = std::nullopt;
+            if (is_enabled) {
+                const size_t resolved_mode_index =
+                    resolve_active_mode_index(modes, active_mode_index);
+                enabled_monitor_settings = EnabledMonitorSettings(
+                    resolved_mode_index,
+                    Position{ monitor["position"]["x"].get<int>(),
+                              monitor["position"]["y"].get<int>() },
+                    transform_utils::from_string(monitor["transform"].get<std::string>()),
+                    monitor["scale"].get<float>(),
+                    monitor["adaptive_sync"].get<bool>()
+                );
+            }
 
-        std::optional<std::string> make = std::nullopt;
-        std::optional<std::string> model = std::nullopt;
-        std::optional<std::string> serial_number = std::nullopt;
-        if (monitor.contains("make") && !monitor["make"].is_null()) {
-            make = monitor["make"];
-        }
-        if (monitor.contains("model") && !monitor["model"].is_null()) {
-            model = monitor["model"];
-        }
-        if (monitor.contains("serial") && !monitor["serial"].is_null()) {
-            serial_number = monitor["serial"];
-        }
+            std::optional<std::string> make = std::nullopt;
+            std::optional<std::string> model = std::nullopt;
+            std::optional<std::string> serial_number = std::nullopt;
+            if (monitor.contains("make") && !monitor["make"].is_null()) {
+                make = monitor["make"];
+            }
+            if (monitor.contains("model") && !monitor["model"].is_null()) {
+                model = monitor["model"];
+            }
+            if (monitor.contains("serial") && !monitor["serial"].is_null()) {
+                serial_number = monitor["serial"];
+            }
 
-        const PhysicalSize physical_size = { monitor["physical_size"]["width"].get<int>(),
-                                             monitor["physical_size"]["height"].get<int>() };
+            const PhysicalSize physical_size = { monitor["physical_size"]["width"].get<int>(),
+                                                 monitor["physical_size"]["height"].get<int>() };
 
-        monitor_specs_list.emplace_back(MonitorSpecs(
-            monitor["name"],
-            make,
-            model,
-            serial_number,
-            monitor["description"],
-            physical_size,
-            is_enabled,
-            modes,
-            enabled_monitor_settings
-        ));
+            monitor_specs_list.emplace_back(MonitorSpecs(
+                monitor["name"],
+                make,
+                model,
+                serial_number,
+                monitor["description"],
+                physical_size,
+                is_enabled,
+                modes,
+                enabled_monitor_settings
+            ));
+        } catch (const std::exception & e) {
+            const std::string name =
+                monitor.contains("name") ? monitor["name"].get<std::string>() : "unknown";
+            spdlog::warn("Skipping monitor {} due to parse error: {}", name, e.what());
+        }
     }
 
     return monitor_specs_list;
