@@ -54,7 +54,8 @@ auto AutoWlrRandrProfileBackend::save_config(const profile::ProfileDocument & co
 
 auto AutoWlrRandrProfileBackend::get_match_warning(
     const profile::ProfileDefinition & profile,
-    const std::vector<profile::ConnectedOutput> & connected_outputs
+    const std::vector<profile::ConnectedOutput> & connected_outputs,
+    const profile::ProfileDocument & /*document*/
 ) const -> std::string {
     if (profile.outputs.size() != connected_outputs.size()) {
         return profile::matching::get_match_warning(
@@ -85,7 +86,8 @@ auto AutoWlrRandrProfileBackend::get_match_warning(
 
 auto AutoWlrRandrProfileBackend::describe_output_match(
     const std::string & output_selector,
-    const std::vector<profile::ConnectedOutput> & connected_outputs
+    const std::vector<profile::ConnectedOutput> & connected_outputs,
+    const profile::ProfileDocument & /*document*/
 ) const -> std::string {
     if (const auto matched = profile::matching::find_matching_output(
             output_selector, connected_outputs, profile::matching::InvalidGlobBehavior::NO_MATCH

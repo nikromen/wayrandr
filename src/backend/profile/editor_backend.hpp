@@ -34,13 +34,17 @@ public:
         -> profile::ProfileDefinition;
     [[nodiscard]] auto get_connected_outputs(const std::vector<MonitorSpecs> & monitors) const
         -> std::vector<profile::ConnectedOutput>;
+    // Preview uses main-file context only; unavailable native context is reported
+    // as indeterminate text rather than a definitive mismatch. It never edits the document.
     [[nodiscard]] virtual auto get_match_warning(
         const profile::ProfileDefinition & profile,
-        const std::vector<profile::ConnectedOutput> & connected_outputs
+        const std::vector<profile::ConnectedOutput> & connected_outputs,
+        const profile::ProfileDocument & document = {}
     ) const -> std::string = 0;
     [[nodiscard]] virtual auto describe_output_match(
         const std::string & output_selector,
-        const std::vector<profile::ConnectedOutput> & connected_outputs
+        const std::vector<profile::ConnectedOutput> & connected_outputs,
+        const profile::ProfileDocument & document = {}
     ) const -> std::string = 0;
 
     virtual void reload_service() const = 0;

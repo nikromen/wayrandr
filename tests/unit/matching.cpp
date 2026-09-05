@@ -103,6 +103,14 @@ private slots:
         profile.outputs.push_back(output);
         QCOMPARE(kanshi.describe_output_match("DP[1", outputs), std::string("Matches DP[1"));
         QCOMPARE(
+            kanshi.describe_output_match("DP*", outputs),
+            std::string("No connected output matches this pattern")
+        );
+        QCOMPARE(
+            kanshi.describe_output_match("Unknown Unknown Unknown", outputs),
+            std::string("Matches DP[1")
+        );
+        QCOMPARE(
             auto_wlr.describe_output_match("DP[1", outputs),
             std::string("No connected output matches this pattern")
         );

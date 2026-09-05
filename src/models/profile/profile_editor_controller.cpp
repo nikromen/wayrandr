@@ -748,7 +748,7 @@ auto ProfileEditorController::current_profile() const -> profile::ProfileDefinit
 void ProfileEditorController::update_match_warning() {
     const profile::ProfileDefinition profile = current_profile();
     const std::string warning =
-        profile_backend().get_match_warning(profile, connected_output_infos_);
+        profile_backend().get_match_warning(profile, connected_output_infos_, working_config_);
     match_warning_ = QString::fromStdString(warning);
     emit match_warning_changed();
 }
@@ -768,7 +768,9 @@ auto ProfileEditorController::capabilities() const -> profile::ProfileEditorCapa
 auto ProfileEditorController::get_output_match_preview(const std::string & output_selector) const
     -> QString {
     return QString::fromStdString(
-        profile_backend().describe_output_match(output_selector, connected_output_infos_)
+        profile_backend().describe_output_match(
+            output_selector, connected_output_infos_, working_config_
+        )
     );
 }
 

@@ -20,11 +20,13 @@ public:
 
     [[nodiscard]] auto get_match_warning(
         const profile::ProfileDefinition & profile,
-        const std::vector<profile::ConnectedOutput> & connected_outputs
+        const std::vector<profile::ConnectedOutput> & connected_outputs,
+        const profile::ProfileDocument & document = {}
     ) const -> std::string override;
     [[nodiscard]] auto describe_output_match(
         const std::string & output_selector,
-        const std::vector<profile::ConnectedOutput> & connected_outputs
+        const std::vector<profile::ConnectedOutput> & connected_outputs,
+        const profile::ProfileDocument & document = {}
     ) const -> std::string override;
 
     void reload_service() const override;

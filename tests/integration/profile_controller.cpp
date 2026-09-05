@@ -26,6 +26,7 @@
 #include "backend/profile/editor_backend.hpp"
 #include "backend/profile/types.hpp"
 #include "models/main_window.hpp"
+#include "models/profile/profile_output_properties.hpp"
 #include "support/environment.hpp"
 #include "support/fixture.hpp"
 #include "utils/helpers.hpp"
@@ -53,6 +54,59 @@ private slots:
                     << mode << state_kind;
             }
         }
+    }
+
+    void kanshi_preview_data() {
+        QTest::addColumn<std::string>("globals");
+        QTest::addColumn<std::string>("directives");
+        QTest::addColumn<std::string>("warning");
+        QTest::newRow("alias") << std::string("output DP-1 alias $panel\n")
+                               << std::string("output $panel\noutput DP-2\n") << std::string();
+        QTest::newRow("multi") << std::string() << std::string("...output *\n") << std::string();
+        QTest::newRow("mixed") << std::string() << std::string("...output *\noutput DP-1\n")
+                               << std::string();
+        QTest::newRow("multi-zero")
+            << std::string() << std::string("...output HDMI-1\noutput DP-1\noutput DP-2\n")
+            << std::string();
+        QTest::newRow("unmatched-head")
+            << std::string() << std::string("output DP-1\n...output HDMI-1\n")
+            << std::string("Profile patterns do not match the currently connected outputs.");
+        QTest::newRow("include-alias")
+            << std::string("include /never-expanded\noutput DP-1 alias $panel\n")
+            << std::string("output $panel\noutput DP-2\n")
+            << std::string("Preview cannot be determined: includes may define output aliases.");
+    }
+
+    void kanshi_preview() {
+        QFETCH(std::string, globals);
+        QFETCH(std::string, directives);
+        QFETCH(std::string, warning);
+        Fixture f;
+        f.profiles();
+        f.multi_monitor();
+        const auto content = globals + "profile desk {\n" + directives + "}\n";
+        f.write("kanshi/config", content);
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(1);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        QCOMPARE(editor->get_match_warning().toStdString(), warning);
+        if (!globals.empty()) {
+            QVERIFY(!editor->get_outputs().isEmpty());
+            const auto * output =
+                qobject_cast<ProfileOutputProperties *>(editor->get_outputs().first());
+            QVERIFY(output != nullptr);
+            if (warning.empty()) {
+                QCOMPARE(output->get_match_preview(), QString("Matches DP-1"));
+            } else {
+                QCOMPARE(output->get_match_preview().toStdString(), warning);
+            }
+            QCOMPARE(output->get_output_pattern(), QString("$panel"));
+        }
+        QVERIFY(!editor->is_dirty());
+        QCOMPARE(f.read("kanshi/config"), content);
+        QVERIFY(f.read("daemon_calls").find("reload") == std::string::npos);
     }
 
     void snapshot() {
