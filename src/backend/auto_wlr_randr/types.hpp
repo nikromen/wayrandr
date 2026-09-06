@@ -2,7 +2,6 @@
 
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 // Mirrors auto-wlr-randr 1.2.0 src/config.rs OutputSetting and Profile.
@@ -43,13 +42,3 @@ struct DaemonStatus {
     std::string active_profile;
     std::vector<std::string> connected_outputs;
 };
-
-namespace profile_mode_utils {
-[[nodiscard]] auto parse_mode_string(const std::string & mode)
-    -> std::optional<std::pair<int, int>>;
-[[nodiscard]] auto is_transform_rotated(const std::string & transform) -> bool;
-[[nodiscard]] auto layout_width(const ProfileOutputSetting & setting) -> int;
-[[nodiscard]] auto layout_height(const ProfileOutputSetting & setting) -> int;
-[[nodiscard]] auto parse_position(const std::optional<std::string> & pos)
-    -> std::optional<std::pair<int, int>>;
-}  // namespace profile_mode_utils

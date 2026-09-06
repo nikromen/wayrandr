@@ -2,7 +2,6 @@
 
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "utils/config_file.hpp"
@@ -41,13 +40,3 @@ struct KanshiDaemonStatus {
     std::string active_profile;
     std::vector<std::string> connected_outputs;
 };
-
-namespace kanshi_profile_mode_utils {
-[[nodiscard]] auto parse_mode_string(const std::string & mode)
-    -> std::optional<std::pair<int, int>>;
-[[nodiscard]] auto is_transform_rotated(const std::string & transform) -> bool;
-[[nodiscard]] auto layout_width(const KanshiOutputSetting & setting) -> int;
-[[nodiscard]] auto layout_height(const KanshiOutputSetting & setting) -> int;
-[[nodiscard]] auto parse_position(const std::optional<std::string> & position)
-    -> std::optional<std::pair<int, int>>;
-}  // namespace kanshi_profile_mode_utils

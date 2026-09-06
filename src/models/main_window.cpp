@@ -221,10 +221,6 @@ void MainWindow::apply() {
     );
 }
 
-void MainWindow::save() {
-    spdlog::info("Saving monitor configuration to persistent storage");
-}
-
 auto MainWindow::is_confirmation_allowed() const -> bool {
     return !backend_manager_->is_operation_busy() && backend_manager_->can_confirm();
 }
@@ -377,10 +373,6 @@ void MainWindow::on_countdown_tick() {
     const int remaining_ms = confirmation_timer_->remainingTime();
     const int seconds_left = std::max(0, (remaining_ms + 999) / 1000);
     set_confirmation_seconds_left(seconds_left);
-}
-
-void MainWindow::set_backend(int backend_type) {
-    set_backend_mode(backend_type);
 }
 
 void MainWindow::set_backend_mode(int backend_mode) {

@@ -47,7 +47,6 @@ public:
         const profile::ProfileDocument & document = {}
     ) const -> std::string = 0;
 
-    virtual void reload_service() const = 0;
     virtual void switch_profile(const std::string & profile_id, bool force = false) const = 0;
     [[nodiscard]] virtual auto service_status() const -> profile::ProfileServiceStatus = 0;
 };

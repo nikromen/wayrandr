@@ -97,10 +97,6 @@ auto AutoWlrRandrProfileBackend::describe_output_match(
     return "No connected output matches this pattern";
 }
 
-void AutoWlrRandrProfileBackend::reload_service() const {
-    AutoWlrRandrDaemonClient::reload();
-}
-
 void AutoWlrRandrProfileBackend::switch_profile(const std::string & profile_id, bool force) const {
     AutoWlrRandrDaemonClient::switch_profile(profile_id, force);
 }

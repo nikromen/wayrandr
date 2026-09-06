@@ -22,7 +22,6 @@ struct Mode {
     auto operator!=(const Mode & other) const -> bool;
 
     [[nodiscard]] auto to_string() const -> std::string;
-    [[nodiscard]] auto to_wlr_randr_arg() const -> std::string;
 };
 
 struct Position {
@@ -44,13 +43,10 @@ enum class Transform {
 namespace transform_utils {
 auto from_string(const std::string & str) -> Transform;
 auto to_string(Transform transform) -> std::string;
-auto is_flipped(Transform transform) -> bool;
 auto is_rotated(Transform transform) -> bool;
 auto is_rotated(const std::string & transform) -> bool;
-auto get_flipped(Transform transform) -> Transform;
 auto all_enums() -> const std::vector<Transform> &;
 auto all_strings() -> const std::vector<std::string> &;
-auto index_of(Transform transform) -> int;
 }  // namespace transform_utils
 
 class EnabledMonitorSettings {

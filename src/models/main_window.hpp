@@ -69,8 +69,6 @@ public:
     Q_INVOKABLE QObject * get_monitor_block(const QString & monitor_name);  // NOLINT
 
     Q_INVOKABLE void apply();
-    Q_INVOKABLE static void save();
-    Q_INVOKABLE void set_backend(int backend_type);
     Q_INVOKABLE void set_backend_mode(int backend_mode);
     Q_INVOKABLE [[nodiscard]] bool can_switch_backend(int backend_mode) const;
     Q_INVOKABLE void confirm_apply();

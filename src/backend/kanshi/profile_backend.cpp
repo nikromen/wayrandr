@@ -155,10 +155,6 @@ auto KanshiProfileBackend::describe_output_match(
     return "No connected output matches this pattern";
 }
 
-void KanshiProfileBackend::reload_service() const {
-    KanshiDaemonClient::reload();
-}
-
 void KanshiProfileBackend::switch_profile(const std::string & profile_id, bool /*force*/) const {
     KanshiDaemonClient::switch_profile(profile_id);
 }

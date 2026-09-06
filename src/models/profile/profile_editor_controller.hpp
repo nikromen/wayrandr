@@ -122,7 +122,6 @@ public:
     Q_INVOKABLE void refresh_connected_outputs();
     Q_INVOKABLE void reload_config_from_disk();
     Q_INVOKABLE void on_profile_backend_changed();
-    Q_INVOKABLE int get_output_index(QObject * output) const;
 
     // Materialize output-model edits into the selected profile. Document-only mutators
     // call mark_document_dirty, so they cannot overwrite profiles from stale projections.

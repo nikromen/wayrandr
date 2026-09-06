@@ -665,15 +665,6 @@ auto ProfileEditorController::get_live_position_for_output(const QString & outpu
     return { 0, 0 };
 }
 
-auto ProfileEditorController::get_output_index(QObject * output) const -> int {
-    for (int index = 0; index < output_models_.size(); ++index) {
-        if (output_models_[index] == output) {
-            return index;
-        }
-    }
-    return -1;
-}
-
 void ProfileEditorController::mark_dirty() {
     if (selected_profile_id_.isEmpty()) {
         return;

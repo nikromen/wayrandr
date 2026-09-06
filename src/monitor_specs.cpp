@@ -3,7 +3,6 @@
 #include <spdlog/spdlog.h>
 
 #include <cstddef>
-#include <cstdio>
 #include <iomanip>
 #include <ios>
 #include <locale>
@@ -84,11 +83,6 @@ auto transform_utils::to_string(Transform transform) -> std::string {
     return result;
 }
 
-auto transform_utils::is_flipped(Transform transform) -> bool {
-    return transform == Transform::FLIPPED || transform == Transform::FLIPPED_90 ||
-        transform == Transform::FLIPPED_180 || transform == Transform::FLIPPED_270;
-}
-
 auto transform_utils::is_rotated(Transform transform) -> bool {
     return transform == Transform::ROTATE_90 || transform == Transform::ROTATE_270 ||
         transform == Transform::FLIPPED_90 || transform == Transform::FLIPPED_270;
@@ -96,43 +90,6 @@ auto transform_utils::is_rotated(Transform transform) -> bool {
 
 auto transform_utils::is_rotated(const std::string & transform) -> bool {
     return is_rotated(from_string(transform));
-}
-
-auto transform_utils::get_flipped(Transform transform) -> Transform {
-    Transform result;
-
-    switch (transform) {
-        case Transform::NORMAL:
-            result = Transform::FLIPPED;
-            break;
-        case Transform::ROTATE_90:
-            result = Transform::FLIPPED_90;
-            break;
-        case Transform::ROTATE_180:
-            result = Transform::FLIPPED_180;
-            break;
-        case Transform::ROTATE_270:
-            result = Transform::FLIPPED_270;
-            break;
-        case Transform::FLIPPED:
-            result = Transform::NORMAL;
-            break;
-        case Transform::FLIPPED_90:
-            result = Transform::ROTATE_90;
-            break;
-        case Transform::FLIPPED_180:
-            result = Transform::ROTATE_180;
-            break;
-        case Transform::FLIPPED_270:
-            result = Transform::ROTATE_270;
-            break;
-        default:
-            throw std::invalid_argument(
-                "Unknown transform: " + std::to_string(static_cast<int>(transform))
-            );
-    }
-
-    return result;
 }
 
 auto transform_utils::all_enums() -> const std::vector<Transform> & {
@@ -152,17 +109,6 @@ auto transform_utils::all_strings() -> const std::vector<std::string> & {
         return strings;
     }();
     return all_strings;
-}
-
-auto transform_utils::index_of(Transform transform) -> int {
-    const auto & enums = all_enums();
-    for (size_t i = 0; i < enums.size(); ++i) {
-        if (enums[i] == transform) {
-            return static_cast<int>(i);
-        }
-    }
-
-    throw std::invalid_argument("Transform not found in list");
 }
 
 Mode::Mode(int width, int height, float refresh_rate, bool is_preferred, bool is_current)
@@ -188,12 +134,6 @@ auto Mode::to_string() const -> std::string {
     output << width << 'x' << height << '@' << std::fixed << std::setprecision(6) << refresh_rate
            << "Hz";
     return output.str();
-}
-
-auto Mode::to_wlr_randr_arg() const -> std::string {
-    char buffer[64];
-    std::snprintf(buffer, sizeof(buffer), "%dx%d@%.6fHz", width, height, refresh_rate);
-    return buffer;
 }
 
 MonitorSpecs::MonitorSpecs(

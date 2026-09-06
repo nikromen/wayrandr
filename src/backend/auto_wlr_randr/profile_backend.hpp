@@ -29,7 +29,6 @@ public:
         const profile::ProfileDocument & document = {}
     ) const -> std::string override;
 
-    void reload_service() const override;
     void switch_profile(const std::string & profile_id, bool force = false) const override;
     [[nodiscard]] auto service_status() const -> profile::ProfileServiceStatus override;
 
