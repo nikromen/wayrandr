@@ -19,16 +19,3 @@ void KanshiBackend::apply(const std::vector<MonitorSpecs> & /*monitors*/) {
 void KanshiBackend::revert() {
     spdlog::warn("KanshiBackend::revert - Please implement me!");
 }
-
-void KanshiBackend::save(const Profile & /*profile*/) {
-    spdlog::warn("KanshiBackend::save - Please implement me!");
-}
-
-void KanshiBackend::delete_profile(const std::string & /*name*/) {
-    spdlog::warn("KanshiBackend::delete_profile - Please implement me!");
-}
-
-auto KanshiBackend::get_config_path() const -> std::string {
-    spdlog::warn("KanshiBackend::get_config_path - Please implement me!");
-    return "";
-}

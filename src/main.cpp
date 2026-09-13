@@ -16,6 +16,8 @@
 
 #include "models/main_window.hpp"
 #include "models/monitor_properties.hpp"
+#include "models/profile/profile_editor_controller.hpp"
+#include "models/profile/profile_output_properties.hpp"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 
@@ -44,9 +46,13 @@ auto main(int argc, char * argv[]) -> int {
     QGuiApplication app(argc, argv);
 
     spdlog::info("Registering QML types");
-    qmlRegisterType<MainWindow>("io.github.nikromen.wayrandr", 1, 0, "MainWindowModel");
-    qmlRegisterType<MonitorProperties>(
-        "io.github.nikromen.wayrandr", 1, 0, "MonitorPropertiesModel"
+    qmlRegisterType<MainWindow>("com.nikromen.wayrandr", 1, 0, "MainWindowModel");
+    qmlRegisterType<MonitorProperties>("com.nikromen.wayrandr", 1, 0, "MonitorPropertiesModel");
+    qmlRegisterType<ProfileEditorController>(
+        "com.nikromen.wayrandr", 1, 0, "ProfileEditorControllerModel"
+    );
+    qmlRegisterType<ProfileOutputProperties>(
+        "com.nikromen.wayrandr", 1, 0, "ProfileOutputPropertiesModel"
     );
 
     spdlog::info("Creating MainWindow instance");

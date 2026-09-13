@@ -14,6 +14,9 @@
 #include <stdexcept>
 
 #include "monitor_specs.hpp"
+#include "utils/canvas_drag.hpp"
+#include "utils/canvas_layout.hpp"
+#include "utils/transform_list.hpp"
 
 MonitorProperties::MonitorProperties(MonitorSpecs * monitor_specs, QObject * parent)
     : QObject(parent),
@@ -99,11 +102,7 @@ auto MonitorProperties::get_resolutions() const -> QStringList {
 }
 
 auto MonitorProperties::get_transform_list() -> QStringList {
-    QStringList transform_list;
-    for (const auto & transform : transform_utils::all_strings()) {
-        transform_list.append(QString::fromStdString(transform));
-    }
-    return transform_list;
+    return transform_list::as_qstring_list();
 }
 
 auto MonitorProperties::get_transform() const -> QString {
@@ -129,9 +128,7 @@ auto MonitorProperties::is_transform_rotated() const -> bool {
         return false;
     }
 
-    const QString transform = get_transform();
-    return transform == "90" || transform == "270" || transform == "flipped-90" ||
-        transform == "flipped-270";
+    return transform_utils::is_rotated(get_transform().toStdString());
 }
 
 auto MonitorProperties::get_layout_width() const -> int {
@@ -139,14 +136,10 @@ auto MonitorProperties::get_layout_width() const -> int {
         return 0;
     }
 
-    const float scale = get_scale();
-    if (scale <= 0.0F) {
-        return get_resolution_width();
-    }
-
-    const int logical_width = static_cast<int>(std::round(get_resolution_width() / scale));
-    const int logical_height = static_cast<int>(std::round(get_resolution_height() / scale));
-    return is_transform_rotated() ? logical_height : logical_width;
+    return canvas_layout::compute_layout_size(
+               get_resolution_width(), get_resolution_height(), get_scale(), is_transform_rotated()
+    )
+        .width;
 }
 
 auto MonitorProperties::get_layout_height() const -> int {
@@ -154,14 +147,10 @@ auto MonitorProperties::get_layout_height() const -> int {
         return 0;
     }
 
-    const float scale = get_scale();
-    if (scale <= 0.0F) {
-        return get_resolution_height();
-    }
-
-    const int logical_width = static_cast<int>(std::round(get_resolution_width() / scale));
-    const int logical_height = static_cast<int>(std::round(get_resolution_height() / scale));
-    return is_transform_rotated() ? logical_width : logical_height;
+    return canvas_layout::compute_layout_size(
+               get_resolution_width(), get_resolution_height(), get_scale(), is_transform_rotated()
+    )
+        .height;
 }
 
 // Setters
@@ -273,10 +262,7 @@ void MonitorProperties::set_transform(const QString & transform) {
 }
 
 void MonitorProperties::start_drag(int mouse_x, int mouse_y) {
-    drag_start_mouse_x_ = mouse_x;
-    drag_start_mouse_y_ = mouse_y;
-    drag_start_pos_x_ = get_position_x();
-    drag_start_pos_y_ = get_position_y();
+    canvas_drag::start(drag_state_, mouse_x, mouse_y, get_position_x(), get_position_y());
 }
 
 void MonitorProperties::update_drag(
@@ -287,32 +273,17 @@ void MonitorProperties::update_drag(
     int canvas_width,
     int canvas_height
 ) {
-    float const delta_x = (mouse_x - drag_start_mouse_x_) / display_scale;
-    float const delta_y = (mouse_y - drag_start_mouse_y_) / display_scale;
-
-    int new_x = drag_start_pos_x_ + static_cast<int>(delta_x);
-    int new_y = drag_start_pos_y_ + static_cast<int>(delta_y);
-
-    if (main_window != nullptr) {
-        QPoint snapped;
-        QMetaObject::invokeMethod(
-            main_window,
-            "snap_position",
-            Q_RETURN_ARG(QPoint, snapped),
-            Q_ARG(QObject *, this),
-            Q_ARG(int, new_x),
-            Q_ARG(int, new_y),
-            Q_ARG(int, 200),
-            Q_ARG(int, canvas_width),
-            Q_ARG(int, canvas_height),
-            Q_ARG(float, display_scale)
-        );
-        new_x = snapped.x();
-        new_y = snapped.y();
-    }
-
-    set_position_x(new_x);
-    set_position_y(new_y);
+    canvas_drag::update_with_snap(
+        drag_state_,
+        mouse_x,
+        mouse_y,
+        display_scale,
+        this,
+        main_window,
+        canvas_width,
+        canvas_height,
+        canvas_layout::K_DEFAULT_SNAP_THRESHOLD
+    );
 }
 
 void MonitorProperties::activate_preferred_mode() {

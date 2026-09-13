@@ -1,8 +1,18 @@
 <RCC>
     <qresource prefix="/qml">
         <file>AppWindow.qml</file>
-        <file>MainWindow.qml</file>
+        <file>BackendStack.qml</file>
+        <file>BackendSwitcher.qml</file>
+        <file>WlrRandrView.qml</file>
+        <file>AutoWlrRandrView.qml</file>
         <file>MonitorBlock.qml</file>
         <file>MonitorProperties.qml</file>
+        <file>ProfileOutputProperties.qml</file>
+        <file>DisplayCanvas.qml</file>
+        <file>OutputSettingsForm.qml</file>
+        <file>OutputToggles.qml</file>
+        <file>ScaleSpinBox.qml</file>
+        <file>TransformComboBox.qml</file>
+        <file>CommandListEditor.qml</file>
     </qresource>
 </RCC>

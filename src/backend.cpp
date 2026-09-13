@@ -11,31 +11,58 @@
 #include "monitor_specs.hpp"
 
 BackendManager::BackendManager()
-    : current_type_(BackendType::WLR_RANDR),
+    : active_profile_editor_(&auto_wlr_randr_profile_backend_),
+      current_type_(BackendType::WLR_RANDR),
       pending_confirmation_(false) {
-    backend_ = create_backend(BackendType::WLR_RANDR);
+    display_backend_ = create_display_backend(BackendType::WLR_RANDR);
 }
 
 void BackendManager::set_backend(BackendType type) {
     spdlog::info("Switching backend to type: {}", static_cast<int>(type));
     current_type_ = type;
-    backend_ = create_backend(type);
+    display_backend_ = create_display_backend(type);
+    set_active_profile_editor(type);
+}
+
+void BackendManager::set_active_profile_editor(BackendType type) {
+    switch (type) {
+        case BackendType::KANSHI:
+            active_profile_editor_ = &kanshi_profile_backend_;
+            break;
+        case BackendType::AUTO_WLR_RANDR:
+        case BackendType::WLR_RANDR:
+        default:
+            active_profile_editor_ = &auto_wlr_randr_profile_backend_;
+            break;
+    }
+}
+
+auto BackendManager::get_backend_type() const -> BackendType {
+    return current_type_;
+}
+
+auto BackendManager::profile_editor() -> ProfileEditorBackend & {
+    return *active_profile_editor_;
+}
+
+auto BackendManager::profile_editor() const -> const ProfileEditorBackend & {
+    return *active_profile_editor_;
 }
 
 void BackendManager::apply(const std::vector<MonitorSpecs> & monitors) {
-    if (!backend_) {
+    if (!display_backend_) {
         throw std::runtime_error("No backend available");
     }
 
-    backend_->apply(monitors);
+    display_backend_->apply(monitors);
 }
 
 void BackendManager::revert() {
-    if (!backend_) {
+    if (!display_backend_) {
         throw std::runtime_error("No backend available");
     }
 
-    backend_->revert();
+    display_backend_->revert();
 }
 
 void BackendManager::apply_with_confirmation(

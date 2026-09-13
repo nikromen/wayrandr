@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import io.github.nikromen.wayrandr 1.0
+import com.nikromen.wayrandr 1.0
 
 ScrollView {
     property var monitor
@@ -16,31 +16,10 @@ ScrollView {
             id: mainLayout
             width: parent.width
 
-            RowLayout {
-                Switch {
-                    id: enabledSwitch
-                    text: qsTr("Enabled")
-                    checked: monitor.enabled
-                    onCheckedChanged: {
-                        if (monitor.enabled !== checked) {
-                            monitor.enabled = checked
-                        }
-                    }
-                }
-
-                Switch {
-                    id: adaptiveSyncSwitch
-                    visible: monitor.hasSettings
-                    text: qsTr("Adaptive Sync")
-                    checked: monitor.adaptiveSync
-                    onCheckedChanged: {
-                        if (monitor.hasSettings && monitor.adaptiveSync !== checked) {
-                            monitor.adaptiveSync = checked
-                        }
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
+            OutputToggles {
+                item: monitor
+                showAdaptiveSync: true
+                adaptiveSyncEnabled: monitor.hasSettings
             }
 
             GridLayout {
@@ -59,7 +38,6 @@ ScrollView {
                     wrapMode: Text.WordWrap
                 }
             }
-
 
             GridLayout {
                 visible: monitor.hasSettings
@@ -86,30 +64,10 @@ ScrollView {
                     }
                 }
 
-                Label { text: qsTr("Scale:") }
-                SpinBox {
-                    id: scaleSpinBox
-                    Layout.fillWidth: true
-                    from: 1
-                    to: 150
-                    stepSize: 1
-                    value: Math.round(monitor.scale * 10)
-                    onValueChanged: monitor.scale = value / 10
-                    editable: true
-
-                    property int decimals: 1
-
-                    validator: DoubleValidator {
-                        bottom: 1
-                    }
-
-                    textFromValue: function(value, locale) {
-                        return Number(value / 10).toLocaleString(locale, 'f', scaleSpinBox.decimals)
-                    }
-
-                    valueFromText: function(text, locale) {
-                        return Number.fromLocaleString(locale, text) * 10
-                    }
+                OutputSettingsForm {
+                    Layout.columnSpan: 2
+                    item: monitor
+                    settingsEnabled: monitor.hasSettings
                 }
 
                 Label { text: qsTr("Position:") }
@@ -130,25 +88,6 @@ ScrollView {
                         to: 1000000
                         value: monitor.positionY
                         onValueChanged: monitor.positionY = value
-                    }
-                }
-
-                Label { text: qsTr("Transform:") }
-                ComboBox {
-                    id: transformCombo
-                    Layout.fillWidth: true
-                    model: monitor.transformList
-                    currentIndex: {
-                        if (monitor.hasSettings && monitor.transform) {
-                            var idx = model.indexOf(monitor.transform);
-                            return idx !== -1 ? idx : 0;
-                        }
-                        return 0;
-                    }
-                    onCurrentIndexChanged: {
-                        if (monitor.hasSettings && currentIndex !== -1) {
-                            monitor.transform = model[currentIndex]
-                        }
                     }
                 }
             }
