@@ -2,8 +2,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <exception>
-#include <functional>
 #include <stdexcept>
 #include <vector>
 
@@ -54,7 +52,7 @@ auto BackendManager::profile_editor() const -> const ProfileEditorBackend & {
 
 void BackendManager::apply(const std::vector<MonitorSpecs> & monitors) {
     if (!display_backend_) {
-        throw std::runtime_error("No backend available");
+        throw std::runtime_error("Direct display operations are unavailable in this editor mode");
     }
 
     if (has_pending_changes()) {
@@ -65,28 +63,16 @@ void BackendManager::apply(const std::vector<MonitorSpecs> & monitors) {
 
 void BackendManager::revert() {
     if (!display_backend_) {
-        throw std::runtime_error("No backend available");
+        throw std::runtime_error("Direct display operations are unavailable in this editor mode");
     }
 
     display_backend_->revert();
 }
 
-void BackendManager::apply_with_confirmation(
-    const std::vector<MonitorSpecs> & monitors,
-    const std::function<void()> & /*on_timeout*/,
-    int timeout_seconds
-) {
-    spdlog::info("Applying configuration with {} second confirmation timeout", timeout_seconds);
-
-    try {
-        apply(monitors);
-    } catch (const std::exception & e) {
-        spdlog::error("Failed to apply configuration: {}", e.what());
-        throw;
-    }
-}
-
 void BackendManager::confirm_apply() {
+    if (!display_backend_) {
+        throw std::runtime_error("Direct display operations are unavailable in this editor mode");
+    }
     if (!can_confirm()) {
         spdlog::warn("No pending configuration to confirm");
         return;
@@ -97,6 +83,9 @@ void BackendManager::confirm_apply() {
 }
 
 void BackendManager::cancel_apply() {
+    if (!display_backend_) {
+        throw std::runtime_error("Direct display operations are unavailable in this editor mode");
+    }
     if (!has_pending_changes()) {
         spdlog::warn("No pending configuration to cancel");
         return;
@@ -107,9 +96,9 @@ void BackendManager::cancel_apply() {
 }
 
 auto BackendManager::has_pending_changes() const -> bool {
-    return display_backend_->has_pending_changes();
+    return display_backend_ && display_backend_->has_pending_changes();
 }
 
 auto BackendManager::can_confirm() const -> bool {
-    return display_backend_->can_confirm();
+    return display_backend_ && display_backend_->can_confirm();
 }

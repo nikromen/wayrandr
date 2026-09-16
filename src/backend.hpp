@@ -3,7 +3,6 @@
 #include <qtmetamacros.h>
 
 #include <QObject>
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -36,14 +35,11 @@ public:
     void set_backend(BackendType type);
     [[nodiscard]] auto get_backend_type() const -> BackendType;
 
+    // Direct operations throw in profile modes. MainWindow owns confirmation timers;
+    // the display backend owns the snapshot until confirmation or successful recovery.
     void apply(const std::vector<MonitorSpecs> & monitors);
     void revert();
 
-    void apply_with_confirmation(
-        const std::vector<MonitorSpecs> & monitors,
-        const std::function<void()> & on_timeout,
-        int timeout_seconds = 15
-    );
     void confirm_apply();
     void cancel_apply();
     [[nodiscard]] auto has_pending_changes() const -> bool;

@@ -23,15 +23,5 @@ public:
     [[nodiscard]] virtual auto can_confirm() const -> bool { return has_pending_changes(); }
 };
 
-class NullDisplayBackend : public Backend {
-public:
-    void apply(const std::vector<MonitorSpecs> & monitors) override;
-    void revert() override;
-    void confirm() override;
-    [[nodiscard]] auto has_pending_changes() const -> bool override;
-
-private:
-    bool pending_confirmation_ = false;
-};
-
+// Profile modes use ProfileEditorBackend and have no display backend.
 auto create_display_backend(BackendType type) -> std::unique_ptr<Backend>;

@@ -180,7 +180,7 @@ void MainWindow::apply() {
     run_job(
         this,
         [this, manager, monitors] {
-            manager->apply_with_confirmation(monitors, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS);
+            manager->apply(monitors);
             return [this] {
                 for (auto * object : monitors_models_) {
                     auto * model = qobject_cast<MonitorProperties *>(object);

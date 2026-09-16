@@ -44,14 +44,13 @@ private slots:
 
                 auto target = f.target();
                 BackendManager manager;
-                manager.apply_with_confirmation(target, nullptr);
+                manager.apply(target);
                 report->verify(
                     manager.has_pending_changes() && manager.can_confirm(),
                     "Apply must await confirmation"
                 );
                 const auto calls = f.read("calls");
                 report->throws([&] { manager.apply(target); });
-                report->throws([&] { manager.apply_with_confirmation(target, nullptr); });
                 for (auto type :
                      { BackendType::WLR_RANDR, BackendType::KANSHI, BackendType::AUTO_WLR_RANDR }) {
                     report->throws([&] { manager.set_backend(type); });
@@ -64,14 +63,14 @@ private slots:
                 );
                 manager.cancel_apply();
                 manager.confirm_apply();
-                manager.apply_with_confirmation(target, nullptr);
+                manager.apply(target);
                 manager.confirm_apply();
                 manager.cancel_apply();
                 report->verify(
                     !manager.has_pending_changes() && f.state()[0]["scale"] == 2,
                     "Confirm keeps applied state"
                 );
-                manager.apply_with_confirmation(target, nullptr);
+                manager.apply(target);
                 manager.cancel_apply();
                 report->verify(
                     f.state()[0]["scale"] == 2, "Next snapshot must reflect real current state"
@@ -144,13 +143,13 @@ private slots:
                 BackendManager manager;
                 f.reset();
                 f.write("failures", "1");
-                report->throws([&] { manager.apply_with_confirmation(target, nullptr); });
+                report->throws([&] { manager.apply(target); });
                 report->verify(
                     !manager.has_pending_changes() && f.state()[0]["scale"] == 1,
                     "Failed Apply must recover partial changes"
                 );
                 f.write("failures", "2");
-                report->throws([&] { manager.apply_with_confirmation(target, nullptr); });
+                report->throws([&] { manager.apply(target); });
                 report->verify(
                     manager.has_pending_changes() && !manager.can_confirm(),
                     "Double failure retains recovery state"
@@ -192,7 +191,7 @@ private slots:
 
                 auto target = f.target();
                 BackendManager manager;
-                manager.apply_with_confirmation(target, nullptr);
+                manager.apply(target);
                 f.write("failures", "1");
                 report->throws([&] { manager.cancel_apply(); });
                 report->verify(
@@ -425,7 +424,7 @@ private slots:
                 );
 
                 BackendManager manager;
-                manager.apply_with_confirmation(target, nullptr);
+                manager.apply(target);
                 manager.revert();
                 manager.set_backend(BackendType::AUTO_WLR_RANDR);
                 report->verify(
@@ -470,56 +469,23 @@ private slots:
                 auto target = f.target();
                 BackendManager manager;
 
-                auto display_backend = create_display_backend(type);
                 report->verify(
-                    !display_backend->has_pending_changes() && !display_backend->can_confirm(),
-                    "New backend must start without a pending transaction"
+                    create_display_backend(type) == nullptr,
+                    "Profile modes must not provide a display backend"
                 );
-                display_backend->apply(target);
-                report->verify(
-                    display_backend->has_pending_changes() && display_backend->can_confirm(),
-                    "Every backend must report pending state after Apply"
-                );
-                display_backend->confirm();
-                report->verify(
-                    !display_backend->has_pending_changes() && !display_backend->can_confirm(),
-                    "Confirmation must clear backend pending state"
-                );
-                display_backend->apply(target);
-                display_backend->revert();
-                report->verify(
-                    !display_backend->has_pending_changes(),
-                    "Revert must clear backend pending state"
-                );
-
                 manager.set_backend(type);
                 const auto calls = f.read("calls");
-                manager.apply_with_confirmation(target, nullptr);
-                report->verify(
-                    manager.has_pending_changes() && manager.can_confirm(),
-                    "Manager must delegate pending/confirm state for every backend"
-                );
-                report->throws([&] { manager.apply_with_confirmation(target, nullptr); });
-                report->throws([&] { manager.set_backend(BackendType::WLR_RANDR); });
-                manager.confirm_apply();
+                report->throws([&] { manager.apply(target); });
+                report->throws([&] { manager.revert(); });
+                report->throws([&] { manager.confirm_apply(); });
+                report->throws([&] { manager.cancel_apply(); });
                 report->verify(
                     !manager.has_pending_changes() && !manager.can_confirm(),
-                    "Manager confirmation must clear pending state"
-                );
-                manager.apply_with_confirmation(target, nullptr);
-                manager.cancel_apply();
-                report->verify(
-                    !manager.has_pending_changes() && !manager.can_confirm(),
-                    "Manager cancellation must clear pending state"
-                );
-                manager.apply_with_confirmation(target, nullptr);
-                manager.revert();
-                report->verify(
-                    !manager.has_pending_changes(), "Direct manager revert must clear pending state"
+                    "Unavailable display operations must not create a pending transaction"
                 );
                 report->verify(
-                    f.read("calls") == calls,
-                    "Profile-mode placeholders must not invoke monitor tools"
+                    f.read("calls") == calls && f.state()[0]["scale"] == 1,
+                    "Profile modes must not invoke monitor tools or change live state"
                 );
 
                 return [result] { result->done = true; };
@@ -551,7 +517,7 @@ private slots:
                 BackendManager manager;
                 manager.set_backend(BackendType::AUTO_WLR_RANDR);
                 manager.set_backend(BackendType::WLR_RANDR);
-                manager.apply_with_confirmation(target, nullptr);
+                manager.apply(target);
                 report->verify(
                     manager.has_pending_changes(), "Direct Apply must still create a transaction"
                 );
