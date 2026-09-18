@@ -52,7 +52,7 @@ private slots:
                 const auto calls = f.read("calls");
                 report->throws([&] { manager.apply(target); });
                 for (auto type :
-                     { BackendType::WLR_RANDR, BackendType::KANSHI, BackendType::AUTO_WLR_RANDR }) {
+                     { editor_mode::WLR_RANDR, editor_mode::KANSHI, editor_mode::AUTO_WLR_RANDR }) {
                     report->throws([&] { manager.set_backend(type); });
                 }
                 report->verify(f.read("calls") == calls, "Blocked operations must not invoke CLI");
@@ -156,7 +156,7 @@ private slots:
                 );
                 manager.confirm_apply();
                 report->verify(manager.has_pending_changes(), "Cannot confirm a failed Apply");
-                report->throws([&] { manager.set_backend(BackendType::AUTO_WLR_RANDR); });
+                report->throws([&] { manager.set_backend(editor_mode::AUTO_WLR_RANDR); });
                 manager.cancel_apply();
                 report->verify(
                     !manager.has_pending_changes() && f.state()[0]["scale"] == 1,
@@ -426,7 +426,7 @@ private slots:
                 BackendManager manager;
                 manager.apply(target);
                 manager.revert();
-                manager.set_backend(BackendType::AUTO_WLR_RANDR);
+                manager.set_backend(editor_mode::AUTO_WLR_RANDR);
                 report->verify(
                     !manager.has_pending_changes(),
                     "Resolved direct transaction must not leak into profile mode"
@@ -449,13 +449,13 @@ private slots:
 
     void profile_backend_data() {
         QTest::addColumn<int>("backend_type");
-        QTest::newRow("kanshi") << static_cast<int>(BackendType::KANSHI);
-        QTest::newRow("auto-wlr-randr") << static_cast<int>(BackendType::AUTO_WLR_RANDR);
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI);
+        QTest::newRow("auto-wlr-randr") << static_cast<int>(editor_mode::AUTO_WLR_RANDR);
     }
 
     void profile_backend() {
         QFETCH(int, backend_type);
-        const auto type = static_cast<BackendType>(backend_type);
+        const auto type = static_cast<editor_mode::Mode>(backend_type);
         auto fixture = std::make_shared<Fixture>();
         JobDrain drain;
         QVERIFY2(std::setlocale(LC_NUMERIC, "cs_CZ.UTF-8") != nullptr, "Czech locale unavailable");
@@ -474,6 +474,11 @@ private slots:
                     "Profile modes must not provide a display backend"
                 );
                 manager.set_backend(type);
+                report->throws([&] { manager.set_backend(static_cast<editor_mode::Mode>(-1)); });
+                report->verify(
+                    manager.get_backend_type() == type,
+                    "An invalid mode must leave the current editor unchanged"
+                );
                 const auto calls = f.read("calls");
                 report->throws([&] { manager.apply(target); });
                 report->throws([&] { manager.revert(); });
@@ -515,8 +520,8 @@ private slots:
 
                 auto target = f.target();
                 BackendManager manager;
-                manager.set_backend(BackendType::AUTO_WLR_RANDR);
-                manager.set_backend(BackendType::WLR_RANDR);
+                manager.set_backend(editor_mode::AUTO_WLR_RANDR);
+                manager.set_backend(editor_mode::WLR_RANDR);
                 manager.apply(target);
                 report->verify(
                     manager.has_pending_changes(), "Direct Apply must still create a transaction"

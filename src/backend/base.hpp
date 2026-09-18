@@ -1,11 +1,20 @@
 #pragma once
 
+#include <qtmetamacros.h>
+
+#include <QMetaObject>
 #include <memory>
 #include <vector>
 
 #include "../monitor_specs.hpp"
 
-enum class BackendType { WLR_RANDR, KANSHI, AUTO_WLR_RANDR };
+// Editor identity, independent of whether the mode provides a display transaction.
+namespace editor_mode {
+Q_NAMESPACE
+
+enum Mode : int { WLR_RANDR, KANSHI, AUTO_WLR_RANDR };
+Q_ENUM_NS(Mode)
+}  // namespace editor_mode
 
 class Backend {
 public:
@@ -23,5 +32,5 @@ public:
     [[nodiscard]] virtual auto can_confirm() const -> bool { return has_pending_changes(); }
 };
 
-// Profile modes use ProfileEditorBackend and have no display backend.
-auto create_display_backend(BackendType type) -> std::unique_ptr<Backend>;
+// Profile modes have no display backend; unknown mode values throw.
+auto create_display_backend(editor_mode::Mode type) -> std::unique_ptr<Backend>;

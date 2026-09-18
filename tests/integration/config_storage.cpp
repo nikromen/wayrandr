@@ -21,6 +21,7 @@
 #include <string>
 
 #include "backend/auto_wlr_randr/config_repository.hpp"
+#include "backend/base.hpp"
 #include "backend/kanshi/config_repository.hpp"
 #include "support/environment.hpp"
 #include "support/fixture.hpp"
@@ -31,7 +32,7 @@ namespace {
 
 template <typename Work>
 void with_repository(int mode, const QString & path, Work work) {
-    if (mode == 1) {
+    if (mode == editor_mode::KANSHI) {
         work(KanshiConfigRepository(path.toStdString()));
         return;
     }
@@ -39,7 +40,7 @@ void with_repository(int mode, const QString & path, Work work) {
 }
 
 auto initial_config(int mode) -> std::string {
-    if (mode == 1) {
+    if (mode == editor_mode::KANSHI) {
         return "profile desk {\n exec true\n}\n";
     }
     return "[profile.desk]\nexec = ['true']\n";
@@ -82,8 +83,8 @@ private slots:
 
     void repositories_data() {
         QTest::addColumn<int>("mode");
-        QTest::newRow("kanshi") << 1;
-        QTest::newRow("auto-wlr-randr") << 2;
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI);
+        QTest::newRow("auto-wlr-randr") << static_cast<int>(editor_mode::AUTO_WLR_RANDR);
     }
 
     void repositories() {
@@ -144,7 +145,7 @@ private slots:
     void external_changes_data() {
         QTest::addColumn<int>("mode");
         QTest::addColumn<QString>("change");
-        for (const int mode : { 1, 2 }) {
+        for (const int mode : { editor_mode::KANSHI, editor_mode::AUTO_WLR_RANDR }) {
             for (const auto * change : { "edit", "replace", "delete", "create", "permissions" }) {
                 QTest::newRow(qPrintable(QString("%1-%2").arg(mode).arg(change)))
                     << mode << QString(change);

@@ -13,6 +13,7 @@
 #include <QQmlContext>
 #include <memory>
 
+#include "backend/base.hpp"
 #include "models/main_window.hpp"
 #include "models/monitor_properties.hpp"
 #include "models/profile/profile_editor_controller.hpp"
@@ -46,6 +47,14 @@ auto main(int argc, char * argv[]) -> int {
     QGuiApplication app(argc, argv);
 
     spdlog::info("Registering QML types");
+    qmlRegisterUncreatableMetaObject(
+        editor_mode::staticMetaObject,
+        "com.nikromen.wayrandr",
+        1,
+        0,
+        "EditorMode",
+        "EditorMode only provides enum values"
+    );
     qmlRegisterType<MainWindow>("com.nikromen.wayrandr", 1, 0, "MainWindowModel");
     qmlRegisterType<MonitorProperties>("com.nikromen.wayrandr", 1, 0, "MonitorPropertiesModel");
     qmlRegisterType<ProfileEditorController>(

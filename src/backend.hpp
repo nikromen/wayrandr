@@ -32,8 +32,8 @@ public:
 
     ~BackendManager() override = default;
 
-    void set_backend(BackendType type);
-    [[nodiscard]] auto get_backend_type() const -> BackendType;
+    void set_backend(editor_mode::Mode type);
+    [[nodiscard]] auto get_backend_type() const -> editor_mode::Mode;
 
     // Direct operations throw in profile modes. MainWindow owns confirmation timers;
     // the display backend owns the snapshot until confirmation or successful recovery.
@@ -53,11 +53,11 @@ signals:
 
 private:
     bool operation_busy_ = false;
-    void set_active_profile_editor(BackendType type);
+    void set_active_profile_editor(editor_mode::Mode type);
 
     std::unique_ptr<Backend> display_backend_;
     AutoWlrRandrProfileBackend auto_wlr_randr_profile_backend_;
     KanshiProfileBackend kanshi_profile_backend_;
     ProfileEditorBackend * active_profile_editor_ = nullptr;
-    BackendType current_type_;
+    editor_mode::Mode current_type_;
 };

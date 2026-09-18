@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "backend/base.hpp"
@@ -11,34 +12,34 @@
 
 BackendManager::BackendManager()
     : active_profile_editor_(&auto_wlr_randr_profile_backend_),
-      current_type_(BackendType::WLR_RANDR) {
-    display_backend_ = create_display_backend(BackendType::WLR_RANDR);
+      current_type_(editor_mode::WLR_RANDR) {
+    display_backend_ = create_display_backend(editor_mode::WLR_RANDR);
 }
 
-void BackendManager::set_backend(BackendType type) {
+void BackendManager::set_backend(editor_mode::Mode type) {
     if (has_pending_changes()) {
         throw std::logic_error("Cannot switch backend while a configuration is pending");
     }
     spdlog::info("Switching backend to type: {}", static_cast<int>(type));
+    auto display_backend = create_display_backend(type);
     current_type_ = type;
-    display_backend_ = create_display_backend(type);
+    display_backend_ = std::move(display_backend);
     set_active_profile_editor(type);
 }
 
-void BackendManager::set_active_profile_editor(BackendType type) {
+void BackendManager::set_active_profile_editor(editor_mode::Mode type) {
     switch (type) {
-        case BackendType::KANSHI:
+        case editor_mode::KANSHI:
             active_profile_editor_ = &kanshi_profile_backend_;
             break;
-        case BackendType::AUTO_WLR_RANDR:
-        case BackendType::WLR_RANDR:
-        default:
+        case editor_mode::AUTO_WLR_RANDR:
+        case editor_mode::WLR_RANDR:
             active_profile_editor_ = &auto_wlr_randr_profile_backend_;
             break;
     }
 }
 
-auto BackendManager::get_backend_type() const -> BackendType {
+auto BackendManager::get_backend_type() const -> editor_mode::Mode {
     return current_type_;
 }
 

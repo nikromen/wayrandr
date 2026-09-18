@@ -164,7 +164,7 @@ auto MainWindow::get_monitor_block(const QString & monitor_name) -> QObject * {
 
 void MainWindow::apply() {
     if (!initialized_ || backend_manager_->is_operation_busy() ||
-        backend_mode_ != K_BACKEND_MODE_WLR_RANDR || backend_manager_->has_pending_changes()) {
+        backend_mode_ != editor_mode::WLR_RANDR || backend_manager_->has_pending_changes()) {
         return;
     }
     backend_manager_->set_operation_busy(true);
@@ -379,7 +379,7 @@ void MainWindow::set_backend_mode(int backend_mode) {
     if (!can_switch_backend(backend_mode)) {
         return;
     }
-    set_backend_mode_internal(backend_mode);
+    set_backend_mode_internal(static_cast<editor_mode::Mode>(backend_mode));
 }
 
 auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
@@ -390,8 +390,7 @@ auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
         return true;
     }
 
-    if ((backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR ||
-         backend_mode_ == K_BACKEND_MODE_KANSHI) &&
+    if ((backend_mode_ == editor_mode::AUTO_WLR_RANDR || backend_mode_ == editor_mode::KANSHI) &&
         backend_mode != backend_mode_ && profile_editor_ != nullptr &&
         profile_editor_->is_dirty()) {
         return false;
@@ -401,49 +400,37 @@ auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
         return false;
     }
 
-    if (backend_mode == K_BACKEND_MODE_KANSHI && !kanshi_available_) {
+    if (backend_mode == editor_mode::KANSHI && !kanshi_available_) {
         return false;
     }
 
-    if (backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR && !auto_wlr_randr_available_) {
+    if (backend_mode == editor_mode::AUTO_WLR_RANDR && !auto_wlr_randr_available_) {
         return false;
     }
 
-    return backend_mode == K_BACKEND_MODE_WLR_RANDR || backend_mode == K_BACKEND_MODE_KANSHI ||
-        backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR;
+    return backend_mode == editor_mode::WLR_RANDR || backend_mode == editor_mode::KANSHI ||
+        backend_mode == editor_mode::AUTO_WLR_RANDR;
 }
 
-void MainWindow::set_backend_mode_internal(int backend_mode) {
+void MainWindow::set_backend_mode_internal(editor_mode::Mode backend_mode) {
     if (backend_mode_ == backend_mode) {
         return;
     }
 
     // Admit the return refresh before any mode notify can allow Apply on stale models.
-    if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
+    if (backend_mode == editor_mode::WLR_RANDR) {
         backend_manager_->set_operation_busy(true);
         set_apply_error({});
     }
     backend_mode_ = backend_mode;
-    if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
-        backend_manager_->set_backend(BackendType::WLR_RANDR);
-    } else if (backend_mode == K_BACKEND_MODE_KANSHI) {
-        backend_manager_->set_backend(BackendType::KANSHI);
-        if (profile_editor_ != nullptr) {
-            profile_editor_->on_profile_backend_changed();
-        }
-    } else if (backend_mode == K_BACKEND_MODE_AUTO_WLR_RANDR) {
-        backend_manager_->set_backend(BackendType::AUTO_WLR_RANDR);
-        if (profile_editor_ != nullptr) {
-            profile_editor_->on_profile_backend_changed();
-        }
-    } else {
-        spdlog::warn("Backend mode {} is not supported yet", backend_mode);
-        return;
+    backend_manager_->set_backend(backend_mode);
+    if (backend_mode != editor_mode::WLR_RANDR && profile_editor_ != nullptr) {
+        profile_editor_->on_profile_backend_changed();
     }
 
-    spdlog::info("Switched UI backend mode to {}", backend_mode);
+    spdlog::info("Switched UI backend mode to {}", static_cast<int>(backend_mode));
     emit backend_mode_changed();
-    if (backend_mode == K_BACKEND_MODE_WLR_RANDR) {
+    if (backend_mode == editor_mode::WLR_RANDR) {
         reload_monitors_safely(true);
     }
 }
@@ -524,8 +511,7 @@ auto MainWindow::snap_position(
     int canvas_height,
     float display_scale
 ) const -> QPoint {
-    if ((backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR ||
-         backend_mode_ == K_BACKEND_MODE_KANSHI) &&
+    if ((backend_mode_ == editor_mode::AUTO_WLR_RANDR || backend_mode_ == editor_mode::KANSHI) &&
         profile_editor_ != nullptr) {
         auto * current_output = qobject_cast<ProfileOutputProperties *>(item);
         if (current_output == nullptr) {
@@ -587,13 +573,12 @@ auto MainWindow::snap_position(
 }
 
 void MainWindow::reset_canvas_layout(int /*canvas_width*/, float /*display_scale*/) {
-    if (backend_mode_ == K_BACKEND_MODE_WLR_RANDR && !is_direct_editing_allowed()) {
+    if (backend_mode_ == editor_mode::WLR_RANDR && !is_direct_editing_allowed()) {
         return;
     }
     spdlog::info("Resetting canvas layout");
 
-    if ((backend_mode_ == K_BACKEND_MODE_AUTO_WLR_RANDR ||
-         backend_mode_ == K_BACKEND_MODE_KANSHI) &&
+    if ((backend_mode_ == editor_mode::AUTO_WLR_RANDR || backend_mode_ == editor_mode::KANSHI) &&
         profile_editor_ != nullptr) {
         canvas_participants::ResetContext context =
             canvas_participants::build_profile_reset_context(profile_editor_.get());

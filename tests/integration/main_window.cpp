@@ -26,6 +26,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#include "backend/base.hpp"
 #include "models/monitor_block.hpp"
 #include "models/monitor_properties.hpp"
 #include "support/environment.hpp"
@@ -180,8 +181,8 @@ private slots:
 
     void return_to_direct_data() {
         QTest::addColumn<int>("mode");
-        QTest::newRow("kanshi") << 1;
-        QTest::newRow("auto-wlr-randr") << 2;
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI);
+        QTest::newRow("auto-wlr-randr") << static_cast<int>(editor_mode::AUTO_WLR_RANDR);
     }
 
     void return_to_direct() {
@@ -193,7 +194,7 @@ private slots:
         auto * first = qobject_cast<MonitorProperties *>(window.get_monitors()[0]);
         bool gate_closed_at_notify = false;
         connect(&window, &MainWindow::backend_mode_changed, &window, [&] {
-            if (window.get_backend_mode() == 0) {
+            if (window.get_backend_mode() == editor_mode::WLR_RANDR) {
                 gate_closed_at_notify = window.is_busy();
                 window.apply();
             }
@@ -206,7 +207,7 @@ private slots:
         state[0]["position"] = { { "x", -240 }, { "y", 80 } };
         state[0]["description"] = "Current monitor";
         fixture.write("state", state.dump());
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         SETTLE(window);
         QVERIFY(gate_closed_at_notify);
         QVERIFY(!window.is_confirmation_pending());
@@ -252,12 +253,12 @@ private slots:
         state = json::array({ state[1], added });
         fixture.write("state", state.dump());
         fixture.hold_command("query");
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
         verify_edits_locked(window, *first);
         window.apply();
         window.set_backend_mode(mode);
-        QCOMPARE(window.get_backend_mode(), 0);
+        QCOMPARE(window.get_backend_mode(), editor_mode::WLR_RANDR);
         fixture.release_command("query");
         SETTLE(window);
         QCOMPARE(window.get_monitors().size(), 3);
@@ -297,7 +298,7 @@ private slots:
         reconnected["modes"] = json::array({ modes[1], modes[0] });
         state = json::array({ reconnected, added, state[0] });
         fixture.write("state", state.dump());
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         SETTLE(window);
         QCOMPARE(window.get_monitors()[0], first);
         QCOMPARE(window.get_monitors()[1], new_model);
@@ -339,7 +340,7 @@ private slots:
         auto * first = qobject_cast<MonitorProperties *>(models[0]);
         auto * second = qobject_cast<MonitorProperties *>(models[1]);
         first->set_scale(1.4F);
-        window.set_backend_mode(1);
+        window.set_backend_mode(editor_mode::KANSHI);
         SETTLE(window);
         auto state = original;
         state[1]["scale"] = 3;
@@ -356,11 +357,11 @@ private slots:
             fixture.write("state", state.dump());
         }
         fixture.hold_command("query");
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
         verify_edits_locked(window, *first);
-        window.set_backend_mode(2);
-        QCOMPARE(window.get_backend_mode(), 0);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
+        QCOMPARE(window.get_backend_mode(), editor_mode::WLR_RANDR);
         fixture.release_command("query");
         SETTLE(window);
         QCOMPARE(window.get_monitors(), models);
@@ -374,12 +375,12 @@ private slots:
         // A later permitted edit made on unlock must survive the old query's completion.
         fixture.write("state", original.dump());
         QFile::remove(fixture.dir.filePath("query_failure"));
-        window.set_backend_mode(1);
+        window.set_backend_mode(editor_mode::KANSHI);
         SETTLE(window);
         original[1]["scale"] = 3;
         fixture.write("state", original.dump());
         fixture.hold_command("query");
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
         verify_edits_locked(window, *first);
         bool edited = false;
@@ -415,11 +416,11 @@ private slots:
         drain_jobs();
         const auto image_before = block->get_screen_image();
         QSignalSpy images(block, &MonitorBlock::screen_image_changed);
-        window.set_backend_mode(1);
+        window.set_backend_mode(editor_mode::KANSHI);
         SETTLE(window);
         fixture.write("state", "[]");
         fixture.hold_command("query");
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         QTRY_VERIFY_WITH_TIMEOUT(fixture.command_entered("query"), 10000);
         // Accepted capture is queued behind the query. Its completion arrives after
         // reconciliation, whether its process starts before or after GUI delivery.
@@ -438,10 +439,10 @@ private slots:
         drain_jobs();
         QCOMPARE(images.count(), 0);
         fixture.write("grim_mode", "success");
-        window.set_backend_mode(1);
+        window.set_backend_mode(editor_mode::KANSHI);
         SETTLE(window);
         fixture.write("state", original.dump());
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         SETTLE(window);
         QCOMPARE(window.get_monitors()[0], monitor);
         QCOMPARE(window.get_monitor_block("DP-1"), block);
@@ -519,13 +520,16 @@ private slots:
         );
         QVERIFY2(window.get_confirmation_seconds_left() == 15, "Countdown starts");
         QVERIFY2(
-            !window.can_switch_backend(1) && !window.can_switch_backend(2),
+            !window.can_switch_backend(editor_mode::KANSHI) &&
+                !window.can_switch_backend(editor_mode::AUTO_WLR_RANDR),
             "UI blocks switching away"
         );
-        window.set_backend_mode(2);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
         window.apply();
         SETTLE(window);
-        QVERIFY2(window.get_backend_mode() == 0, "Pending backend remains active");
+        QVERIFY2(
+            window.get_backend_mode() == editor_mode::WLR_RANDR, "Pending backend remains active"
+        );
         window.confirm_apply();
         SETTLE(window);
         QVERIFY2(
@@ -1003,9 +1007,11 @@ private slots:
         // Conflicts are rejected while the snapshot query/Apply is in flight.
         window.apply();
         window.confirm_apply();
-        window.set_backend_mode(2);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
         QVERIFY2(
-            window.get_backend_mode() == 0 && !window.is_confirmation_allowed(), "In-flight gate"
+            window.get_backend_mode() == editor_mode::WLR_RANDR &&
+                !window.is_confirmation_allowed(),
+            "In-flight gate"
         );
         window.cancel_apply();  // Remember intent; never run rollback concurrently.
         QVERIFY2(!window.prepare_close(), "Close must wait for in-flight Apply and recovery");

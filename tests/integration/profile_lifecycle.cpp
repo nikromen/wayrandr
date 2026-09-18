@@ -17,6 +17,7 @@
 
 #include "backend/auto_wlr_randr/config_repository.hpp"
 #include "backend/auto_wlr_randr/profile_backend.hpp"
+#include "backend/base.hpp"
 #include "backend/kanshi/config_repository.hpp"
 #include "backend/kanshi/profile_backend.hpp"
 #include "backend/profile/editor_backend.hpp"
@@ -34,7 +35,7 @@ auto output(ProfileEditorController * editor) -> ProfileOutputProperties * {
 }
 
 auto config_name(int mode) -> const char * {
-    if (mode == 1) {
+    if (mode == editor_mode::KANSHI) {
         return "kanshi/config";
     }
     return "auto-wlr-randr/config.toml";
@@ -49,8 +50,8 @@ private slots:
 
     void lifecycle_data() {
         QTest::addColumn<int>("mode");
-        QTest::newRow("kanshi") << 1;
-        QTest::newRow("auto-wlr-randr") << 2;
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI);
+        QTest::newRow("auto-wlr-randr") << static_cast<int>(editor_mode::AUTO_WLR_RANDR);
     }
 
     void document_operations_data() { lifecycle_data(); }
@@ -73,10 +74,10 @@ private slots:
         } else if (kind == "load-error") {
             original = "invalid TOML\n";
         }
-        f.write(config_name(2), original);
+        f.write(config_name(editor_mode::AUTO_WLR_RANDR), original);
         MainWindow window;
         SETTLE(window);
-        window.set_backend_mode(2);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
         SETTLE(window);
         auto * editor = window.get_profile_editor();
         if (kind == "load-error") {
@@ -87,7 +88,7 @@ private slots:
             QVERIFY(editor->get_on_no_match_exec_commands().isEmpty());
             QVERIFY(!editor->is_dirty());
             QVERIFY(editor->get_save_status_text().contains("not saved"));
-            QCOMPARE(f.read(config_name(2)), original);
+            QCOMPARE(f.read(config_name(editor_mode::AUTO_WLR_RANDR)), original);
             return;
         }
         if (kind == "last-profile") {
@@ -109,7 +110,7 @@ private slots:
         editor->remove_on_no_match_exec_command(1);
         if (kind == "conflict") {
             original += "# external edit\n";
-            f.write(config_name(2), original);
+            f.write(config_name(editor_mode::AUTO_WLR_RANDR), original);
         } else if (kind == "reload-error") {
             f.write("auto-wlr-randr/auto-wlr-randr.sock", "");
             f.write("daemon_mode", "reload_exit");
@@ -117,7 +118,7 @@ private slots:
         editor->save_profile();
         SETTLE(window);
         if (kind == "conflict") {
-            QCOMPARE(f.read(config_name(2)), original);
+            QCOMPARE(f.read(config_name(editor_mode::AUTO_WLR_RANDR)), original);
             QVERIFY(editor->is_dirty());
             QCOMPARE(editor->get_on_no_match_exec_commands(), QStringList{ "echo saved" });
             QVERIFY(editor->get_save_status_text().contains("not saved"));
@@ -175,11 +176,11 @@ private slots:
                 config += "[profile.spare]\nsettings = [{ output = 'DP-2' }]\n";
             }
         }
-        f.write(config_name(2), config);
+        f.write(config_name(editor_mode::AUTO_WLR_RANDR), config);
         f.write("auto-wlr-randr/auto-wlr-randr.sock", "");
         MainWindow window;
         SETTLE(window);
-        window.set_backend_mode(2);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
         SETTLE(window);
         auto * editor = window.get_profile_editor();
         editor->add_on_no_match_exec_command("echo saved");
@@ -236,7 +237,7 @@ private slots:
         f.profiles();
         MainWindow window;
         SETTLE(window);
-        window.set_backend_mode(2);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
         SETTLE(window);
         auto * editor = window.get_profile_editor();
         bool selected = false;
@@ -261,7 +262,7 @@ private slots:
         const KanshiProfileBackend kanshi;
         const AutoWlrRandrProfileBackend auto_wlr;
         const ProfileEditorBackend * backend = &auto_wlr;
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             backend = &kanshi;
         }
         auto document = backend->load_config();
@@ -354,7 +355,7 @@ private slots:
         editor->reload_config_from_disk();
         QVERIFY(!editor->get_profile_ids().contains("copy"));
         QCOMPARE(editor->get_profile_ids().size(), 2);
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             const auto config =
                 KanshiConfigRepository(f.dir.filePath(config_name(mode)).toStdString()).load();
             QVERIFY(
@@ -388,7 +389,7 @@ private slots:
         f.profiles();
         MainWindow window;
         SETTLE(window);
-        window.set_backend_mode(2);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
         SETTLE(window);
         auto * editor = window.get_profile_editor();
         QVERIFY(editor->select_profile("desk"));
@@ -495,7 +496,7 @@ private slots:
     void saved_reload_failure_data() {
         QTest::addColumn<int>("mode");
         QTest::addColumn<bool>("remove");
-        for (const int mode : { 1, 2 }) {
+        for (const int mode : { editor_mode::KANSHI, editor_mode::AUTO_WLR_RANDR }) {
             QTest::newRow(qPrintable(QString("save-%1").arg(mode))) << mode << false;
             QTest::newRow(qPrintable(QString("delete-%1").arg(mode))) << mode << true;
         }

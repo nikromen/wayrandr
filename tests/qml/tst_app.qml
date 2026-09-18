@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtTest
+import com.nikromen.wayrandr 1.0
 
 TestCase {
     name: "ApplicationFlows"
@@ -236,7 +237,8 @@ TestCase {
     }
 
     function test_profile_scroll_data() {
-        return [{tag: "kanshi", mode: 1}, {tag: "auto", mode: 2}]
+        return [{tag: "kanshi", mode: EditorMode.KANSHI},
+                {tag: "auto", mode: EditorMode.AUTO_WLR_RANDR}]
     }
 
     function test_profile_scroll(data) {
@@ -276,9 +278,9 @@ TestCase {
     }
 
     function test_position_coordinates_data() {
-        return [{tag: "wlr", button: "wlrBackend", mode: 0},
-                {tag: "kanshi", button: "kanshiBackend", mode: 1},
-                {tag: "auto", button: "autoBackend", mode: 2}]
+        return [{tag: "wlr", button: "wlrBackend", mode: EditorMode.WLR_RANDR},
+                {tag: "kanshi", button: "kanshiBackend", mode: EditorMode.KANSHI},
+                {tag: "auto", button: "autoBackend", mode: EditorMode.AUTO_WLR_RANDR}]
     }
 
     function test_unusable_profile_scale_data() {
@@ -311,7 +313,7 @@ TestCase {
         click(control(data.button))
         tryCompare(harness.controller, "operationBusy", false, 20000)
         let output = harness.controller.monitors[0]
-        if (data.mode !== 0) {
+        if (data.mode !== EditorMode.WLR_RANDR) {
             verify(harness.controller.profileEditor.select_profile("desk"))
             output = harness.controller.profileEditor.outputs[0]
         }
@@ -615,8 +617,8 @@ TestCase {
     }
 
     function test_unsaved_profile_data() {
-        return [{tag: "kanshi", button: "kanshiBackend", mode: 1},
-                {tag: "auto", button: "autoBackend", mode: 2}]
+        return [{tag: "kanshi", button: "kanshiBackend", mode: EditorMode.KANSHI},
+                {tag: "auto", button: "autoBackend", mode: EditorMode.AUTO_WLR_RANDR}]
     }
 
     function test_unsaved_profile(data) {
@@ -666,7 +668,7 @@ TestCase {
         tryCompare(dialog, "visible", true)
         click(dialog.standardButton(Dialog.Yes))
         tryCompare(harness.controller, "operationBusy", false, 20000)
-        compare(harness.controller.backendMode, 0)
+        compare(harness.controller.backendMode, EditorMode.WLR_RANDR)
         verify(!editor.isDirty)
         click(control(data.button))
         tryCompare(harness.controller, "operationBusy", false, 20000)
@@ -825,7 +827,7 @@ TestCase {
         click(control(data.button))
         tryCompare(harness.controller, "operationBusy", false, 20000)
         verify(!editor.configurationLoaded)
-        if (data.mode === 2) {
+        if (data.mode === EditorMode.AUTO_WLR_RANDR) {
             verify(!control("onNoMatchCommandEditor").enabled)
         }
         editor.create_profile_from_live("draft")

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "../backend.hpp"
+#include "backend/base.hpp"
 #include "models/profile/profile_editor_controller.hpp"
 #include "monitor_specs.hpp"
 
@@ -116,12 +117,9 @@ private:  // NOLINT: Qt moc requires this to end the slots section.
     void start_restore();
     void set_confirmation_pending(bool pending);
     void set_confirmation_seconds_left(int seconds);
-    void set_backend_mode_internal(int backend_mode);
+    void set_backend_mode_internal(editor_mode::Mode backend_mode);
 
     static constexpr int K_CONFIRMATION_TIMEOUT_SECONDS = 15;
-    static constexpr int K_BACKEND_MODE_WLR_RANDR = 0;
-    static constexpr int K_BACKEND_MODE_KANSHI = 1;
-    static constexpr int K_BACKEND_MODE_AUTO_WLR_RANDR = 2;
 
     // Models own their specs and keep connector-name identity across reorder/reconnect.
     // Disconnected entries stay inert until reconnect or window destruction.
@@ -135,7 +133,7 @@ private:  // NOLINT: Qt moc requires this to end the slots section.
     bool initialized_ = false;
     bool confirmation_pending_ = false;
     int confirmation_seconds_left_ = 0;
-    int backend_mode_ = K_BACKEND_MODE_WLR_RANDR;
+    editor_mode::Mode backend_mode_ = editor_mode::WLR_RANDR;
     bool kanshi_available_ = false;
     bool auto_wlr_randr_available_ = false;
     // The GUI gate spans Apply/restore and its refresh, not a single run_job.

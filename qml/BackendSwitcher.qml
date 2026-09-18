@@ -1,21 +1,18 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import com.nikromen.wayrandr 1.0
 
 RowLayout {
     id: root
 
     required property var controller
 
-    readonly property int backendModeWlrRandr: 0
-    readonly property int backendModeKanshi: 1
-    readonly property int backendModeAutoWlrRandr: 2
-
     property int requestedBackendMode: -1
 
     readonly property bool isProfileBackendMode:
-        controller.backendMode === root.backendModeKanshi ||
-        controller.backendMode === root.backendModeAutoWlrRandr
+        controller.backendMode === EditorMode.KANSHI ||
+        controller.backendMode === EditorMode.AUTO_WLR_RANDR
 
     enabled: !controller.operationBusy
     spacing: 8
@@ -39,8 +36,8 @@ RowLayout {
         id: wlrRadio
         objectName: "wlrBackend"
         text: "wlr-randr"
-        checked: controller.backendMode === root.backendModeWlrRandr
-        onClicked: root.requestBackendSwitch(root.backendModeWlrRandr)
+        checked: controller.backendMode === EditorMode.WLR_RANDR
+        onClicked: root.requestBackendSwitch(EditorMode.WLR_RANDR)
     }
 
     RadioButton {
@@ -48,8 +45,8 @@ RowLayout {
         objectName: "kanshiBackend"
         visible: controller.kanshiAvailable
         text: "kanshi"
-        checked: controller.backendMode === root.backendModeKanshi
-        onClicked: root.requestBackendSwitch(root.backendModeKanshi)
+        checked: controller.backendMode === EditorMode.KANSHI
+        onClicked: root.requestBackendSwitch(EditorMode.KANSHI)
     }
 
     RadioButton {
@@ -57,8 +54,8 @@ RowLayout {
         objectName: "autoBackend"
         visible: controller.autoWlrRandrAvailable
         text: "auto-wlr-randr"
-        checked: controller.backendMode === root.backendModeAutoWlrRandr
-        onClicked: root.requestBackendSwitch(root.backendModeAutoWlrRandr)
+        checked: controller.backendMode === EditorMode.AUTO_WLR_RANDR
+        onClicked: root.requestBackendSwitch(EditorMode.AUTO_WLR_RANDR)
     }
 
     Dialog {
@@ -91,15 +88,15 @@ RowLayout {
             return
         }
 
-        if (mode === root.backendModeKanshi && !controller.kanshiAvailable) {
+        if (mode === EditorMode.KANSHI && !controller.kanshiAvailable) {
             return
         }
 
-        if (mode === root.backendModeAutoWlrRandr && !controller.autoWlrRandrAvailable) {
+        if (mode === EditorMode.AUTO_WLR_RANDR && !controller.autoWlrRandrAvailable) {
             return
         }
 
-        if (mode === root.backendModeAutoWlrRandr && controller.confirmationPending) {
+        if (mode === EditorMode.AUTO_WLR_RANDR && controller.confirmationPending) {
             return
         }
 

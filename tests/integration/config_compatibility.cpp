@@ -15,6 +15,7 @@
 
 #include "backend/auto_wlr_randr/config_repository.hpp"
 #include "backend/auto_wlr_randr/conversions.hpp"
+#include "backend/base.hpp"
 #include "backend/kanshi/config_parser.hpp"
 #include "backend/kanshi/config_repository.hpp"
 #include "backend/kanshi/conversions.hpp"
@@ -38,7 +39,7 @@ class ConfigCompatibilityTests : public QObject {
         // An absolute, nonexistent socket prevents access to the user's compositor.
         environment.insert("WAYLAND_DISPLAY", fixture.dir.filePath("no-compositor"));
         process.setProcessEnvironment(environment);
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             process.start(kanshi_, { "--config", path });
         } else {
             process.start(auto_ctl_, { "validate", "--config", path });
@@ -48,7 +49,7 @@ class ConfigCompatibilityTests : public QObject {
         QCOMPARE(process.exitStatus(), QProcess::NormalExit);
         const auto message = process.readAllStandardOutput() + process.readAllStandardError();
         qInfo().noquote() << path << "exit:" << process.exitCode() << message;
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             // Kanshi has no check-only flag. Successful parsing reaches the deliberate
             // connection failure; parser errors must never be mistaken for success.
             QCOMPARE(process.exitCode(), 1);
@@ -88,13 +89,13 @@ private slots:
         QFETCH(bool, accepted);
         Fixture fixture;
         const auto path = QDir(KANSHI_CORPUS).filePath(seed);
-        validate(fixture, path, 1, accepted);
+        validate(fixture, path, editor_mode::KANSHI, accepted);
         QFile input(path);
         QVERIFY(input.open(QIODevice::ReadOnly));
         try {
             const auto parsed = kanshi_config_parser::parse(input.readAll().toStdString());
             fixture.write("serialized", kanshi_config_parser::serialize(parsed));
-            validate(fixture, fixture.dir.filePath("serialized"), 1, accepted);
+            validate(fixture, fixture.dir.filePath("serialized"), editor_mode::KANSHI, accepted);
         } catch (const kanshi_config_parser::ParseError &) {
             QVERIFY(!accepted);
         }
@@ -113,13 +114,14 @@ private slots:
         profile.exec = { R"(echo "quoted" 'single' \{ \} $HOME; echo $(payload))" };
         config.profiles.push_back(profile);
         fixture.write("serialized", kanshi_config_parser::serialize(config));
-        validate(fixture, fixture.dir.filePath("serialized"), 1, true);
+        validate(fixture, fixture.dir.filePath("serialized"), editor_mode::KANSHI, true);
     }
 
     void complex_roundtrip_data() {
         QTest::addColumn<int>("mode");
         QTest::addColumn<std::string>("content");
-        QTest::newRow("kanshi") << 1 << std::string(R"(include /dev/null
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI)
+                                << std::string(R"(include /dev/null
 output "Panel 🖥" {
     alias $panel
     disable
@@ -137,7 +139,8 @@ profile {
     output DP-2 mode --custom 1280x720@75Hz position -10,+20
 }
 )");
-        QTest::newRow("auto-wlr-randr") << 2 << std::string(R"(on_no_match_exec = ["""echo
+        QTest::newRow("auto-wlr-randr") << static_cast<int>(editor_mode::AUTO_WLR_RANDR)
+                                        << std::string(R"(on_no_match_exec = ["""echo
 second line 🖥"""]
 [profile.z_first]
 exec = ['echo "quotes"', 'echo \\path']
@@ -154,7 +157,7 @@ settings = [{ output = 'DP-2', on = true, adaptive_sync = false, transform = 'no
         fixture.write("source", content);
         const auto path = fixture.dir.filePath("source");
         validate(fixture, path, mode, true);
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             KanshiConfigRepository repository(path.toStdString());
             const auto loaded = repository.load();
             const auto document = kanshi_conversions::to_profile_document(loaded);
@@ -170,8 +173,8 @@ settings = [{ output = 'DP-2', on = true, adaptive_sync = false, transform = 'no
 
     void profile_data() {
         QTest::addColumn<int>("mode");
-        QTest::newRow("kanshi") << 1;
-        QTest::newRow("auto-wlr-randr") << 2;
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI);
+        QTest::newRow("auto-wlr-randr") << static_cast<int>(editor_mode::AUTO_WLR_RANDR);
     }
 
     void profile() {
@@ -179,7 +182,7 @@ settings = [{ output = 'DP-2', on = true, adaptive_sync = false, transform = 'no
         Fixture fixture;
         fixture.profiles();
         QString name = "kanshi/config";
-        if (mode == 2) {
+        if (mode == editor_mode::AUTO_WLR_RANDR) {
             name = "auto-wlr-randr/config.toml";
         }
         const auto path = fixture.dir.filePath(name);
@@ -233,7 +236,7 @@ settings = [{ output = 'DP-2', on = true, adaptive_sync = false, transform = 'no
         QFETCH(QString, content);
         Fixture fixture;
         fixture.write("bad.toml", content.toStdString());
-        validate(fixture, fixture.dir.filePath("bad.toml"), 2, false);
+        validate(fixture, fixture.dir.filePath("bad.toml"), editor_mode::AUTO_WLR_RANDR, false);
     }
 };
 

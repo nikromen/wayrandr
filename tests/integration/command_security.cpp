@@ -22,6 +22,7 @@ extern "C" {
 #include "backend/auto_wlr_randr/config_repository.hpp"
 #include "backend/auto_wlr_randr/daemon_client.hpp"
 #include "backend/auto_wlr_randr/types.hpp"
+#include "backend/base.hpp"
 #include "backend/kanshi/config_parser.hpp"
 #include "backend/kanshi/config_repository.hpp"
 #include "backend/kanshi/daemon_client.hpp"
@@ -312,7 +313,7 @@ private slots:
         fixture.profiles();
         MainWindow window;
         QTRY_VERIFY_WITH_TIMEOUT(!window.is_busy(), 20000);
-        window.set_backend_mode(2);
+        window.set_backend_mode(editor_mode::AUTO_WLR_RANDR);
         QTRY_VERIFY_WITH_TIMEOUT(!window.is_busy(), 20000);
         auto * editor = window.get_profile_editor();
         QVERIFY(editor->select_profile("desk"));

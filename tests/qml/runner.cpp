@@ -13,6 +13,7 @@
 #include <QStringList>
 #include <memory>
 
+#include "backend/base.hpp"
 #include "models/main_window.hpp"
 #include "models/monitor_properties.hpp"
 #include "models/profile/profile_editor_controller.hpp"
@@ -32,6 +33,14 @@ public:
     }
 
     Q_SLOT void applicationAvailable() {  // NOLINT: Qt Quick Test hook name.
+        qmlRegisterUncreatableMetaObject(
+            editor_mode::staticMetaObject,
+            "com.nikromen.wayrandr",
+            1,
+            0,
+            "EditorMode",
+            "EditorMode only provides enum values"
+        );
         qmlRegisterType<MainWindow>("com.nikromen.wayrandr", 1, 0, "MainWindowModel");
         qmlRegisterType<MonitorProperties>("com.nikromen.wayrandr", 1, 0, "MonitorPropertiesModel");
         qmlRegisterType<ProfileEditorController>(

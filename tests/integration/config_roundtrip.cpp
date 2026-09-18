@@ -20,6 +20,7 @@
 
 #include "backend/auto_wlr_randr/config_repository.hpp"
 #include "backend/auto_wlr_randr/conversions.hpp"
+#include "backend/base.hpp"
 #include "backend/kanshi/config_parser.hpp"
 #include "backend/kanshi/config_repository.hpp"
 #include "backend/kanshi/conversions.hpp"
@@ -260,7 +261,7 @@ exec = []
         fixture.write("kanshi/config", content);
         MainWindow window;
         SETTLE(window);
-        window.set_backend_mode(1);
+        window.set_backend_mode(editor_mode::KANSHI);
         SETTLE(window);
         auto * editor = window.get_profile_editor();
         QVERIFY(editor->is_configuration_loaded());
@@ -407,10 +408,12 @@ exec = []
     void load_error_data() {
         QTest::addColumn<int>("mode");
         QTest::addColumn<std::string>("broken");
-        QTest::newRow("kanshi") << 1 << std::string("unsupported = 42\n");
-        QTest::newRow("auto-wlr-randr") << 2 << std::string("unsupported = 42\n");
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI)
+                                << std::string("unsupported = 42\n");
+        QTest::newRow("auto-wlr-randr")
+            << static_cast<int>(editor_mode::AUTO_WLR_RANDR) << std::string("unsupported = 42\n");
         QTest::newRow("auto-invalid-transform")
-            << 2
+            << static_cast<int>(editor_mode::AUTO_WLR_RANDR)
             << std::string(
                    "[profile.desk]\n"
                    "settings = [{ output = 'DP-1', transform = 'invalid' }]\n"
@@ -423,7 +426,7 @@ exec = []
         Fixture fixture;
         fixture.profiles();
         std::string name = "kanshi/config";
-        if (mode == 2) {
+        if (mode == editor_mode::AUTO_WLR_RANDR) {
             name = "auto-wlr-randr/config.toml";
         }
         const auto valid = fixture.read(name.c_str());

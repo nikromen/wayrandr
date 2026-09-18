@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "backend/auto_wlr_randr/profile_backend.hpp"
+#include "backend/base.hpp"
 #include "backend/kanshi/profile_backend.hpp"
 #include "backend/profile/editor_backend.hpp"
 #include "backend/profile/types.hpp"
@@ -41,14 +42,14 @@ private slots:
 
     void daemon_data() {
         QTest::addColumn<int>("mode");
-        QTest::newRow("kanshi") << 1;
-        QTest::newRow("auto-wlr-randr") << 2;
+        QTest::newRow("kanshi") << static_cast<int>(editor_mode::KANSHI);
+        QTest::newRow("auto-wlr-randr") << static_cast<int>(editor_mode::AUTO_WLR_RANDR);
     }
 
     void snapshot_data() {
         QTest::addColumn<int>("mode");
         QTest::addColumn<int>("state_kind");
-        for (const int mode : { 1, 2 }) {
+        for (const int mode : { editor_mode::KANSHI, editor_mode::AUTO_WLR_RANDR }) {
             for (const int state_kind : { 0, 1, 2 }) {
                 QTest::newRow(qPrintable(QString("%1-%2").arg(mode).arg(state_kind)))
                     << mode << state_kind;
@@ -88,7 +89,7 @@ private slots:
         f.write("kanshi/config", content);
         MainWindow window;
         SETTLE(window);
-        window.set_backend_mode(1);
+        window.set_backend_mode(editor_mode::KANSHI);
         SETTLE(window);
         auto * editor = window.get_profile_editor();
         QCOMPARE(editor->get_match_warning().toStdString(), warning);
@@ -129,7 +130,7 @@ private slots:
         }
         f.write("state", monitors.dump());
         std::shared_ptr<ProfileEditorBackend> backend;
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             backend = std::make_shared<KanshiProfileBackend>();
         } else {
             backend = std::make_shared<AutoWlrRandrProfileBackend>();
@@ -222,7 +223,7 @@ private slots:
         editor->refresh_connected_outputs();
         SETTLE(window);
         int expected_queries = 1;
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             ++expected_queries;  // Kanshi status reads monitor names separately.
         }
         QCOMPARE(QString::fromStdString(f.read("calls")).count("[\"--json\"]"), expected_queries);
@@ -230,7 +231,7 @@ private slots:
         QCOMPARE(editor->get_live_position_for_output("DP[1"), QPoint(0, 0));
         f.write("daemon_mode", "exit");
         editor->refresh_daemon_status();
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         QVERIFY2(window.get_backend_mode() == mode, "Backend changed during queued status request");
         SETTLE(window);
         QVERIFY2(
@@ -243,7 +244,7 @@ private slots:
         std::vector<std::string> invalid_replies{ "", "unrecognized status\n" };
         std::string no_profile = "Current profile: (none)\n";
         QString no_profile_id = "(none)";
-        if (mode == 2) {
+        if (mode == editor_mode::AUTO_WLR_RANDR) {
             invalid_replies = { R"({"connected_outputs":[]})",
                                 R"({"active_profile":"None"})",
                                 R"({"active_profile":"None","connected_outputs":{}})" };
@@ -266,7 +267,7 @@ private slots:
         QVERIFY(QFile::remove(f.dir.filePath("status_reply")));
         editor->create_profile_from_live(QString("test-%1").arg(mode));
         SETTLE(window);
-        editor->switch_profile(mode == 2);
+        editor->switch_profile(mode == editor_mode::AUTO_WLR_RANDR);
         SETTLE(window);
         QVERIFY2(editor->is_daemon_running(), "Profile switch/status failed");
         QCOMPARE(editor->get_active_profile_id(), QString("test-%1").arg(mode));
@@ -287,11 +288,11 @@ private slots:
         SETTLE(window);
         QVERIFY2(!editor->is_dirty(), qPrintable(editor->get_save_status_text()));
         QVERIFY(editor->get_exec_commands().contains("test-command"));
-        window.set_backend_mode(0);
+        window.set_backend_mode(editor_mode::WLR_RANDR);
         editor->discard_changes();
 
         const auto calls = f.read("daemon_calls");
-        if (mode == 1) {
+        if (mode == editor_mode::KANSHI) {
             QVERIFY2(
                 calls.find(R"(["kanshictl", "switch", "test-1"])") != std::string::npos,
                 "Kanshi switch arguments"
