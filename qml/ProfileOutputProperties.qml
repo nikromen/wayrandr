@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 ScrollView {
     id: root
+    objectName: "profileOutputProperties"
 
     property var output
     property var profileEditor
@@ -12,7 +13,7 @@ ScrollView {
     readonly property int minimumPosition: -2147483648
     readonly property int maximumPosition: 2147483647
 
-    readonly property bool hasOutput: output !== null
+    readonly property bool hasOutput: !!output
 
     implicitHeight: mainLayout.implicitHeight
     visible: hasOutput
@@ -74,8 +75,9 @@ ScrollView {
 
                 Label { text: qsTr("Preferred:") }
                 Switch {
+                    objectName: "preferredSwitch"
                     checked: hasOutput && output.preferred
-                    onCheckedChanged: {
+                    onToggled: {
                         if (hasOutput && output.preferred !== checked) {
                             output.preferred = checked
                         }
@@ -90,6 +92,7 @@ ScrollView {
 
                 Label { text: qsTr("Mode:") }
                 TextField {
+                    objectName: "profileModeField"
                     Layout.fillWidth: true
                     text: {
                         if (hasOutput) {
@@ -98,7 +101,7 @@ ScrollView {
                         return ""
                     }
                     placeholderText: qsTr("1920x1080@60Hz")
-                    onTextChanged: {
+                    onTextEdited: {
                         if (hasOutput && text !== output.mode) {
                             output.mode = text
                         }

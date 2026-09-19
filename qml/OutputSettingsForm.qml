@@ -8,12 +8,12 @@ GridLayout {
     property var item
     property bool settingsEnabled: true
 
-    readonly property bool hasItem: item !== null
+    readonly property bool hasItem: !!item
 
     columns: 2
     columnSpacing: 10
     Layout.fillWidth: true
-    enabled: settingsEnabled
+    enabled: settingsEnabled && hasItem
 
     Label { text: qsTr("Scale:") }
     ScaleSpinBox {

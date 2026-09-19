@@ -7,7 +7,8 @@ SpinBox {
     objectName: "scaleSpinBox"
 
     property var item
-    readonly property bool hasItem: item !== null
+    readonly property bool hasItem: !!item
+    enabled: hasItem
 
     from: 1
     to: 150
@@ -19,14 +20,10 @@ SpinBox {
         return Number.fromLocaleString(locale, text) * 10
     }
 
-    property bool updatingFromItem: false
-    property bool ready: false
-
-    onValueChanged: {
-        if (!ready || !item || updatingFromItem) {
-            return
+    onValueModified: {
+        if (hasItem) {
+            item.scale = value / 10
         }
-        item.scale = value / 10
     }
 
     onItemChanged: syncFromItem()
@@ -34,23 +31,20 @@ SpinBox {
     Component.onCompleted: syncFromItem()
 
     function syncFromItem() {
-        ready = false
         if (!item) {
+            value = from
             return
         }
-        updatingFromItem = true
         const scaledValue = Math.round(item.scale * 10)
         if (isFinite(scaledValue)) {
             value = Math.max(from, Math.min(to, scaledValue))
         } else {
             value = from
         }
-        updatingFromItem = false
-        ready = true
     }
 
     Connections {
-        target: root.item
+        target: root.item || null
         enabled: root.hasItem
         function onScale_changed() { root.syncFromItem() }
     }

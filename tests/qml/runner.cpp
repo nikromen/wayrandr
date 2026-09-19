@@ -173,16 +173,16 @@ public:
 
     Q_INVOKABLE void transform_profiles() {
         fixture_->write("kanshi/config", R"(profile desk {
-    output DP-1 mode 1920x1080@60Hz transform 90
-    output HDMI-1 mode 1920x1080@60Hz transform 180
+    output DP-1 mode 1920x1080@60Hz scale 1.234 transform 90
+    output HDMI-1 mode 1920x1080@60Hz scale 20 transform 180
     output DP-2 mode 1920x1080@60Hz transform flipped-90
     output HDMI-2 mode 1920x1080@60Hz
 }
 )");
         fixture_->write("auto-wlr-randr/config.toml", R"([profile.desk]
 settings = [
-    { output = 'DP-1', mode = '1920x1080@60Hz', transform = '90' },
-    { output = 'HDMI-1', mode = '1920x1080@60Hz', transform = '180' },
+    { output = 'DP-1', mode = '1920x1080@60Hz', scale = 1.234, transform = '90' },
+    { output = 'HDMI-1', mode = '1920x1080@60Hz', scale = 20, transform = '180' },
     { output = 'DP-2', mode = '1920x1080@60Hz', transform = 'flipped-90' },
     { output = 'HDMI-2', mode = '1920x1080@60Hz' },
 ]

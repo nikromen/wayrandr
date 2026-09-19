@@ -9,7 +9,8 @@ GridLayout {
     property bool showAdaptiveSync: true
     property bool adaptiveSyncEnabled: true
 
-    readonly property bool hasItem: item !== null
+    readonly property bool hasItem: !!item
+    enabled: hasItem
 
     columns: 2
     columnSpacing: 10
@@ -17,8 +18,9 @@ GridLayout {
 
     Label { text: qsTr("Enabled:") }
     Switch {
+        objectName: "outputEnabledSwitch"
         checked: hasItem && item.enabled
-        onCheckedChanged: {
+        onToggled: {
             if (hasItem && item.enabled !== checked) {
                 item.enabled = checked
             }
@@ -30,10 +32,11 @@ GridLayout {
         text: qsTr("Adaptive sync:")
     }
     Switch {
+        objectName: "adaptiveSyncSwitch"
         visible: showAdaptiveSync
         enabled: adaptiveSyncEnabled
         checked: hasItem && item.adaptiveSync
-        onCheckedChanged: {
+        onToggled: {
             if (hasItem && adaptiveSyncEnabled && item.adaptiveSync !== checked) {
                 item.adaptiveSync = checked
             }

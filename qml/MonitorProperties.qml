@@ -5,8 +5,10 @@ import com.nikromen.wayrandr 1.0
 
 ScrollView {
     id: root
+    objectName: "monitorProperties"
 
     property var monitor
+    readonly property bool hasMonitor: !!monitor
 
     // Backend positions and QML int properties use signed 32-bit coordinates.
     readonly property int minimumPosition: -2147483648
@@ -25,11 +27,11 @@ ScrollView {
             OutputToggles {
                 item: monitor
                 showAdaptiveSync: true
-                adaptiveSyncEnabled: monitor.hasSettings
+                adaptiveSyncEnabled: root.hasMonitor && monitor.hasSettings
             }
 
             Label {
-                visible: monitor.dirty && root.enabled
+                visible: root.hasMonitor && monitor.dirty && root.enabled
                 text: qsTr("Unapplied edits are kept when switching backends.")
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -41,23 +43,27 @@ ScrollView {
                 Layout.fillWidth: true
 
                 Label { text: qsTr("Name:") }
-                Label { id: nameValue; text: monitor.name; Layout.fillWidth: true }
+                Label {
+                    id: nameValue
+                    text: root.hasMonitor && monitor.name || ""
+                    Layout.fillWidth: true
+                }
 
                 Label { text: qsTr("Description:") }
                 Label {
                     id: descriptionValue
-                    text: monitor.description
+                    text: root.hasMonitor && monitor.description || ""
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                 }
             }
 
             GridLayout {
-                visible: monitor.hasSettings
+                visible: root.hasMonitor && monitor.hasSettings
                 columns: 2
                 columnSpacing: 10
                 Layout.fillWidth: true
-                enabled: monitor.hasSettings
+                enabled: root.hasMonitor && monitor.hasSettings
 
                 Label { text: qsTr("Resolution:") }
                 RowLayout {
@@ -66,29 +72,35 @@ ScrollView {
                         id: resolutionCombo
                         objectName: "resolutionCombo"
                         Layout.fillWidth: true
-                        model: monitor.resolutions
+                        model: root.hasMonitor && monitor.resolutions || []
                         currentIndex: {
-                            if (!monitor.hasSettings || count === 0) {
+                            if (!root.hasMonitor || !monitor.hasSettings || count === 0) {
                                 return -1
                             }
                             return monitor.activeResolutionIndex
                         }
                         onActivated: function(index) {
-                            monitor.activeResolutionIndex = index
+                            if (root.hasMonitor) {
+                                monitor.activeResolutionIndex = index
+                            }
                         }
                     }
                     Button {
                         id: preferredModeButton
                         text: qsTr("Preferred")
                         ToolTip.text: qsTr("Set preferred/native mode")
-                        onClicked: monitor.activate_preferred_mode()
+                        onClicked: {
+                            if (root.hasMonitor) {
+                                monitor.activate_preferred_mode()
+                            }
+                        }
                     }
                 }
 
                 OutputSettingsForm {
                     Layout.columnSpan: 2
                     item: monitor
-                    settingsEnabled: monitor.hasSettings
+                    settingsEnabled: root.hasMonitor && monitor.hasSettings
                 }
 
                 Label { text: qsTr("Position:") }
@@ -99,8 +111,12 @@ ScrollView {
                         objectName: "positionXSpinBox"
                         from: root.minimumPosition
                         to: root.maximumPosition
-                        value: monitor.positionX
-                        onValueChanged: monitor.positionX = value
+                        value: root.hasMonitor && monitor.positionX || 0
+                        onValueModified: {
+                            if (root.hasMonitor) {
+                                monitor.positionX = value
+                            }
+                        }
                         editable: true
                     }
                     Label { text: "x" }
@@ -109,8 +125,12 @@ ScrollView {
                         objectName: "positionYSpinBox"
                         from: root.minimumPosition
                         to: root.maximumPosition
-                        value: monitor.positionY
-                        onValueChanged: monitor.positionY = value
+                        value: root.hasMonitor && monitor.positionY || 0
+                        onValueModified: {
+                            if (root.hasMonitor) {
+                                monitor.positionY = value
+                            }
+                        }
                     }
                 }
             }

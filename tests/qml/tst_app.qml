@@ -200,6 +200,15 @@ TestCase {
         const editor = harness.controller.profileEditor
         const tabs = control("outputTabBar")
         const combo = control("transformComboBox")
+        const scale = control("scaleSpinBox")
+        const storedScale = editor.outputs[0].scale
+        scale.to = 8
+        compare(scale.value, 8)
+        compare(editor.outputs[0].scale, storedScale)
+        verify(!editor.isDirty)
+        scale.to = 150
+        chooseOutputTab(tabs, 1)
+        const scales = [12, 150, 10, 10]
         const transforms = ["90", "180", "flipped-90", "normal"]
         compare(editor.outputs.length, transforms.length)
         for (const index of [0, 1, 2, 0, 3]) {
@@ -207,9 +216,15 @@ TestCase {
             tryCompare(combo, "item", editor.outputs[index])
             compare(combo.currentText, transforms[index])
             compare(combo.item.transform, transforms[index])
+            compare(scale.value, scales[index])
             compare(harness.has_transform(editor.outputs[index]), index !== 3)
             verify(!editor.isDirty)
         }
+        scale.forceActiveFocus()
+        keyClick(Qt.Key_Up)
+        compare(editor.outputs[3].scale.toFixed(1), "1.1")
+        compare(editor.outputs[0].scale, storedScale)
+        compare(editor.outputs[1].scale, 20)
         chooseTransform(combo, "flipped-270")
         verify(editor.isDirty)
         verify(harness.has_transform(editor.outputs[3]))
@@ -218,14 +233,19 @@ TestCase {
         }
         editor.outputs[3].transform = "flipped-180"
         compare(combo.currentText, "flipped-180")
+        editor.outputs[3].scale = 1.45
+        compare(scale.value, 15)
+        compare(editor.outputs[3].scale.toFixed(2), "1.45")
         const old = combo.item
         activateProfileButton("profileDiscardButton")
         verify(combo.item !== old)
         compare(combo.item, editor.outputs[0])
         compare(combo.currentText, "90")
+        compare(scale.value, 12)
         verify(!editor.isDirty)
         chooseOutputTab(tabs, 3)
         compare(combo.currentText, "normal")
+        compare(scale.value, 10)
         verify(!harness.has_transform(editor.outputs[3]))
         chooseOutputTab(tabs, 2)
         compare(combo.currentText, "flipped-90")
@@ -234,6 +254,48 @@ TestCase {
         compare(combo.currentText, "90")
         verify(!harness.has_transform(editor.outputs[3]))
         verify(!editor.isDirty)
+    }
+
+    function test_profile_programmatic_controls() {
+        click(control("autoBackend"))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
+        const editor = harness.controller.profileEditor
+        const output = editor.outputs[0]
+        const enabled = control("outputEnabledSwitch")
+        const adaptive = control("adaptiveSyncSwitch")
+        const preferred = control("preferredSwitch")
+        const mode = control("profileModeField")
+        const storedMode = output.mode
+        enabled.checked = false
+        adaptive.checked = true
+        preferred.checked = true
+        mode.text = "programmatic text"
+        verify(output.enabled)
+        verify(!output.adaptiveSync)
+        verify(!output.preferred)
+        compare(output.mode, storedMode)
+        verify(!editor.isDirty)
+        // Restore the read bindings deliberately replaced by the assignments above.
+        enabled.checked = Qt.binding(function() { return output.enabled })
+        adaptive.checked = Qt.binding(function() { return output.adaptiveSync })
+        preferred.checked = Qt.binding(function() { return output.preferred })
+        mode.text = Qt.binding(function() { return output.mode })
+        preferred.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        verify(output.preferred)
+        mode.forceActiveFocus()
+        keyClick(Qt.Key_A, Qt.ControlModifier)
+        keyClick(Qt.Key_Backspace)
+        compare(output.mode, "")
+        enabled.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        verify(!output.enabled)
+        adaptive.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        verify(output.adaptiveSync)
+        verify(editor.isDirty)
+        output.enabled = true
+        verify(enabled.checked)
     }
 
     function test_profile_scroll_data() {
@@ -319,6 +381,27 @@ TestCase {
         }
         const xSpin = control("positionXSpinBox")
         const ySpin = control("positionYSpinBox")
+        let formName = "profileOutputProperties"
+        let propertyName = "output"
+        if (data.mode === EditorMode.WLR_RANDR) {
+            verify(!output.dirty)
+            formName = "monitorProperties"
+            propertyName = "monitor"
+        } else {
+            verify(!harness.controller.profileEditor.isDirty)
+        }
+        const form = control(formName)
+        const scale = control("scaleSpinBox")
+        for (const item of [null, undefined]) {
+            form[propertyName] = item
+            compare(xSpin.value, 0)
+            compare(ySpin.value, 0)
+            compare(scale.value, scale.from)
+            verify(!scale.enabled)
+        }
+        form[propertyName] = output
+        compare(xSpin.value, output.positionX)
+        compare(ySpin.value, output.positionY)
         for (const position of [{x: 80, y: 50}, {x: -1920, y: -1080},
                                 {x: -2147483648, y: 2147483647},
                                 {x: 2147483647, y: -2147483648},
@@ -335,6 +418,12 @@ TestCase {
         keyClick(Qt.Key_Up)
         compare(output.positionX, -1919)
         compare(output.positionY, 1000002)
+        const storedX = output.positionX
+        const storedY = output.positionY
+        xSpin.value = 42
+        ySpin.value = -32
+        compare(output.positionX, storedX)
+        compare(output.positionY, storedY)
     }
 
     function test_apply(data) {
