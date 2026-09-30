@@ -716,25 +716,10 @@ TestCase {
         compare(harness.controller.backendMode, data.mode)
         const editor = harness.controller.profileEditor
         verify(editor.select_profile("desk"))
-        // Both profile views exist; choose the visible scale editor.
         verify(!editor.isDirty)
-        const spins = []
-        function collect(item) {
-            if (item.objectName === "scaleSpinBox" && item.visible) {
-                spins.push(item)
-            }
-            if (item.children) {
-                for (let i = 0; i < item.children.length; ++i) {
-                    collect(item.children[i])
-                }
-            }
-        }
-        collect(appWindow.contentItem)
-        compare(spins.length, 1)
         appWindow.requestActivate()
         wait(50)
-        spins[0].forceActiveFocus()
-        keyClick(Qt.Key_Up)
+        editScale()
         verify(editor.isDirty)
         compare(editor.outputs[0].scale.toFixed(1), "1.1")
         const profileCombo = control("profileCombo")
@@ -763,6 +748,31 @@ TestCase {
         tryCompare(harness.controller, "operationBusy", false, 20000)
         verify(editor.select_profile("desk"))
         compare(editor.outputs[0].scale, 1)
+
+        if (data.mode === EditorMode.KANSHI) {
+            // Switch documents while an obsolete profile-selection dialog is still open.
+            const transformCombo = control("transformComboBox")
+            editScale()
+            chooseProfile("spare")
+            const profileDialog = control("profileDiscardDialog")
+            tryCompare(profileDialog, "visible", true)
+            editor.discard_changes()
+            harness.empty_auto_config()
+            harness.controller.set_backend_mode(EditorMode.AUTO_WLR_RANDR)
+            tryCompare(harness.controller, "operationBusy", false, 20000)
+            compare(harness.controller.backendMode, EditorMode.AUTO_WLR_RANDR)
+            verify(!profileDialog.visible)
+            compare(profileDialog.pendingProfileId, "")
+            compare(profileDialog.pendingAction, 0)
+            compare(profileCombo.currentIndex, -1)
+            compare(editor.outputs.length, 0)
+            compare(transformCombo.item, null)
+            verify(control("onNoMatchCommandEditor").visible)
+            verify(editor.configurationLoaded && !editor.isDirty)
+            click(control("kanshiBackend"))
+            tryCompare(harness.controller, "operationBusy", false, 20000)
+            checkProfile("desk", 1)
+        }
     }
 
     function test_unsaved_close_data() {

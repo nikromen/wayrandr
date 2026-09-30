@@ -12,7 +12,18 @@ Item {
 
     enabled: !profileEditor.operationBusy
 
-    Component.onCompleted: profileEditor.refresh_connected_outputs()
+    // The controller owns loading and refreshing. Local UI targets belong to one document.
+    Connections {
+        target: controller
+        function onBackend_mode_changed() {
+            profileNameDialog.close()
+            profileNameDialog.callback = null
+            discardDialog.close()
+            profileCombo.popup.close()
+            outputTabBar.currentIndex = 0
+            forceSwitchCheck.checked = false
+        }
+    }
 
     function promptProfileName(title, callback) {
         profileNameDialog.title = title

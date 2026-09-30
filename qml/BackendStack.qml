@@ -16,7 +16,7 @@ Rectangle {
             return 1
         }
         if (mode === EditorMode.AUTO_WLR_RANDR) {
-            return 2
+            return 1
         }
         return -1
     }
@@ -33,15 +33,7 @@ Rectangle {
             Layout.minimumHeight: 0
         }
 
-        KanshiView {
-            controller: root.controller
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumWidth: 0
-            Layout.minimumHeight: 0
-        }
-
-        AutoWlrRandrView {
+        ProfileEditorView {
             controller: root.controller
             Layout.fillWidth: true
             Layout.fillHeight: true
