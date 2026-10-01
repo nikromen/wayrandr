@@ -74,7 +74,11 @@ auto WlrRandrBackend::build_wlr_randr_args(const std::vector<MonitorSpecs> & mon
         args.push_back(transform_utils::to_string(settings->get_transform()));
 
         args.push_back("--adaptive-sync");
-        args.push_back(settings->is_adaptive_sync() ? "enabled" : "disabled");
+        if (settings->is_adaptive_sync()) {
+            args.push_back("enabled");
+        } else {
+            args.push_back("disabled");
+        }
     }
 
     return args;

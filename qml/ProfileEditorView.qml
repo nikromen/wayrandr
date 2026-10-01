@@ -93,7 +93,11 @@ Item {
 
                     function syncIndex() {
                         var idx = model.indexOf(profileEditor.selectedProfileId)
-                        currentIndex = idx >= 0 ? idx : 0
+                        if (idx >= 0) {
+                            currentIndex = idx
+                        } else {
+                            currentIndex = 0
+                        }
                     }
 
                     Component.onCompleted: syncIndex()

@@ -26,7 +26,12 @@ ScrollView {
                 Label { text: qsTr("Output pattern:") }
                 TextField {
                     Layout.fillWidth: true
-                    text: hasOutput ? output.outputPattern : ""
+                    text: {
+                        if (hasOutput) {
+                            return output.outputPattern
+                        }
+                        return ""
+                    }
                     placeholderText: qsTr("e.g. DP-2 or Dell Inc. *")
                     onEditingFinished: {
                         if (hasOutput) {
@@ -38,7 +43,12 @@ ScrollView {
                 Label {
                     Layout.columnSpan: 2
                     visible: profileEditor.supportsOutputMatchPreview
-                    text: hasOutput ? output.matchPreview : ""
+                    text: {
+                        if (hasOutput) {
+                            return output.matchPreview
+                        }
+                        return ""
+                    }
                     wrapMode: Text.WordWrap
                     color: palette.placeholderText
                 }
@@ -75,7 +85,12 @@ ScrollView {
                 Label { text: qsTr("Mode:") }
                 TextField {
                     Layout.fillWidth: true
-                    text: hasOutput ? output.mode : ""
+                    text: {
+                        if (hasOutput) {
+                            return output.mode
+                        }
+                        return ""
+                    }
                     placeholderText: qsTr("1920x1080@60Hz")
                     onTextChanged: {
                         if (hasOutput && text !== output.mode) {
@@ -97,7 +112,12 @@ ScrollView {
                         from: 0
                         to: 1000000
                         editable: true
-                        value: hasOutput ? output.positionX : 0
+                        value: {
+                            if (hasOutput) {
+                                return output.positionX
+                            }
+                            return 0
+                        }
                         onValueModified: {
                             if (hasOutput && value !== output.positionX) {
                                 output.positionX = value
@@ -109,7 +129,12 @@ ScrollView {
                         from: 0
                         to: 1000000
                         editable: true
-                        value: hasOutput ? output.positionY : 0
+                        value: {
+                            if (hasOutput) {
+                                return output.positionY
+                            }
+                            return 0
+                        }
                         onValueModified: {
                             if (hasOutput && value !== output.positionY) {
                                 output.positionY = value

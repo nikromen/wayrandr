@@ -12,7 +12,10 @@ namespace profile::layout_utils {
 
 auto parse_mode_string(const std::string & mode) -> std::optional<std::pair<int, int>> {
     const auto at_pos = mode.find('@');
-    const std::string resolution = at_pos == std::string::npos ? mode : mode.substr(0, at_pos);
+    std::string resolution = mode;
+    if (at_pos != std::string::npos) {
+        resolution = mode.substr(0, at_pos);
+    }
     const auto x_pos = resolution.find('x');
     if (x_pos == std::string::npos) {
         return std::nullopt;
@@ -32,10 +35,16 @@ auto is_transform_rotated(const std::string & transform) -> bool {
 }
 
 auto layout_width(const ProfileOutputDefinition & output) -> int {
-    const auto parsed =
-        output.mode.has_value() ? parse_mode_string(output.mode.value()) : std::nullopt;
-    const int pixel_width = parsed.has_value() ? parsed->first : 1920;
-    const int pixel_height = parsed.has_value() ? parsed->second : 1080;
+    std::optional<std::pair<int, int>> parsed;
+    if (output.mode.has_value()) {
+        parsed = parse_mode_string(output.mode.value());
+    }
+    int pixel_width = 1920;
+    int pixel_height = 1080;
+    if (parsed.has_value()) {
+        pixel_width = parsed->first;
+        pixel_height = parsed->second;
+    }
     const float scale = output.scale.value_or(1.0F);
     const std::string transform = output.transform.value_or("normal");
     return canvas_layout::compute_layout_size(
@@ -45,10 +54,16 @@ auto layout_width(const ProfileOutputDefinition & output) -> int {
 }
 
 auto layout_height(const ProfileOutputDefinition & output) -> int {
-    const auto parsed =
-        output.mode.has_value() ? parse_mode_string(output.mode.value()) : std::nullopt;
-    const int pixel_width = parsed.has_value() ? parsed->first : 1920;
-    const int pixel_height = parsed.has_value() ? parsed->second : 1080;
+    std::optional<std::pair<int, int>> parsed;
+    if (output.mode.has_value()) {
+        parsed = parse_mode_string(output.mode.value());
+    }
+    int pixel_width = 1920;
+    int pixel_height = 1080;
+    if (parsed.has_value()) {
+        pixel_width = parsed->first;
+        pixel_height = parsed->second;
+    }
     const float scale = output.scale.value_or(1.0F);
     const std::string transform = output.transform.value_or("normal");
     return canvas_layout::compute_layout_size(

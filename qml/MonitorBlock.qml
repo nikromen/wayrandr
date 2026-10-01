@@ -33,7 +33,12 @@ Rectangle {
         }
     }
 
-    readonly property real previewScaleX: monitorTransform.indexOf("flipped") >= 0 ? -1 : 1
+    readonly property real previewScaleX: {
+        if (monitorTransform.indexOf("flipped") >= 0) {
+            return -1
+        }
+        return 1
+    }
 
     width: monitorResolutionWidth * displayScale
     height: monitorResolutionHeight * displayScale
