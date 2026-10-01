@@ -13,4 +13,9 @@ public:
 
     void apply(const std::vector<MonitorSpecs> & monitors) override;
     void revert() override;
+    void confirm() override;
+    [[nodiscard]] auto has_pending_changes() const -> bool override;
+
+private:
+    bool pending_confirmation_ = false;
 };
