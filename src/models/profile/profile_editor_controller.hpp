@@ -8,6 +8,7 @@
 #include <QPoint>
 #include <QString>
 #include <QStringList>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -15,9 +16,12 @@
 #include "backend/profile/editor_backend.hpp"
 #include "backend/profile/types.hpp"
 #include "models/profile/profile_output_properties.hpp"
+#include "monitor_specs.hpp"
+#include "utils/helpers.hpp"
 
 class ProfileEditorController : public QObject {
     Q_OBJECT
+    Q_PROPERTY(bool operationBusy READ is_operation_busy NOTIFY operation_busy_changed)
     Q_PROPERTY(QStringList profileIds READ get_profile_ids NOTIFY profile_ids_changed)
     Q_PROPERTY(
         QString selectedProfileId READ get_selected_profile_id WRITE set_selected_profile_id NOTIFY
@@ -57,6 +61,8 @@ class ProfileEditorController : public QObject {
 
 public:
     explicit ProfileEditorController(BackendManager * backend_manager, QObject * parent = nullptr);
+
+    [[nodiscard]] bool is_operation_busy() const { return backend_manager_->is_operation_busy(); }
 
     [[nodiscard]] auto get_profile_ids() const -> QStringList;
     [[nodiscard]] auto get_selected_profile_id() const -> QString;
@@ -110,6 +116,7 @@ public:
     [[nodiscard]] auto get_live_position_for_output(const QString & output_pattern) const -> QPoint;
 
 signals:
+    void operation_busy_changed();
     void profile_ids_changed();
     void selected_profile_id_changed();
     void is_dirty_changed();
@@ -134,6 +141,10 @@ private:
     [[nodiscard]] auto profile_exists(const QString & profile_id) const -> bool;
     [[nodiscard]] auto ensure_selected_profile_exists() -> profile::ProfileDefinition *;
 
+    bool submit(std::function<Completion()> work);
+    void report_process_error(const std::string & error);
+    std::vector<MonitorSpecs> live_monitors_;
+    unsigned revision_ = 0;
     void clear_outputs();
     void rebuild_outputs_from_profile(const profile::ProfileDefinition & profile);
     [[nodiscard]] auto current_profile() const -> profile::ProfileDefinition;

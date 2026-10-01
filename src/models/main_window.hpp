@@ -20,7 +20,8 @@ class MonitorBlock;
 
 class MainWindow : public QObject {
     Q_OBJECT
-    Q_PROPERTY(QList<QObject *> monitors READ get_monitors CONSTANT)
+    Q_PROPERTY(bool operationBusy READ is_busy NOTIFY confirmation_pending_changed)
+    Q_PROPERTY(QList<QObject *> monitors READ get_monitors NOTIFY monitors_changed)
     Q_PROPERTY(
         int backendMode READ get_backend_mode WRITE set_backend_mode NOTIFY backend_mode_changed
     )
@@ -41,6 +42,11 @@ class MainWindow : public QObject {
 
 public:
     explicit MainWindow(QObject * parent = nullptr);
+    ~MainWindow() override;
+
+    [[nodiscard]] bool is_busy() const {
+        return backend_manager_->is_operation_busy() || !initialized_;
+    }
 
     [[nodiscard]] auto get_monitors() const -> QList<QObject *>;
     [[nodiscard]] auto get_backend_mode() const -> int;
@@ -76,6 +82,8 @@ public:
     Q_INVOKABLE void reset_canvas_layout(int canvas_width, float display_scale);
 
 signals:
+    void monitors_changed();
+    void close_ready();
     void switch_to_monitor_tab(int index);
     void backend_mode_changed();
     void apply_error_changed();
@@ -87,7 +95,9 @@ private slots:
     void on_countdown_tick();
 
 private:  // NOLINT: Qt moc requires this to end the slots section.
-    void reload_monitors();
+    void finish_close();
+    void initialize_monitors(std::vector<MonitorSpecs> specs);
+    void reload_monitors(const std::vector<MonitorSpecs> & fresh_specs);
     void sync_confirmation_state();
     void set_apply_error(const QString & error);
     void stop_confirmation_timers();
@@ -107,11 +117,14 @@ private:  // NOLINT: Qt moc requires this to end the slots section.
     QTimer * confirmation_timer_;
     QTimer * countdown_timer_;
     QString apply_error_;
+    bool close_requested_ = false;
+    bool cancel_requested_ = false;
+    bool initialized_ = false;
     bool confirmation_pending_ = false;
     int confirmation_seconds_left_ = 0;
     int backend_mode_ = K_BACKEND_MODE_WLR_RANDR;
     bool kanshi_available_ = false;
     bool auto_wlr_randr_available_ = false;
-    std::unique_ptr<BackendManager> backend_manager_;
+    std::shared_ptr<BackendManager> backend_manager_;
     std::unique_ptr<ProfileEditorController> profile_editor_;
 };

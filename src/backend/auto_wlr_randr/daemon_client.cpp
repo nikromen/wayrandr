@@ -1,6 +1,5 @@
 #include "backend/auto_wlr_randr/daemon_client.hpp"
 
-#include <spdlog/spdlog.h>
 #include <unistd.h>
 
 #include <QStandardPaths>
@@ -49,7 +48,7 @@ auto AutoWlrRandrDaemonClient::status() -> DaemonStatus {
             }
         }
     } catch (const std::exception & e) {
-        spdlog::warn("Failed to parse auto-wlr-randrctl status: {}", e.what());
+        throw std::runtime_error(std::string("Daemon status failed: ") + e.what());
     }
 
     return result;

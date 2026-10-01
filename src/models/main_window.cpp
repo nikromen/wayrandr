@@ -9,10 +9,11 @@
 
 #include <QVariantMap>
 #include <algorithm>
-#include <exception>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "backend.hpp"
 #include "backend/base.hpp"
@@ -30,7 +31,78 @@ MainWindow::MainWindow(QObject * parent)
       confirmation_timer_(new QTimer(this)),
       countdown_timer_(new QTimer(this)) {
     spdlog::debug("Initializing MainWindow and loading monitor specifications");
-    monitors_ = get_monitor_specs_list();
+    kanshi_available_ = is_program_available("kanshi") && is_program_available("kanshictl");
+    auto_wlr_randr_available_ =
+        is_program_available("auto-wlr-randr") && is_program_available("auto-wlr-randrctl");
+    spdlog::info(
+        "Optional backends available: kanshi={}, auto-wlr-randr={}",
+        kanshi_available_,
+        auto_wlr_randr_available_
+    );
+
+    backend_manager_ = std::make_shared<BackendManager>();
+    connect(
+        backend_manager_.get(),
+        &BackendManager::operation_busy_changed,
+        this,
+        &MainWindow::confirmation_pending_changed
+    );
+    backend_manager_->set_operation_busy(true);
+    profile_editor_ = std::make_unique<ProfileEditorController>(backend_manager_.get(), this);
+
+    confirmation_timer_->setSingleShot(true);
+    connect(confirmation_timer_, &QTimer::timeout, this, &MainWindow::on_confirmation_timeout);
+
+    countdown_timer_->setInterval(1000);
+    connect(countdown_timer_, &QTimer::timeout, this, &MainWindow::on_countdown_tick);
+    run_job(
+        this,
+        [this] {
+            auto specs = get_monitor_specs_list();
+            return [this, specs = std::move(specs)]() mutable {
+                backend_manager_->set_operation_busy(false);
+                initialize_monitors(std::move(specs));
+                if (close_requested_) {
+                    finish_close();
+                }
+            };
+        },
+        [this](const std::string & error) {
+            backend_manager_->set_operation_busy(false);
+            initialized_ = true;
+            emit confirmation_pending_changed();
+            set_apply_error(QString::fromStdString(error));
+            if (close_requested_) {
+                finish_close();
+            }
+        }
+    );
+}
+
+void MainWindow::finish_close() {
+    close_requested_ = false;
+    cancel_requested_ = false;
+    emit close_ready();
+}
+
+MainWindow::~MainWindow() {
+    // Queue recovery behind any in-flight Apply. The job owns the manager even
+    // if the window is destroyed before delivery of its result.
+    const auto manager = backend_manager_;
+    run_job(
+        nullptr,
+        [manager] {
+            if (manager->has_pending_changes()) {
+                manager->cancel_apply();
+            }
+            return Completion{};
+        },
+        [](const std::string &) {}
+    );
+}
+
+void MainWindow::initialize_monitors(std::vector<MonitorSpecs> specs) {
+    monitors_ = std::move(specs);
     spdlog::debug("Found {} monitors", monitors_.size());
 
     for (auto & monitor_spec : monitors_) {
@@ -60,23 +132,12 @@ MainWindow::MainWindow(QObject * parent)
         );
     }
 
-    kanshi_available_ = is_program_available("kanshi") && is_program_available("kanshictl");
-    auto_wlr_randr_available_ =
-        is_program_available("auto-wlr-randr") && is_program_available("auto-wlr-randrctl");
-    spdlog::info(
-        "Optional backends available: kanshi={}, auto-wlr-randr={}",
-        kanshi_available_,
-        auto_wlr_randr_available_
-    );
-
-    backend_manager_ = std::make_unique<BackendManager>();
-    profile_editor_ = std::make_unique<ProfileEditorController>(backend_manager_.get(), this);
-
-    confirmation_timer_->setSingleShot(true);
-    connect(confirmation_timer_, &QTimer::timeout, this, &MainWindow::on_confirmation_timeout);
-
-    countdown_timer_->setInterval(1000);
-    connect(countdown_timer_, &QTimer::timeout, this, &MainWindow::on_countdown_tick);
+    initialized_ = true;
+    emit confirmation_pending_changed();
+    emit monitors_changed();
+    if (!close_requested_) {
+        profile_editor_->refresh_connected_outputs();
+    }
 }
 
 auto MainWindow::get_monitors() const -> QList<QObject *> {
@@ -115,29 +176,48 @@ auto MainWindow::get_monitor_block(const QString & monitor_name) -> QObject * {
 }
 
 void MainWindow::apply() {
-    if (backend_mode_ != K_BACKEND_MODE_WLR_RANDR || backend_manager_->has_pending_changes()) {
-        spdlog::warn("Apply requested while confirmation is already pending");
+    if (!initialized_ || backend_manager_->is_operation_busy() ||
+        backend_mode_ != K_BACKEND_MODE_WLR_RANDR || backend_manager_->has_pending_changes()) {
         return;
     }
-
-    spdlog::info("Applying monitor configuration changes for {} monitors", monitors_.size());
-
     set_apply_error({});
-    try {
-        backend_manager_->apply_with_confirmation(
-            monitors_, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS
-        );
-        sync_confirmation_state();
-        set_confirmation_seconds_left(K_CONFIRMATION_TIMEOUT_SECONDS);
-        confirmation_timer_->start(K_CONFIRMATION_TIMEOUT_SECONDS * 1000);
-        countdown_timer_->start();
-        spdlog::info("Confirmation timer started ({} seconds)", K_CONFIRMATION_TIMEOUT_SECONDS);
-    } catch (const std::exception & e) {
-        set_apply_error(QString::fromUtf8(e.what()));
-        stop_confirmation_timers();
-        sync_confirmation_state();
-        reload_monitors_safely();
-    }
+    backend_manager_->set_operation_busy(true);
+    const auto manager = backend_manager_;
+    const auto monitors = monitors_;
+    run_job(
+        this,
+        [this, manager, monitors] {
+            manager->apply_with_confirmation(monitors, nullptr, K_CONFIRMATION_TIMEOUT_SECONDS);
+            return [this] {
+                backend_manager_->set_operation_busy(false);
+                sync_confirmation_state();
+                if (cancel_requested_ || close_requested_) {
+                    cancel_requested_ = false;
+                    cancel_apply();
+                    return;
+                }
+                set_confirmation_seconds_left(K_CONFIRMATION_TIMEOUT_SECONDS);
+                confirmation_timer_->start(K_CONFIRMATION_TIMEOUT_SECONDS * 1000);
+                countdown_timer_->start();
+            };
+        },
+        [this](const std::string & error) {
+            backend_manager_->set_operation_busy(false);
+            set_apply_error(QString::fromStdString(error));
+            stop_confirmation_timers();
+            sync_confirmation_state();
+            cancel_requested_ = false;
+            if (!backend_manager_->has_pending_changes()) {
+                if (close_requested_) {
+                    finish_close();
+                } else {
+                    reload_monitors_safely();
+                }
+            } else {
+                close_requested_ = false;
+            }
+        }
+    );
 }
 
 void MainWindow::save() {
@@ -145,7 +225,7 @@ void MainWindow::save() {
 }
 
 auto MainWindow::is_confirmation_allowed() const -> bool {
-    return backend_manager_->can_confirm();
+    return !backend_manager_->is_operation_busy() && backend_manager_->can_confirm();
 }
 
 auto MainWindow::get_apply_error() const -> QString {
@@ -177,19 +257,42 @@ void MainWindow::stop_confirmation_timers() {
 }
 
 void MainWindow::reload_monitors_safely() {
-    try {
-        reload_monitors();
-    } catch (const std::exception & e) {
-        const auto refresh_error =
-            QStringLiteral("Could not refresh monitors: ") + QString::fromUtf8(e.what());
-        set_apply_error(
-            apply_error_.isEmpty() ? refresh_error : apply_error_ + "\n" + refresh_error
-        );
+    if (backend_manager_->is_operation_busy()) {
+        return;
     }
+    backend_manager_->set_operation_busy(true);
+    run_job(
+        this,
+        [this] {
+            auto specs = get_monitor_specs_list();
+            return [this, specs = std::move(specs)] {
+                backend_manager_->set_operation_busy(false);
+                reload_monitors(specs);
+                if (cancel_requested_) {
+                    cancel_requested_ = false;
+                    cancel_apply();
+                } else if (close_requested_) {
+                    finish_close();
+                }
+            };
+        },
+        [this](const std::string & error) {
+            backend_manager_->set_operation_busy(false);
+            set_apply_error(
+                apply_error_ + "\nCould not refresh monitors: " + QString::fromStdString(error)
+            );
+            if (cancel_requested_) {
+                cancel_requested_ = false;
+                cancel_apply();
+            } else if (close_requested_) {
+                finish_close();
+            }
+        }
+    );
 }
 
 void MainWindow::confirm_apply() {
-    if (!backend_manager_->can_confirm()) {
+    if (!is_confirmation_allowed()) {
         return;
     }
     backend_manager_->confirm_apply();
@@ -200,31 +303,60 @@ void MainWindow::confirm_apply() {
 }
 
 void MainWindow::cancel_apply() {
-    if (!backend_manager_->has_pending_changes()) {
+    stop_confirmation_timers();
+    if (backend_manager_->is_operation_busy()) {
+        cancel_requested_ = true;
         return;
     }
-    // One attempt per timeout or user action; failure must not create a retry loop.
-    stop_confirmation_timers();
-    try {
-        backend_manager_->cancel_apply();
-        set_apply_error({});
-    } catch (const std::exception & e) {
-        set_apply_error(
-            QStringLiteral("Restore failed. Reconnect outputs if necessary and retry: ") +
-            QString::fromUtf8(e.what())
-        );
-    }
-    sync_confirmation_state();
     if (!backend_manager_->has_pending_changes()) {
-        reload_monitors_safely();
+        if (close_requested_) {
+            finish_close();
+        }
+        return;
     }
+    backend_manager_->set_operation_busy(true);
+    emit confirmation_pending_changed();
+    const auto manager = backend_manager_;
+    run_job(
+        this,
+        [this, manager] {
+            manager->cancel_apply();
+            return [this] {
+                backend_manager_->set_operation_busy(false);
+                cancel_requested_ = false;
+                set_apply_error({});
+                sync_confirmation_state();
+                if (close_requested_) {
+                    finish_close();
+                } else {
+                    reload_monitors_safely();
+                }
+            };
+        },
+        [this](const std::string & error) {
+            backend_manager_->set_operation_busy(false);
+            close_requested_ = false;
+            cancel_requested_ = false;
+            set_apply_error("Restore failed. Retry: " + QString::fromStdString(error));
+            sync_confirmation_state();
+        }
+    );
 }
 
 auto MainWindow::prepare_close() -> bool {
-    if (backend_manager_->has_pending_changes()) {
+    if (backend_manager_->is_operation_busy() || backend_manager_->has_pending_changes()) {
+        close_requested_ = true;
+        if (backend_manager_->is_operation_busy()) {
+            QTimer::singleShot(50, this, [this] {
+                if (close_requested_ && prepare_close()) {
+                    finish_close();
+                }
+            });
+        }
         cancel_apply();
+        return false;
     }
-    return !backend_manager_->has_pending_changes();
+    return true;
 }
 
 void MainWindow::on_confirmation_timeout() {
@@ -254,6 +386,9 @@ void MainWindow::set_backend_mode(int backend_mode) {
 }
 
 auto MainWindow::can_switch_backend(int backend_mode) const -> bool {
+    if (backend_manager_->is_operation_busy()) {
+        return false;
+    }
     if (backend_mode == backend_mode_) {
         return true;
     }
@@ -308,8 +443,7 @@ void MainWindow::set_backend_mode_internal(int backend_mode) {
     emit backend_mode_changed();
 }
 
-void MainWindow::reload_monitors() {
-    const auto fresh_specs = get_monitor_specs_list(true);
+void MainWindow::reload_monitors(const std::vector<MonitorSpecs> & fresh_specs) {
     std::unordered_map<std::string, const MonitorSpecs *> fresh_by_name;
     for (const auto & spec : fresh_specs) {
         fresh_by_name[spec.get_name()] = &spec;

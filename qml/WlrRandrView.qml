@@ -63,7 +63,13 @@ Item {
                 Layout.fillWidth: true
 
                 Button {
-                    text: qsTr("Apply")
+                    text: {
+                        if (controller.operationBusy) {
+                            return qsTr("Working…")
+                        }
+                        return qsTr("Apply")
+                    }
+                    enabled: !controller.operationBusy
                     highlighted: true
                     Layout.fillWidth: true
                     visible: !controller.confirmationPending
