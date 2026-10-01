@@ -1,8 +1,10 @@
 #include "backend/auto_wlr_randr/snapshot.hpp"
 
-#include <sstream>
+#include <cstddef>
+#include <string>
 #include <utility>
 
+#include "backend/auto_wlr_randr/types.hpp"
 #include "monitor_specs.hpp"
 
 namespace auto_wlr_randr_snapshot {

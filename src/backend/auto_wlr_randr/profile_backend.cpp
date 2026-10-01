@@ -9,6 +9,8 @@
 #include "backend/auto_wlr_randr/daemon_client.hpp"
 #include "backend/auto_wlr_randr/pattern_matcher.hpp"
 #include "backend/auto_wlr_randr/snapshot.hpp"
+#include "backend/auto_wlr_randr/types.hpp"
+#include "backend/profile/types.hpp"
 
 AutoWlrRandrProfileBackend::AutoWlrRandrProfileBackend() {
     spdlog::debug("Initializing auto-wlr-randr profile backend");

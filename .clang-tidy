@@ -10,7 +10,6 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
-  -misc-include-cleaner,
   -modernize-use-trailing-return-type,
   -modernize-use-emplace,
   -readability-identifier-length,
@@ -22,6 +21,9 @@ WarningsAsErrors: ''
 HeaderFilterRegex: ''
 FormatStyle:     file
 CheckOptions:
+  # toml++ requires its public entry point, not standalone implementation headers.
+  - key:             misc-include-cleaner.IgnoreHeaders
+    value:           'toml\+\+/impl/.*'
   - key:             google-explicit-constructor.AllowSingleArgumentConstructors
     value:           'false'
   - key:             readability-identifier-naming.ClassCase

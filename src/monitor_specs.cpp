@@ -2,9 +2,9 @@
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <exception>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <stdexcept>
@@ -300,7 +300,7 @@ EnabledMonitorSettings::EnabledMonitorSettings(
 )
     : active_mode_index(active_mode_index),
       position(position),
-      transform(transform),
+      transform(transform),  // NOLINT(build/include_what_you_use): member initializer.
       scale(scale),
       adaptive_sync(adaptive_sync) {}
 

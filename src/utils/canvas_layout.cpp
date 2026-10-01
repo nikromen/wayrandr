@@ -1,7 +1,11 @@
 #include "utils/canvas_layout.hpp"
 
+#include <qpoint.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 namespace canvas_layout {
 

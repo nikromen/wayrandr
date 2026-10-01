@@ -2,8 +2,12 @@
 
 #include <fnmatch.h>
 
+#include <cstddef>
+#include <optional>
+#include <string>
 #include <vector>
 
+#include "backend/kanshi/types.hpp"
 #include "monitor_specs.hpp"
 
 namespace {

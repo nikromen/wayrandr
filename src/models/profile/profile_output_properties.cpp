@@ -1,8 +1,13 @@
 #include "models/profile/profile_output_properties.hpp"
 
+#include <qcontainerfwd.h>
+#include <qobject.h>
+#include <qtmetamacros.h>
+
 #include <string>
 
 #include "backend/profile/layout_utils.hpp"
+#include "backend/profile/types.hpp"
 #include "models/profile/profile_editor_controller.hpp"
 #include "utils/canvas_drag.hpp"
 #include "utils/canvas_layout.hpp"

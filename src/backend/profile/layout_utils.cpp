@@ -1,5 +1,10 @@
 #include "backend/profile/layout_utils.hpp"
 
+#include <optional>
+#include <string>
+#include <utility>
+
+#include "backend/profile/types.hpp"
 #include "monitor_specs.hpp"
 #include "utils/canvas_layout.hpp"
 

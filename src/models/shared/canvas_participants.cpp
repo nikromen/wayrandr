@@ -1,5 +1,8 @@
 #include "models/shared/canvas_participants.hpp"
 
+#include <qlist.h>
+#include <qobject.h>
+
 #include "models/monitor_properties.hpp"
 #include "models/profile/profile_editor_controller.hpp"
 #include "models/profile/profile_output_properties.hpp"

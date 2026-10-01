@@ -2,7 +2,6 @@
 #include <qnamespace.h>
 #include <qobject.h>
 #include <qqml.h>
-#include <qstringliteral.h>
 #include <qurl.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>

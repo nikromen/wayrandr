@@ -1,5 +1,6 @@
 #include "models/main_window.hpp"
 
+#include <qhashfunctions.h>
 #include <qlist.h>
 #include <qobject.h>
 #include <qtimer.h>
@@ -8,9 +9,8 @@
 
 #include <QVariantMap>
 #include <algorithm>
-#include <cstdlib>
+#include <exception>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 

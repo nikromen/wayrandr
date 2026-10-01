@@ -1,7 +1,6 @@
 #include "models/monitor_block.hpp"
 
 #include <qcontainerfwd.h>
-#include <qnamespace.h>
 #include <qobject.h>
 #include <qoverload.h>
 #include <qstringview.h>

@@ -1,11 +1,24 @@
 #include "models/profile/profile_editor_controller.hpp"
 
+#include <qalgorithms.h>
+#include <qcontainerfwd.h>
+#include <qhashfunctions.h>
+#include <qlist.h>
+#include <qobject.h>
+#include <qpoint.h>
+#include <qtmetamacros.h>
 #include <spdlog/spdlog.h>
 
+#include <exception>
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "backend.hpp"
 #include "backend/auto_wlr_randr/pattern_matcher.hpp"
+#include "backend/auto_wlr_randr/types.hpp"
+#include "backend/profile/types.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "monitor_specs.hpp"
 #include "utils/string_list_edit.hpp"

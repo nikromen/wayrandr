@@ -10,6 +10,7 @@
 #include "backend/kanshi/pattern_matcher.hpp"
 #include "backend/kanshi/snapshot.hpp"
 #include "backend/kanshi/types.hpp"
+#include "backend/profile/types.hpp"
 
 KanshiProfileBackend::KanshiProfileBackend() {
     spdlog::debug("Initializing kanshi profile backend");

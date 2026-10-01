@@ -1,7 +1,10 @@
 #include "backend/kanshi/snapshot.hpp"
 
+#include <cstddef>
+#include <string>
 #include <utility>
 
+#include "backend/kanshi/types.hpp"
 #include "monitor_specs.hpp"
 
 namespace kanshi_snapshot {

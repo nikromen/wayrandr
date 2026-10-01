@@ -2,10 +2,8 @@
 
 #include <spdlog/spdlog.h>
 
-#include <string>
 #include <vector>
 
-#include "backend/base.hpp"
 #include "monitor_specs.hpp"
 
 KanshiBackend::KanshiBackend() {

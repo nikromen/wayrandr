@@ -2,6 +2,9 @@
 
 #include <vector>
 
+#include "backend/kanshi/types.hpp"
+#include "backend/profile/types.hpp"
+
 namespace kanshi_conversions {
 
 auto to_profile_output(const KanshiOutputSetting & setting) -> profile::ProfileOutputDefinition {
