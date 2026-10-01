@@ -43,6 +43,7 @@
 # custom here
 build/
 .vscode/
+.cache/
 
 # Qt Creator user files
 *.user
