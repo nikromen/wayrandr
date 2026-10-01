@@ -92,9 +92,8 @@ Item {
         ScrollView {
             id: profileFormScroll
             objectName: "profileFormScroll"
-            Layout.minimumWidth: 360
-            Layout.preferredWidth: 420
-            Layout.minimumHeight: 0
+            SplitView.minimumWidth: 360
+            SplitView.preferredWidth: 420
             contentWidth: availableWidth
             clip: true
 
@@ -361,12 +360,11 @@ Item {
         }
 
         DisplayCanvas {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumWidth: 0
-            Layout.minimumHeight: 0
+            SplitView.fillWidth: true
+            SplitView.minimumWidth: 0
             controller: root.controller
             canvasModel: profileEditor.outputs
+            layoutApproximate: profileEditor.canvasLayoutApproximate
             blockName: function(item, index) {
                 return item.outputPattern
             }

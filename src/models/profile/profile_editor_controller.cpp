@@ -30,6 +30,12 @@ ProfileEditorController::ProfileEditorController(BackendManager * backend_manage
     : QObject(parent),
       backend_manager_(backend_manager) {
     connect(
+        this,
+        &ProfileEditorController::outputs_changed,
+        this,
+        &ProfileEditorController::canvas_layout_changed
+    );
+    connect(
         backend_manager_,
         &BackendManager::operation_busy_changed,
         this,
@@ -722,10 +728,25 @@ void ProfileEditorController::rebuild_outputs_from_profile(
     for (const profile::ProfileOutputDefinition & output : profile.outputs) {
         auto * output_model = new ProfileOutputProperties(this, this);
         output_model->load_from_output(output);
+        connect(
+            output_model,
+            &ProfileOutputProperties::layout_dimensions_changed,
+            this,
+            &ProfileEditorController::canvas_layout_changed
+        );
         output_models_.append(output_model);
     }
     emit outputs_changed();
     emit exec_commands_changed();
+}
+
+auto ProfileEditorController::has_approximate_layout() const -> bool {
+    for (const auto * output : output_models_) {
+        if (!output->has_explicit_layout()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 auto ProfileEditorController::current_profile() const -> profile::ProfileDefinition {

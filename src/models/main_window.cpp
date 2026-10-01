@@ -514,7 +514,7 @@ auto MainWindow::snap_position(
     if ((backend_mode_ == editor_mode::AUTO_WLR_RANDR || backend_mode_ == editor_mode::KANSHI) &&
         profile_editor_ != nullptr) {
         auto * current_output = qobject_cast<ProfileOutputProperties *>(item);
-        if (current_output == nullptr) {
+        if (current_output == nullptr || profile_editor_->has_approximate_layout()) {
             return { x, y };
         }
 
@@ -580,6 +580,10 @@ void MainWindow::reset_canvas_layout(int /*canvas_width*/, float /*display_scale
 
     if ((backend_mode_ == editor_mode::AUTO_WLR_RANDR || backend_mode_ == editor_mode::KANSHI) &&
         profile_editor_ != nullptr) {
+        if (profile_editor_->has_approximate_layout()) {
+            spdlog::warn("Layout reset skipped: profile canvas geometry is approximate");
+            return;
+        }
         canvas_participants::ResetContext context =
             canvas_participants::build_profile_reset_context(profile_editor_.get());
         canvas_layout::reset_horizontal_layout(context.items);

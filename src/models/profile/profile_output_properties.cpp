@@ -4,11 +4,13 @@
 #include <qobject.h>
 #include <qtmetamacros.h>
 
+#include <algorithm>
 #include <string>
 
 #include "backend/profile/layout_utils.hpp"
 #include "backend/profile/types.hpp"
 #include "models/profile/profile_editor_controller.hpp"
+#include "monitor_specs.hpp"
 #include "utils/canvas_drag.hpp"
 #include "utils/canvas_layout.hpp"
 #include "utils/transform_list.hpp"
@@ -146,6 +148,20 @@ auto ProfileOutputProperties::get_layout_height() const -> int {
     return profile::layout_utils::layout_height(output_);
 }
 
+auto ProfileOutputProperties::has_explicit_layout() const -> bool {
+    if (output_.enabled == false) {
+        return true;
+    }
+    if (!output_.enabled || output_.multi_output || output_.preferred || !output_.mode ||
+        !output_.scale || !output_.transform) {
+        return false;
+    }
+    const auto & transforms = transform_utils::all_strings();
+    return profile::layout_utils::parse_mode_string(*output_.mode).has_value() &&
+        std::find(transforms.begin(), transforms.end(), *output_.transform) != transforms.end() &&
+        get_layout_width() > 0 && get_layout_height() > 0;
+}
+
 auto ProfileOutputProperties::get_match_preview() const -> QString {
     return match_preview_;
 }
@@ -186,6 +202,7 @@ void ProfileOutputProperties::set_preferred(bool preferred) {
     output_.preferred = preferred;
     output_.preferred_explicit = true;
     emit preferred_changed();
+    notify_layout_changed();
     mark_dirty();
 }
 

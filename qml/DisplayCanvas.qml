@@ -10,6 +10,7 @@ Item {
 
     required property var controller
     property var canvasModel
+    property bool layoutApproximate: false
     // UI preview zoom only — unrelated to wlr-randr output scale
     property real displayScale: 0.1
     property var blockName: null
@@ -42,6 +43,7 @@ Item {
 
             ToolButton {
                 objectName: "resetLayoutButton"
+                enabled: !root.layoutApproximate
                 text: qsTr("Reset layout")
                 flat: true
                 ToolTip.text: qsTr("Arrange outputs side by side from the top-left corner")

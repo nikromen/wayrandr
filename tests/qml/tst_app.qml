@@ -265,6 +265,8 @@ TestCase {
         const adaptive = control("adaptiveSyncSwitch")
         const preferred = control("preferredSwitch")
         const mode = control("profileModeField")
+        const reset = control("resetLayoutButton")
+        verify(!reset.enabled)
         const storedMode = output.mode
         enabled.checked = false
         adaptive.checked = true
@@ -290,24 +292,25 @@ TestCase {
         enabled.forceActiveFocus()
         keyClick(Qt.Key_Space)
         verify(!output.enabled)
+        verify(reset.enabled)
         adaptive.forceActiveFocus()
         keyClick(Qt.Key_Space)
         verify(output.adaptiveSync)
         verify(editor.isDirty)
         output.enabled = true
         verify(enabled.checked)
+        verify(!reset.enabled)
     }
 
     function test_profile_scroll_data() {
-        return [{tag: "kanshi", mode: EditorMode.KANSHI},
-                {tag: "auto", mode: EditorMode.AUTO_WLR_RANDR}]
+        return test_unsaved_profile_data()
     }
 
     function test_profile_scroll(data) {
+        click(control(data.button))
+        tryCompare(harness.controller, "operationBusy", false, 20000)
         appWindow.width = 640
         appWindow.height = 480
-        harness.controller.set_backend_mode(data.mode)
-        tryCompare(harness.controller, "operationBusy", false, 20000)
         const editor = harness.controller.profileEditor
         verify(editor.select_profile("desk"))
         for (let i = 0; i < 10; ++i) {
@@ -316,6 +319,12 @@ TestCase {
         const scroller = control("profileFormScroll")
         const save = control("profileSaveButton")
         verify(waitForRendering(scroller))
+        verify(scroller.width > 0 && scroller.height > 0,
+               "Profile form must occupy visible space: " + scroller.width + "x" + scroller.height)
+        const backend = control("wlrBackend")
+        const backendPosition = backend.mapToItem(appWindow.contentItem, 0, 0)
+        verify(backendPosition.x >= 0 && backendPosition.x + backend.width <= appWindow.width,
+               "Backend switcher must be inside window: x=" + backendPosition.x)
         verify(scroller.contentHeight > scroller.availableHeight)
         scroller.forceActiveFocus()
         for (let i = 0; i < 80 && !save.activeFocus; ++i) {

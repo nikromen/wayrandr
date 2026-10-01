@@ -239,8 +239,8 @@ exec = []
         QTest::addColumn<QString>("options");
         QTest::addColumn<int>("width");
         QTest::addColumn<int>("height");
-        QTest::newRow("native-size") << QString("scale 1") << 2560 << 1440;
-        QTest::newRow("scaled") << QString("scale 2") << 1280 << 720;
+        QTest::newRow("native-size") << QString("scale 1 transform normal") << 2560 << 1440;
+        QTest::newRow("scaled") << QString("scale 2 transform normal") << 1280 << 720;
         QTest::newRow("scaled-flipped-rotation")
             << QString("scale 2 transform flipped-90") << 720 << 1280;
     }
@@ -251,13 +251,14 @@ exec = []
         QFETCH(int, height);
         Fixture fixture;
         fixture.profiles();
-        const auto content = QString(
-                                 "profile desk {\n"
-                                 "output DP-1 mode --custom 2560x1440@60Hz %1\n"
-                                 "output DP-2 mode 1920x1080@60Hz\n}\n"
-        )
-                                 .arg(options)
-                                 .toStdString();
+        const auto content =
+            QString(
+                "profile desk {\n"
+                "output DP-1 enable mode --custom 2560x1440@60Hz %1\n"
+                "output DP-2 enable mode 1920x1080@60Hz scale 1 transform normal\n}\n"
+            )
+                .arg(options)
+                .toStdString();
         fixture.write("kanshi/config", content);
         MainWindow window;
         SETTLE(window);
@@ -285,6 +286,83 @@ exec = []
         QCOMPARE(first->to_output().transform, before.transform);
         QVERIFY(editor->is_dirty());
         QCOMPARE(fixture.read("kanshi/config"), content);
+    }
+
+    void approximate_geometry_data() {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<std::string>("content");
+        QTest::addColumn<int>("native_width");
+        const std::string second =
+            "output DP-2 enable mode 1920x1080 scale 1 transform normal "
+            "position 4000,50\n}\n";
+        QTest::newRow("kanshi-unset")
+            << static_cast<int>(editor_mode::KANSHI)
+            << "profile desk {\noutput DP-1 enable scale 1 transform normal\n" + second << 3840;
+        QTest::newRow("kanshi-preferred")
+            << static_cast<int>(editor_mode::KANSHI)
+            << "profile desk {\noutput DP-1 enable mode preferred scale 1 transform normal\n" +
+                second
+            << 3840;
+        QTest::newRow("kanshi-global-scale")
+            << static_cast<int>(editor_mode::KANSHI)
+            << "output DP-1 scale 1.5\nprofile desk {\n"
+               "output DP-1 enable mode 3840x2160 transform normal\n" +
+                second
+            << 2560;
+        // auto-wlr-randr sends --preferred after --mode: the 4K preferred mode wins.
+        QTest::newRow("auto-preferred-over-mode")
+            << static_cast<int>(editor_mode::AUTO_WLR_RANDR)
+            << std::string(
+                   "[profile.desk]\nsettings = ["
+                   "{ output = 'DP-1', on = true, mode = '1920x1080', preferred = true, "
+                   "scale = 1, transform = 'normal' },"
+                   "{ output = 'DP-2', on = true, mode = '1920x1080', scale = 1, "
+                   "transform = 'normal', pos = '4000,50' }]\n"
+               )
+            << 3840;
+    }
+
+    void approximate_geometry() {
+        QFETCH(int, mode);
+        QFETCH(std::string, content);
+        QFETCH(int, native_width);
+        Fixture fixture;
+        fixture.profiles();
+        fixture.multi_monitor();
+        auto state = fixture.state();
+        state[0]["modes"][0]["width"] = 3840;
+        state[0]["modes"][0]["height"] = 2160;
+        fixture.write("state", state.dump());
+        const char * path = "kanshi/config";
+        if (mode == editor_mode::AUTO_WLR_RANDR) {
+            path = "auto-wlr-randr/config.toml";
+        }
+        fixture.write(path, content);
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(mode);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        QCOMPARE(window.get_monitors().first()->property("resolutionWidth").toInt(), 3840);
+        auto * first = qobject_cast<ProfileOutputProperties *>(editor->get_outputs().value(0));
+        auto * second = qobject_cast<ProfileOutputProperties *>(editor->get_outputs().value(1));
+        QVERIFY(first != nullptr && second != nullptr);
+        const auto before = first->to_output();
+        // Source-derived native expectations differ from the local-only preview.
+        QVERIFY(first->get_layout_width() != native_width);
+        QVERIFY(editor->has_approximate_layout());
+        QVERIFY(!editor->is_dirty());
+        window.reset_canvas_layout(0, 1);
+        QCOMPARE(second->get_position_x(), 4000);
+        QCOMPARE(second->get_position_y(), 50);
+        QCOMPARE(window.snap_position(second, 1940, 50, 100, 0, 0, 1), QPoint(1940, 50));
+        QVERIFY(!editor->is_dirty());
+        QCOMPARE(first->to_output().mode, before.mode);
+        QCOMPARE(first->to_output().scale, before.scale);
+        QCOMPARE(first->to_output().preferred, before.preferred);
+        QCOMPARE(first->to_output().transform, before.transform);
+        QCOMPARE(fixture.read(path), content);
+        QCOMPARE(fixture.state(), state);
     }
 
     void kanshi_nonfinite_geometry_data() {

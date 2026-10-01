@@ -54,6 +54,8 @@ public:
     void set_adaptive_sync(bool adaptive_sync);
     [[nodiscard]] auto get_layout_width() const -> int;
     [[nodiscard]] auto get_layout_height() const -> int;
+    // Automatic placement requires local geometry, independent of live state/defaults/includes.
+    [[nodiscard]] auto has_explicit_layout() const -> bool;
     [[nodiscard]] auto get_match_preview() const -> QString;
     static auto get_transform_list() -> QStringList;
 

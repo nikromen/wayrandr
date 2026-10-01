@@ -39,6 +39,9 @@ class ProfileEditorController : public QObject {
     Q_PROPERTY(QString daemonStatusText READ get_daemon_status_text NOTIFY daemon_status_changed)
     Q_PROPERTY(QString saveStatusText READ get_save_status_text NOTIFY save_status_changed)
     Q_PROPERTY(QList<QObject *> outputs READ get_outputs NOTIFY outputs_changed)
+    Q_PROPERTY(
+        bool canvasLayoutApproximate READ has_approximate_layout NOTIFY canvas_layout_changed
+    )
     Q_PROPERTY(QStringList execCommands READ get_exec_commands NOTIFY exec_commands_changed)
     Q_PROPERTY(
         QStringList onNoMatchExecCommands READ get_on_no_match_exec_commands NOTIFY
@@ -85,6 +88,7 @@ public:
     [[nodiscard]] auto get_daemon_status_text() const -> QString;
     [[nodiscard]] auto get_save_status_text() const -> QString;
     [[nodiscard]] auto get_outputs() const -> QList<QObject *>;
+    [[nodiscard]] auto has_approximate_layout() const -> bool;
     [[nodiscard]] auto get_exec_commands() const -> QStringList;
     [[nodiscard]] auto get_on_no_match_exec_commands() const -> QStringList;
     [[nodiscard]] auto get_connected_outputs() const -> QStringList;
@@ -143,6 +147,7 @@ signals:
     void save_status_changed();
     void match_warning_changed();
     void outputs_changed();
+    void canvas_layout_changed();
     void exec_commands_changed();
     void on_no_match_exec_commands_changed();
     void connected_outputs_changed();
