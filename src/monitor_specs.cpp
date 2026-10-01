@@ -375,18 +375,24 @@ auto resolve_active_mode_index(const std::vector<Mode> & modes, int active_mode_
 
 }  // namespace
 
-auto get_monitor_specs_list() -> std::vector<MonitorSpecs> {
+auto get_monitor_specs_list(bool require_complete) -> std::vector<MonitorSpecs> {
     std::vector<MonitorSpecs> monitor_specs_list;
 
     std::string output;
     try {
         output = run_command("wlr-randr", { "--json" });
     } catch (const std::exception & e) {
+        if (require_complete) {
+            throw;
+        }
         spdlog::error("Failed to run wlr-randr: {}", e.what());
         return monitor_specs_list;
     }
 
     if (output.empty()) {
+        if (require_complete) {
+            throw std::runtime_error("Empty wlr-randr snapshot");
+        }
         spdlog::error("wlr-randr returned empty output");
         return monitor_specs_list;
     }
@@ -395,6 +401,9 @@ auto get_monitor_specs_list() -> std::vector<MonitorSpecs> {
     try {
         j = json::parse(output);
     } catch (const json::exception & e) {
+        if (require_complete) {
+            throw;
+        }
         spdlog::error("Failed to parse wlr-randr JSON: {}", e.what());
         return monitor_specs_list;
     }
@@ -474,6 +483,9 @@ auto get_monitor_specs_list() -> std::vector<MonitorSpecs> {
                 enabled_monitor_settings
             ));
         } catch (const std::exception & e) {
+            if (require_complete) {
+                throw;
+            }
             const std::string name =
                 monitor.contains("name") ? monitor["name"].get<std::string>() : "unknown";
             spdlog::warn("Skipping monitor {} due to parse error: {}", name, e.what());

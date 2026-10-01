@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -13,11 +14,15 @@ public:
 
     void apply(const std::vector<MonitorSpecs> & monitors) override;
     void revert() override;
+    void confirm() override;
+    [[nodiscard]] auto has_pending_changes() const -> bool override;
+    [[nodiscard]] auto can_confirm() const -> bool override;
 
 private:
-    std::vector<MonitorSpecs> previous_config_;
+    std::optional<std::vector<MonitorSpecs>> previous_config_;
+    bool apply_succeeded_ = false;
 
-    void apply(const std::vector<MonitorSpecs> & monitors, bool snapshot_current);
+    static void execute(const std::vector<std::string> & args);
 
     static auto build_wlr_randr_args(const std::vector<MonitorSpecs> & monitors)
         -> std::vector<std::string>;

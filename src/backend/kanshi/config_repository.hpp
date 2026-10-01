@@ -7,9 +7,7 @@
 
 class KanshiConfigRepository {
 public:
-    explicit KanshiConfigRepository(
-        std::filesystem::path config_path = default_config_path()
-    );
+    explicit KanshiConfigRepository(std::filesystem::path config_path = default_config_path());
 
     [[nodiscard]] static auto default_config_path() -> std::filesystem::path;
     [[nodiscard]] auto get_config_path() const -> const std::filesystem::path &;

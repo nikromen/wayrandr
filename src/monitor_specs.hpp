@@ -132,4 +132,5 @@ private:
     std::optional<EnabledMonitorSettings> enabled_monitor_settings;
 };
 
-auto get_monitor_specs_list() -> std::vector<MonitorSpecs>;
+// Safety-critical callers must reject query errors and partially decoded snapshots.
+auto get_monitor_specs_list(bool require_complete = false) -> std::vector<MonitorSpecs>;

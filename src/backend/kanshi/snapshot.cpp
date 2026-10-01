@@ -31,8 +31,7 @@ auto create_profile_from_live_state(const std::string & profile_id) -> KanshiPro
             }
 
             const auto & position = enabled_settings.get_position();
-            setting.position =
-                std::to_string(position.x) + "," + std::to_string(position.y);
+            setting.position = std::to_string(position.x) + "," + std::to_string(position.y);
             setting.scale = enabled_settings.get_scale();
             setting.transform = transform_utils::to_string(enabled_settings.get_transform());
             setting.adaptive_sync = enabled_settings.is_adaptive_sync();

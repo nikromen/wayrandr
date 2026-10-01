@@ -28,6 +28,8 @@ public:
     );
     void confirm_apply();
     void cancel_apply();
+    [[nodiscard]] auto has_pending_changes() const -> bool;
+    [[nodiscard]] auto can_confirm() const -> bool;
 
     [[nodiscard]] auto profile_editor() -> ProfileEditorBackend &;
     [[nodiscard]] auto profile_editor() const -> const ProfileEditorBackend &;

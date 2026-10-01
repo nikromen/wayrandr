@@ -18,6 +18,9 @@ BackendManager::BackendManager()
 }
 
 void BackendManager::set_backend(BackendType type) {
+    if (has_pending_changes()) {
+        throw std::logic_error("Cannot switch backend while a configuration is pending");
+    }
     spdlog::info("Switching backend to type: {}", static_cast<int>(type));
     current_type_ = type;
     display_backend_ = create_display_backend(type);
@@ -54,6 +57,9 @@ void BackendManager::apply(const std::vector<MonitorSpecs> & monitors) {
         throw std::runtime_error("No backend available");
     }
 
+    if (has_pending_changes()) {
+        throw std::logic_error("A configuration is already pending");
+    }
     display_backend_->apply(monitors);
 }
 
@@ -74,31 +80,46 @@ void BackendManager::apply_with_confirmation(
 
     try {
         apply(monitors);
-        pending_confirmation_ = true;
+        // Direct wlr-randr transactions are owned by the display backend.
+        pending_confirmation_ = current_type_ != BackendType::WLR_RANDR;
     } catch (const std::exception & e) {
         spdlog::error("Failed to apply configuration: {}", e.what());
-        pending_confirmation_ = false;
         throw;
     }
 }
 
 void BackendManager::confirm_apply() {
-    if (!pending_confirmation_) {
+    if (!can_confirm()) {
         spdlog::warn("No pending configuration to confirm");
         return;
     }
 
     spdlog::info("Configuration confirmed by user");
+    display_backend_->confirm();
     pending_confirmation_ = false;
 }
 
 void BackendManager::cancel_apply() {
-    if (!pending_confirmation_) {
+    if (!has_pending_changes()) {
         spdlog::warn("No pending configuration to cancel");
         return;
     }
 
     spdlog::info("Configuration cancelled by user, reverting");
-    pending_confirmation_ = false;
     revert();
+    pending_confirmation_ = false;
+}
+
+auto BackendManager::has_pending_changes() const -> bool {
+    if (current_type_ == BackendType::WLR_RANDR) {
+        return display_backend_->has_pending_changes();
+    }
+    return pending_confirmation_;
+}
+
+auto BackendManager::can_confirm() const -> bool {
+    if (current_type_ == BackendType::WLR_RANDR) {
+        return display_backend_->can_confirm();
+    }
+    return pending_confirmation_;
 }

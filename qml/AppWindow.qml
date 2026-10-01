@@ -14,6 +14,10 @@ ApplicationWindow {
 
     title: qsTr("wayrandr")
 
+    onClosing: function(close) {
+        close.accepted = mainWindow.prepare_close()
+    }
+
     BackendStack {
         anchors.fill: parent
         controller: mainWindow
