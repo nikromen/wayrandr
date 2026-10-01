@@ -3,11 +3,12 @@
 #include <string>
 #include <vector>
 
+#include "backend/kanshi/config_repository.hpp"
 #include "backend/profile/editor_backend.hpp"
 
 class KanshiProfileBackend final : public ProfileEditorBackend {
 public:
-    KanshiProfileBackend() = default;
+    KanshiProfileBackend();
     ~KanshiProfileBackend() override = default;
 
     [[nodiscard]] auto capabilities() const -> profile::ProfileEditorCapabilities override;
@@ -41,4 +42,7 @@ public:
     void reload_service() const override;
     void switch_profile(const std::string & profile_id, bool force = false) const override;
     [[nodiscard]] auto service_status() const -> profile::ProfileServiceStatus override;
+
+private:
+    mutable KanshiConfigRepository repository_;
 };

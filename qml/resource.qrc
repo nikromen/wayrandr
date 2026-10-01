@@ -5,6 +5,8 @@
         <file>BackendSwitcher.qml</file>
         <file>WlrRandrView.qml</file>
         <file>AutoWlrRandrView.qml</file>
+        <file>KanshiView.qml</file>
+        <file>ProfileEditorView.qml</file>
         <file>MonitorBlock.qml</file>
         <file>MonitorProperties.qml</file>
         <file>ProfileOutputProperties.qml</file>

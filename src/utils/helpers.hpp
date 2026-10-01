@@ -4,3 +4,4 @@
 #include <vector>
 
 auto run_command(const std::string & program, const std::vector<std::string> & args) -> std::string;
+[[nodiscard]] auto is_program_available(const std::string & program) -> bool;

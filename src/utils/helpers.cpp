@@ -3,10 +3,15 @@
 #include <spdlog/spdlog.h>
 
 #include <QProcess>
+#include <QStandardPaths>
 #include <QStringList>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+
+auto is_program_available(const std::string & program) -> bool {
+    return !QStandardPaths::findExecutable(QString::fromStdString(program)).isEmpty();
+}
 
 auto run_command(const std::string & program, const std::vector<std::string> & args)
     -> std::string {
