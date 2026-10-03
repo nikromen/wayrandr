@@ -1,13 +1,18 @@
 #include "backend/kanshi/config_parser.hpp"
 
 #include <spdlog/spdlog.h>
+#include <stdio.h>  // NOLINT: POSIX fmemopen() requires this C header.
 
-#include <cctype>
+extern "C" {
+#include <scfg.h>
+}
+
 #include <charconv>
 #include <cstddef>
 #include <iomanip>
 #include <limits>
 #include <locale>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -33,6 +38,48 @@ constexpr std::string_view K_TRANSFORM = "transform";
 constexpr std::string_view K_ADAPTIVE_SYNC = "adaptive_sync";
 constexpr std::string_view K_ON = "on";
 constexpr std::string_view K_OFF = "off";
+
+void require_line_value(const std::string & value) {
+    // libscfg 0.2 treats NUL as EOF and does not permit newlines in quoted words.
+    // Other bytes (including backslashes, CR, tabs and UTF-8) remain literal data.
+    if (value.find('\0') != std::string::npos || value.find('\n') != std::string::npos) {
+        throw kanshi_config_parser::ParseError("Kanshi values cannot contain NUL or newlines");
+    }
+}
+
+void validate_exec(const std::string & command) {
+    require_line_value(command);
+    if (command.find_first_not_of(" \t") == std::string::npos) {
+        return;
+    }
+    // A final parameter must remain separate: this also detects a trailing escape
+    // and empty child blocks, which libscfg's tree cannot distinguish from no block.
+    constexpr std::string_view boundary = "wayrandr_exec_boundary";
+    auto content = "exec " + command + " " + std::string(boundary) + "\n";
+    const auto close_input = [](FILE * stream) { fclose(stream); };
+    const std::unique_ptr<FILE, decltype(close_input)> input(
+        fmemopen(content.data(), content.size(), "r"), close_input
+    );
+    if (!input) {
+        throw kanshi_config_parser::ParseError("Cannot open Kanshi exec validation buffer");
+    }
+    scfg_block block{};
+    // The guard releases the C parser's allocations, including partial error results.
+    const std::unique_ptr<scfg_block, decltype(&scfg_block_finish)> guard(
+        &block, &scfg_block_finish
+    );
+    const int result = scfg_parse_file(&block, input.get());
+    if (result != 0 || block.directives_len != 1) {
+        throw kanshi_config_parser::ParseError("Kanshi exec must be one valid scfg directive");
+    }
+    const auto & directive = block.directives[0];
+    if (directive.name != K_EXEC || directive.children.directives_len != 0 ||
+        directive.params_len < 2 || directive.params[directive.params_len - 1] != boundary) {
+        throw kanshi_config_parser::ParseError(
+            "Kanshi exec must be one directive without a child block or incomplete escape"
+        );
+    }
+}
 
 class Tokenizer {
 public:
@@ -64,7 +111,7 @@ public:
             return "}";
         }
 
-        if (current == '"') {
+        if (current == '"' || current == '\'') {
             return read_quoted_string();
         }
 
@@ -76,6 +123,13 @@ public:
         const size_t start = pos_;
         (void)next();
         return std::string(input_.substr(start, pos_ - start));
+    }
+
+    [[nodiscard]] auto peek_raw() -> std::string {
+        const size_t saved = pos_;
+        const auto token = raw_next();
+        pos_ = saved;
+        return token;
     }
 
     [[nodiscard]] auto remainder_of_line() -> std::string {
@@ -90,7 +144,7 @@ public:
             ++pos_;
         }
         std::string line(input_.substr(start, pos_ - start));
-        while (!line.empty() && (std::isspace(static_cast<unsigned char>(line.back())) != 0)) {
+        while (!line.empty() && line.back() == '\n') {
             line.pop_back();
         }
         return line;
@@ -102,7 +156,7 @@ private:
 
     void skip_ignored() {
         while (!eof()) {
-            if (std::isspace(static_cast<unsigned char>(input_[pos_])) != 0) {
+            if (input_[pos_] == ' ' || input_[pos_] == '\t' || input_[pos_] == '\n') {
                 ++pos_;
                 continue;
             }
@@ -117,10 +171,10 @@ private:
     }
 
     [[nodiscard]] auto read_quoted_string() -> std::string {
-        ++pos_;
+        const char quote = input_[pos_++];
         std::string value;
-        while (!eof() && input_[pos_] != '"') {
-            if (input_[pos_] == '\\' && pos_ + 1 < input_.size()) {
+        while (!eof() && input_[pos_] != quote) {
+            if (input_[pos_] == '\\' && quote != '\'' && pos_ + 1 < input_.size()) {
                 value.push_back(input_[pos_ + 1]);
                 pos_ += 2;
                 continue;
@@ -136,16 +190,25 @@ private:
     }
 
     [[nodiscard]] auto read_bare_token() -> std::string {
-        const size_t start = pos_;
+        std::string value;
         while (!eof()) {
             const char current = input_[pos_];
-            if ((std::isspace(static_cast<unsigned char>(current)) != 0) || current == '{' ||
-                current == '}' || current == '#') {
+            if (current == ' ' || current == '\t' || current == '\n' || current == '{' ||
+                current == '}') {
                 break;
             }
+            if (current == '\\') {
+                ++pos_;
+                if (eof() || input_[pos_] == '\n') {
+                    throw kanshi_config_parser::ParseError("Incomplete escape in bare token");
+                }
+                value.push_back(input_[pos_++]);
+                continue;
+            }
+            value.push_back(current);
             ++pos_;
         }
-        return std::string(input_.substr(start, pos_ - start));
+        return value;
     }
 };
 
@@ -199,7 +262,7 @@ private:
         expect_keyword(K_PROFILE);
 
         KanshiProfile profile;
-        const auto maybe_name = tokenizer_.peek();
+        const auto maybe_name = tokenizer_.peek_raw();
         if (!maybe_name.empty() && maybe_name != "{") {
             profile.id = tokenizer_.next();
         } else {
@@ -209,7 +272,7 @@ private:
         expect_token("{");
         while (true) {
             const auto keyword = tokenizer_.peek();
-            if (keyword == "}") {
+            if (tokenizer_.peek_raw() == "}") {
                 (void)tokenizer_.next();
                 break;
             }
@@ -219,7 +282,10 @@ private:
             }
             if (keyword == K_EXEC) {
                 (void)tokenizer_.next();
-                profile.exec.push_back(tokenizer_.remainder_of_line());
+                auto command = tokenizer_.remainder_of_line();
+                if (command.find_first_not_of(" \t") != std::string::npos) {
+                    profile.exec.push_back(std::move(command));
+                }
                 continue;
             }
             if (keyword.empty()) {
@@ -247,7 +313,7 @@ private:
     }
 
     [[nodiscard]] auto read_criteria() -> std::string {
-        const auto token = tokenizer_.peek();
+        const auto token = tokenizer_.peek_raw();
         if (token == "{") {
             throw kanshi_config_parser::ParseError("Missing output criteria");
         }
@@ -255,9 +321,9 @@ private:
     }
 
     void parse_output_directives(KanshiOutputSetting & setting) {
-        if (tokenizer_.peek() == "{") {
+        if (tokenizer_.peek_raw() == "{") {
             (void)tokenizer_.next();
-            while (tokenizer_.peek() != "}") {
+            while (tokenizer_.peek_raw() != "}") {
                 parse_output_directive(setting);
             }
             expect_token("}");
@@ -353,8 +419,10 @@ private:
     }
 
     void expect_token(const std::string & token) {
+        // Quoted/escaped braces are data, not block delimiters.
+        const auto raw = tokenizer_.peek_raw();
         const auto actual = tokenizer_.next();
-        if (actual != token) {
+        if (raw != token) {
             throw kanshi_config_parser::ParseError(
                 "Expected '" + token + "', got '" + actual + "'"
             );
@@ -363,6 +431,7 @@ private:
 };
 
 auto format_criteria(const std::string & value) -> std::string {
+    require_line_value(value);
     std::string quoted = "\"";
     for (const char character : value) {
         if (character == '\\' || character == '\"') {
@@ -469,8 +538,14 @@ void write_output_setting(std::ostringstream & out, const KanshiOutputSetting & 
 namespace kanshi_config_parser {
 
 auto parse(const std::string & content) -> KanshiConfig {
+    if (content.find('\0') != std::string::npos) {
+        throw ParseError("Kanshi configuration cannot contain NUL bytes");
+    }
     Parser parser(content);
-    return parser.parse_document();
+    auto config = parser.parse_document();
+    // Loaded values and UI edits share the serialization boundary checks.
+    (void)serialize(config);
+    return config;
 }
 
 auto serialize(const KanshiConfig & config) -> std::string {
@@ -483,6 +558,7 @@ auto serialize(const KanshiConfig & config) -> std::string {
     }
 
     for (const auto & preserved : config.preserved_directives) {
+        require_line_value(preserved);
         out << preserved << '\n';
     }
     if (!config.preserved_directives.empty()) {
@@ -519,6 +595,10 @@ auto serialize(const KanshiConfig & config) -> std::string {
             write_output_setting(out, output);
         }
         for (const auto & command : profile.exec) {
+            validate_exec(command);
+            if (command.find_first_not_of(" \t") == std::string::npos) {
+                continue;
+            }
             out << "\texec " << command << '\n';
         }
         out << "}\n\n";

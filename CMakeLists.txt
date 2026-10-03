@@ -13,6 +13,8 @@ option(ENABLE_DEBUG_LOGS "Enable debug logging" ON)
 
 # Find Qt6 packages
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SCFG REQUIRED IMPORTED_TARGET scfg>=0.2.0)
 
 # Fetch dependencies
 include(FetchContent)
@@ -42,6 +44,7 @@ add_library(wayrandr_lib STATIC ${PROJECT_SOURCES})
 target_link_libraries(wayrandr_lib PUBLIC
     Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
     nlohmann_json::nlohmann_json spdlog::spdlog tomlplusplus::tomlplusplus)
+target_link_libraries(wayrandr_lib PRIVATE PkgConfig::SCFG)
 target_include_directories(wayrandr_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 if(ENABLE_DEBUG_LOGS)
     target_compile_definitions(wayrandr_lib PUBLIC ENABLE_DEBUG_LOGS)

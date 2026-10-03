@@ -216,8 +216,21 @@ Item {
             }
 
             Label {
+                visible: profileEditor.supportsOnNoMatchExec
+                Layout.fillWidth: true
+                text: qsTr("The daemon runs these shell commands as its user when no profile matches. Saving reloads the daemon and may trigger them.")
+                wrapMode: Text.WordWrap
+            }
+
+            Label {
                 text: qsTr("Exec commands")
                 font.bold: true
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("The daemon runs these commands through a shell as its user when activating a profile. Saving reloads the daemon and may trigger them. Loading or editing here does not run them.")
+                wrapMode: Text.WordWrap
             }
 
             CommandListEditor {

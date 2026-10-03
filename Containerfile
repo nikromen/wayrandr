@@ -12,6 +12,8 @@ RUN dnf install -y \
     wayland-devel \
     wlr-randr \
     kanshi \
+    libscfg-devel \
+    pkgconf-pkg-config \
     dnf-plugins-core \
     python3 \
     python3-pip \

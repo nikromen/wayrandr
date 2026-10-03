@@ -50,6 +50,8 @@ auto KanshiConfigRepository::load() const -> KanshiConfig {
 }
 
 void KanshiConfigRepository::save(const KanshiConfig & config) const {
+    // Validate before opening/truncating the destination.
+    const auto content = kanshi_config_parser::serialize(config);
     if (const auto parent = config_path_.parent_path(); !parent.empty()) {
         std::filesystem::create_directories(parent);
     }
@@ -59,7 +61,7 @@ void KanshiConfigRepository::save(const KanshiConfig & config) const {
         throw std::runtime_error("Failed to open kanshi config for writing: " + config.path);
     }
 
-    output << kanshi_config_parser::serialize(config);
+    output << content;
     spdlog::info("Saved {} kanshi profiles to {}", config.profiles.size(), config.path);
 }
 

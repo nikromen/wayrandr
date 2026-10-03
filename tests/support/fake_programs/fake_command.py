@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import os
+import json
 import pathlib
 import signal
 import sys
@@ -34,5 +35,7 @@ elif mode == 'flood':
         os.write(2, b'e' * 65536)
 elif mode == 'args':
     print(sys.argv[2])
+elif mode == 'argv':
+    print(json.dumps(sys.argv[2:]))
 else:
     sys.exit(99)

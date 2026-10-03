@@ -27,9 +27,11 @@ previous.write_text(str(os.getpid()))
 state = json.loads((root / "state").read_text())
 # Model partial application even when the process reports failure.
 output = None
-for i, arg in enumerate(args):
+arguments = iter(args)
+for arg in arguments:
     if arg == "--output":
-        output = next((m for m in state if m["name"] == args[i + 1]), None)
+        name = next(arguments)
+        output = next((m for m in state if m["name"] == name), None)
         if output is None:
             sys.exit(2)
     elif arg == "--on":
@@ -37,7 +39,7 @@ for i, arg in enumerate(args):
     elif arg == "--off":
         output["enabled"] = False
     elif arg == "--mode":
-        dimensions, refresh = args[i + 1].split("@")
+        dimensions, refresh = next(arguments).split("@")
         width, height = map(int, dimensions.split("x"))
         refresh = float(refresh.removesuffix("Hz"))
         matched = False
@@ -48,14 +50,14 @@ for i, arg in enumerate(args):
         if not matched:
             sys.exit(2)
     elif arg == "--pos":
-        x, y = map(int, args[i + 1].split(","))
+        x, y = map(int, next(arguments).split(","))
         output["position"] = {"x": x, "y": y}
     elif arg == "--transform":
-        output["transform"] = args[i + 1]
+        output["transform"] = next(arguments)
     elif arg == "--adaptive-sync":
-        output["adaptive_sync"] = args[i + 1] == "enabled"
+        output["adaptive_sync"] = next(arguments) == "enabled"
     elif arg == "--scale":
-        output["scale"] = float(args[i + 1])
+        output["scale"] = float(next(arguments))
 (root / "state").write_text(json.dumps(state))
 # A timeout is deliberately after a partial mutation.
 hangs = root / "hangs"

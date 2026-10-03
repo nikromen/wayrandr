@@ -13,6 +13,7 @@
 #include <QTest>
 
 #include "backend/kanshi/config_parser.hpp"
+#include "backend/kanshi/types.hpp"
 #include "models/main_window.hpp"
 #include "models/profile/profile_output_properties.hpp"
 #include "support/fixture.hpp"
@@ -92,6 +93,22 @@ private slots:
         } catch (const kanshi_config_parser::ParseError &) {
             QVERIFY(!accepted);
         }
+    }
+
+    void serialized_values() {
+        Fixture fixture;
+        KanshiConfig config;
+        KanshiProfile profile;
+        profile.id = "--force \"quoted\" \\ Příliš 🖥";
+        KanshiOutputSetting output;
+        output.criteria = "Panel\" } profile injected { exec payload #\\\t🖥";
+        output.enabled = true;
+        profile.outputs.push_back(output);
+        // These are parsed only: the nonexistent compositor prevents activation.
+        profile.exec = { R"(echo "quoted" 'single' \{ \} $HOME; echo $(payload))" };
+        config.profiles.push_back(profile);
+        fixture.write("serialized", kanshi_config_parser::serialize(config));
+        validate(fixture, fixture.dir.filePath("serialized"), 1, true);
     }
 
     void profile_data() {
