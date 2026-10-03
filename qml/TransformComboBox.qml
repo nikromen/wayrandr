@@ -25,7 +25,7 @@ ComboBox {
     }
 
     function syncFromItem() {
-        if (!hasItem) {
+        if (!item) {
             return
         }
         currentIndex = Math.max(0, model.indexOf(item.transform))

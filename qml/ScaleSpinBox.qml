@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 SpinBox {
     id: root
+    objectName: "scaleSpinBox"
 
     property var item
     readonly property bool hasItem: item !== null
@@ -22,7 +23,7 @@ SpinBox {
     property bool ready: false
 
     onValueChanged: {
-        if (!ready || !hasItem || updatingFromItem) {
+        if (!ready || !item || updatingFromItem) {
             return
         }
         item.scale = value / 10
@@ -34,7 +35,7 @@ SpinBox {
 
     function syncFromItem() {
         ready = false
-        if (!hasItem) {
+        if (!item) {
             return
         }
         updatingFromItem = true

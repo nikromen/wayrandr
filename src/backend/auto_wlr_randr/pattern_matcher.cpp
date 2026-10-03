@@ -44,6 +44,31 @@ auto monitor_specs_to_connected_output(const MonitorSpecs & monitor) -> Connecte
     return output;
 }
 
+// Reassign an earlier selector when it occupies the only output a later one can use.
+auto assign_output(
+    const std::vector<std::string> & selectors,
+    const std::vector<ConnectedOutputInfo> & outputs,
+    size_t selector_index,
+    std::vector<std::optional<size_t>> & assigned,
+    std::vector<bool> & visited
+) -> bool {
+    for (size_t index = 0; index < outputs.size(); ++index) {
+        if (visited[index] ||
+            !AutoWlrRandrPatternMatcher::matches_pattern(
+                selectors[selector_index], outputs[index]
+            )) {
+            continue;
+        }
+        visited[index] = true;
+        if (!assigned[index] ||
+            assign_output(selectors, outputs, *assigned[index], assigned, visited)) {
+            assigned[index] = selector_index;
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 auto AutoWlrRandrPatternMatcher::matches_pattern(
@@ -94,27 +119,15 @@ auto AutoWlrRandrPatternMatcher::would_profile_match(
         return connected_outputs.empty();
     }
 
-    std::vector<bool> used_outputs(connected_outputs.size(), false);
-
+    std::vector<std::string> selectors;
+    selectors.reserve(profile.settings.size());
     for (const auto & setting : profile.settings) {
-        if (!is_valid_glob_pattern(setting.output)) {
-            return false;
-        }
-
-        bool found = false;
-        for (size_t i = 0; i < connected_outputs.size(); ++i) {
-            if (used_outputs[i]) {
-                continue;
-            }
-
-            if (matches_pattern(setting.output, connected_outputs[i])) {
-                used_outputs[i] = true;
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
+        selectors.push_back(setting.output);
+    }
+    std::vector<std::optional<size_t>> assigned(connected_outputs.size());
+    for (size_t index = 0; index < selectors.size(); ++index) {
+        std::vector<bool> visited(connected_outputs.size(), false);
+        if (!assign_output(selectors, connected_outputs, index, assigned, visited)) {
             return false;
         }
     }

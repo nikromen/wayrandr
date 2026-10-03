@@ -37,6 +37,7 @@ RowLayout {
 
     RadioButton {
         id: wlrRadio
+        objectName: "wlrBackend"
         text: "wlr-randr"
         checked: controller.backendMode === root.backendModeWlrRandr
         onClicked: root.requestBackendSwitch(root.backendModeWlrRandr)
@@ -44,6 +45,7 @@ RowLayout {
 
     RadioButton {
         id: kanshiRadio
+        objectName: "kanshiBackend"
         visible: controller.kanshiAvailable
         text: "kanshi"
         checked: controller.backendMode === root.backendModeKanshi
@@ -52,6 +54,7 @@ RowLayout {
 
     RadioButton {
         id: autoRadio
+        objectName: "autoBackend"
         visible: controller.autoWlrRandrAvailable
         text: "auto-wlr-randr"
         checked: controller.backendMode === root.backendModeAutoWlrRandr
@@ -60,6 +63,8 @@ RowLayout {
 
     Dialog {
         id: backendDiscardDialog
+        objectName: "backendDiscardDialog"
+        width: 420
         modal: true
         standardButtons: Dialog.Yes | Dialog.No
         title: qsTr("Discard changes?")

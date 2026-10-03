@@ -3,11 +3,15 @@
 #include <spdlog/spdlog.h>
 
 #include <cctype>
+#include <charconv>
 #include <cstddef>
-#include <exception>
+#include <iomanip>
+#include <limits>
+#include <locale>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>  // NOLINT(build/c++11): C++17 from_chars requires std::errc.
 #include <utility>
 
 #include "backend/kanshi/types.hpp"
@@ -67,8 +71,17 @@ public:
         return read_bare_token();
     }
 
-    [[nodiscard]] auto remainder_of_line() -> std::string {
+    [[nodiscard]] auto raw_next() -> std::string {
         skip_ignored();
+        const size_t start = pos_;
+        (void)next();
+        return std::string(input_.substr(start, pos_ - start));
+    }
+
+    [[nodiscard]] auto remainder_of_line() -> std::string {
+        while (!eof() && (input_[pos_] == ' ' || input_[pos_] == '\t')) {
+            ++pos_;
+        }
         const size_t start = pos_;
         while (!eof() && input_[pos_] != '\n') {
             ++pos_;
@@ -168,8 +181,7 @@ public:
             }
 
             spdlog::warn("Preserving unsupported kanshi directive: {}", keyword);
-            (void)tokenizer_.next();
-            std::string preserved_line = keyword;
+            std::string preserved_line = tokenizer_.raw_next();
             const auto rest = tokenizer_.remainder_of_line();
             if (!rest.empty()) {
                 preserved_line += " " + rest;
@@ -259,11 +271,16 @@ private:
 
     [[nodiscard]] static auto is_output_directive(const std::string & token) -> bool {
         return token == K_ENABLE || token == K_DISABLE || token == K_MODE || token == K_POSITION ||
-            token == K_SCALE || token == K_TRANSFORM || token == K_ADAPTIVE_SYNC;
+            token == K_SCALE || token == K_TRANSFORM || token == K_ADAPTIVE_SYNC ||
+            token == "alias";
     }
 
     void parse_output_directive(KanshiOutputSetting & setting) {
         const auto keyword = tokenizer_.next();
+        if (keyword == "alias") {
+            setting.alias = tokenizer_.next();
+            return;
+        }
         if (keyword == K_ENABLE) {
             setting.enabled = true;
             return;
@@ -276,8 +293,10 @@ private:
             const auto value = tokenizer_.next();
             if (value == K_PREFERRED) {
                 setting.preferred = true;
+                setting.mode.reset();
                 return;
             }
+            setting.preferred = false;
             if (value == "--custom") {
                 setting.mode = "--custom " + tokenizer_.next();
                 return;
@@ -290,11 +309,18 @@ private:
             return;
         }
         if (keyword == K_SCALE) {
-            try {
-                setting.scale = std::stof(tokenizer_.next());
-            } catch (const std::exception &) {
+            const auto token = tokenizer_.next();
+            const char * begin = token.data();
+            const char * const end = begin + token.size();
+            if (begin != end && *begin == '+') {
+                ++begin;
+            }
+            float scale = 0;
+            const auto result = std::from_chars(begin, end, scale);
+            if (result.ec != std::errc() || result.ptr != end) {
                 throw kanshi_config_parser::ParseError("Invalid scale value");
             }
+            setting.scale = scale;
             return;
         }
         if (keyword == K_TRANSFORM) {
@@ -336,18 +362,22 @@ private:
     }
 };
 
-auto needs_quoting(const std::string & value) -> bool {
-    return value.find(' ') != std::string::npos;
-}
-
-auto format_criteria(const std::string & criteria) -> std::string {
-    if (needs_quoting(criteria)) {
-        return '"' + criteria + '"';
+auto format_criteria(const std::string & value) -> std::string {
+    std::string quoted = "\"";
+    for (const char character : value) {
+        if (character == '\\' || character == '\"') {
+            quoted.push_back('\\');
+        }
+        quoted.push_back(character);
     }
-    return criteria;
+    quoted.push_back('\"');
+    return quoted;
 }
 
 void write_output_directives(std::ostringstream & out, const KanshiOutputSetting & setting) {
+    if (setting.alias.has_value()) {
+        out << "\t\talias " << format_criteria(*setting.alias) << '\n';
+    }
     if (setting.enabled.has_value()) {
         if (setting.enabled.value()) {
             out << "\t\tenable\n";
@@ -358,16 +388,20 @@ void write_output_directives(std::ostringstream & out, const KanshiOutputSetting
     if (setting.preferred) {
         out << "\t\tmode preferred\n";
     } else if (setting.mode.has_value()) {
-        out << "\t\tmode " << setting.mode.value() << '\n';
+        if (setting.mode->rfind("--custom ", 0) == 0) {
+            out << "\t\tmode --custom " << format_criteria(setting.mode->substr(9)) << '\n';
+        } else {
+            out << "\t\tmode " << format_criteria(*setting.mode) << '\n';
+        }
     }
     if (setting.position.has_value()) {
-        out << "\t\tposition " << setting.position.value() << '\n';
+        out << "\t\tposition " << format_criteria(setting.position.value()) << '\n';
     }
     if (setting.scale.has_value()) {
         out << "\t\tscale " << setting.scale.value() << '\n';
     }
     if (setting.transform.has_value()) {
-        out << "\t\ttransform " << setting.transform.value() << '\n';
+        out << "\t\ttransform " << format_criteria(setting.transform.value()) << '\n';
     }
     if (setting.adaptive_sync.has_value()) {
         if (setting.adaptive_sync.value()) {
@@ -380,6 +414,9 @@ void write_output_directives(std::ostringstream & out, const KanshiOutputSetting
 
 auto count_output_directives(const KanshiOutputSetting & setting) -> int {
     int count = 0;
+    if (setting.alias.has_value()) {
+        ++count;
+    }
     if (setting.enabled.has_value()) {
         ++count;
     }
@@ -438,9 +475,11 @@ auto parse(const std::string & content) -> KanshiConfig {
 
 auto serialize(const KanshiConfig & config) -> std::string {
     std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << std::setprecision(std::numeric_limits<float>::max_digits10);
 
     for (const auto & include_path : config.includes) {
-        out << "include " << include_path << "\n\n";
+        out << "include " << format_criteria(include_path) << "\n\n";
     }
 
     for (const auto & preserved : config.preserved_directives) {
@@ -475,7 +514,7 @@ auto serialize(const KanshiConfig & config) -> std::string {
     }
 
     for (const auto & profile : config.profiles) {
-        out << "profile " << profile.id << " {\n";
+        out << "profile " << format_criteria(profile.id) << " {\n";
         for (const auto & output : profile.outputs) {
             write_output_setting(out, output);
         }

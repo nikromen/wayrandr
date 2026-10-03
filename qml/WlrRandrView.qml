@@ -53,6 +53,7 @@ Item {
 
             Label {
                 Layout.fillWidth: true
+                objectName: "applyError"
                 visible: controller.applyError.length > 0
                 text: controller.applyError
                 wrapMode: Text.WordWrap
@@ -63,6 +64,7 @@ Item {
                 Layout.fillWidth: true
 
                 Button {
+                    objectName: "applyButton"
                     text: {
                         if (controller.operationBusy) {
                             return qsTr("Working…")
@@ -77,6 +79,7 @@ Item {
                 }
 
                 Button {
+                    objectName: "confirmButton"
                     text: qsTr("Confirm")
                     highlighted: true
                     Layout.fillWidth: true
@@ -86,6 +89,7 @@ Item {
                 }
 
                 Button {
+                    objectName: "cancelButton"
                     text: {
                         if (controller.confirmationAllowed) {
                             return qsTr("Cancel")
