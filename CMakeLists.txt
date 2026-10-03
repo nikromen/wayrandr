@@ -34,56 +34,31 @@ FetchContent_Declare(tomlplusplus
 
 FetchContent_MakeAvailable(json spdlog tomlplusplus)
 
-# Source files
-file(GLOB_RECURSE PROJECT_SOURCES "src/*.cpp" "src/*.hpp")
+include(cmake/Instrumentation.cmake)
 
-# QML resources
-qt_add_resources(QML_RESOURCES qml/resource.qrc)
-
-# Create executable
-add_executable(wayrandr ${PROJECT_SOURCES} ${QML_RESOURCES})
-
-# Link libraries
-target_link_libraries(wayrandr PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Quick
-    Qt6::QuickControls2
-    nlohmann_json::nlohmann_json
-    spdlog::spdlog
-    tomlplusplus::tomlplusplus
-)
-
-# Include directories
-target_include_directories(wayrandr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-# Configure debug logging
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.hpp")
+list(REMOVE_ITEM PROJECT_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
+add_library(wayrandr_lib STATIC ${PROJECT_SOURCES})
+target_link_libraries(wayrandr_lib PUBLIC
+    Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
+    nlohmann_json::nlohmann_json spdlog::spdlog tomlplusplus::tomlplusplus)
+target_include_directories(wayrandr_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 if(ENABLE_DEBUG_LOGS)
-    target_compile_definitions(wayrandr PRIVATE ENABLE_DEBUG_LOGS)
+    target_compile_definitions(wayrandr_lib PUBLIC ENABLE_DEBUG_LOGS)
 endif()
+wayrandr_instrument(wayrandr_lib)
+
+# Resources stay on executables so the static linker cannot discard their initializer.
+qt_add_resources(QML_RESOURCES qml/resource.qrc)
+add_executable(wayrandr src/main.cpp ${QML_RESOURCES})
+target_link_libraries(wayrandr PRIVATE wayrandr_lib)
+wayrandr_instrument(wayrandr)
 
 include(CTest)
 if(BUILD_TESTING)
-    add_executable(process_test
-        tests/process_test.cpp src/utils/helpers.cpp
-        src/models/monitor_block.cpp src/models/monitor_block.hpp)
-    target_include_directories(process_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_link_libraries(process_test PRIVATE Qt6::Core spdlog::spdlog)
-    target_compile_definitions(process_test PRIVATE
-        FAKE_COMMAND="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_command.py"
-        FAKE_GRIM="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_grim.py")
-    add_test(NAME processes COMMAND process_test)
-    set_tests_properties(processes PROPERTIES TIMEOUT 15)
-    set(CONFIRMATION_TEST_SOURCES ${PROJECT_SOURCES})
-    list(REMOVE_ITEM CONFIRMATION_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
-    add_executable(wlr_confirmation_test tests/wlr_confirmation_test.cpp ${CONFIRMATION_TEST_SOURCES})
-    target_include_directories(wlr_confirmation_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_link_libraries(wlr_confirmation_test PRIVATE
-        Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
-        nlohmann_json::nlohmann_json spdlog::spdlog tomlplusplus::tomlplusplus)
-    target_compile_definitions(wlr_confirmation_test PRIVATE
-        FAKE_WLR_CLI="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_wlr_randr.py"
-        FAKE_DAEMON="${CMAKE_CURRENT_SOURCE_DIR}/tests/fake_daemon.py")
-    add_test(NAME wlr_confirmation COMMAND wlr_confirmation_test)
-    set_tests_properties(wlr_confirmation PROPERTIES TIMEOUT 30)
+    find_package(Qt6 REQUIRED COMPONENTS Test QuickTest)
+    add_subdirectory(tests)
+endif()
+if(WAYRANDR_FUZZING AND NOT BUILD_TESTING)
+    message(FATAL_ERROR "Fuzz registration requires BUILD_TESTING=ON")
 endif()

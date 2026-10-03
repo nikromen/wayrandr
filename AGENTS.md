@@ -52,6 +52,9 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   successful rollback, and prevent conflicting monitor operations from overlapping.
 - Automated tests must use fake external programs and isolated configuration.
   Never change actual monitor settings or invoke real monitor/daemon tools in tests.
+- The separate `container-config-check` is authorized to invoke real config parsers:
+  `auto-wlr-randrctl validate` and Kanshi with an absolute nonexistent Wayland socket.
+  Keep it in the container without host display/runtime mounts; never apply monitor settings.
 
 ## Container-only development and verification
 
@@ -82,3 +85,25 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
 - In the final response, briefly state what changed, which container checks passed,
   and any remaining limitations or manual verification. Do not claim checks passed
   if they were skipped, failed, or blocked.
+
+## Test infrastructure
+
+- C++ component and integration tests share the `integration` label.
+  Do not add placeholder tests or README inventories under `tests`.
+- Link application code through `wayrandr_lib`. Register C++ sources explicitly in
+  `tests/CMakeLists.txt`; QML scenarios use `tst_*.qml`. Fuzz targets are outside CTest.
+- Each case owns isolated files/environment and drains asynchronous work before
+  fixture destruction. Use Qt Test assertions only on the GUI thread; worker results
+  and errors must be delivered there. Shutdown tests require a separate executable.
+- Filter with `TEST_LABEL` / `TEST_REGEX`; use `container-coverage`,
+  `container-sanitizers` and `container-fuzz-build` for separate instrumentation caches.
+- Check untracked files with `container-pre-commit PRE_COMMIT_FILES="<paths>"`
+  without staging. Export logs/reports with `container-export-artifacts`.
+- Replay checked-in fuzz seeds with `container-fuzz-replay FUZZ_TARGET=kanshi_config`.
+  Keep libFuzzer's required `LLVMFuzzerTestOneInput` symbol and Qt Quick Test setup
+  hooks visible to their runtimes; use `Q_SLOT` on setup hooks rather than a redundant
+  access section that clang-tidy can remove.
+- `make container-test-all` removes the project image, build/pre-commit volumes, dependency
+  cache and exported artifacts, rebuilds the image without layer cache, then runs all checks.
+  `make test-all` provides the equivalent local workflow; agents must use the container variant.
+  Full workflows ignore test filters and stop at the first failed check.
