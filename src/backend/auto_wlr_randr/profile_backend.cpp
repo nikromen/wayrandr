@@ -26,7 +26,6 @@ auto AutoWlrRandrProfileBackend::capabilities() const -> profile::ProfileEditorC
     capabilities.force_switch = true;
     capabilities.on_no_match_exec = true;
     capabilities.preferred_mode = true;
-    capabilities.relative_positioning = true;
     capabilities.adaptive_sync = true;
     return capabilities;
 }

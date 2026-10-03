@@ -17,6 +17,7 @@ struct ProfileOutputDefinition {
     bool preferred = false;
     bool preferred_explicit = false;
     std::optional<std::string> pos;
+    // Preserved auto-wlr-randr relationships; editing absolute coordinates replaces them.
     std::optional<std::string> left_of;
     std::optional<std::string> right_of;
     std::optional<std::string> above;
@@ -59,6 +60,7 @@ struct ProfileServiceStatus {
     std::vector<std::string> connected_outputs;
 };
 
+// Implemented editor/preview features, independent of native values preserved by conversions.
 struct ProfileEditorCapabilities {
     bool pattern_matching = false;
     bool output_match_preview = false;
@@ -66,7 +68,6 @@ struct ProfileEditorCapabilities {
     bool force_switch = false;
     bool on_no_match_exec = false;
     bool preferred_mode = false;
-    bool relative_positioning = false;
     bool adaptive_sync = false;
 };
 

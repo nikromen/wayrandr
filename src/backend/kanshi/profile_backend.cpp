@@ -66,7 +66,6 @@ auto KanshiProfileBackend::capabilities() const -> profile::ProfileEditorCapabil
     capabilities.force_switch = false;
     capabilities.on_no_match_exec = false;
     capabilities.preferred_mode = true;
-    capabilities.relative_positioning = false;
     capabilities.adaptive_sync = true;
     return capabilities;
 }
