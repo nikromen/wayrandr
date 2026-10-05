@@ -79,7 +79,7 @@ private slots:
         auto_config.profiles.push_back(auto_profile);
         auto_config.on_no_match_exec = { value };
         AutoWlrRandrConfigRepository repository(fixture.dir.filePath("config.toml").toStdString());
-        repository.save(auto_config);
+        static_cast<void>(repository.save(auto_config));
         const auto reloaded = repository.load();
         QCOMPARE(reloaded.profiles.size(), size_t{ 1 });
         QCOMPARE(reloaded.profiles[0].id, value);
@@ -169,7 +169,9 @@ private slots:
         profile.exec = { command };
         config.profiles.push_back(profile);
         KanshiConfigRepository repository(fixture.dir.filePath("config").toStdString());
-        QVERIFY_THROWS_EXCEPTION(kanshi_config_parser::ParseError, repository.save(config));
+        QVERIFY_THROWS_EXCEPTION(
+            kanshi_config_parser::ParseError, static_cast<void>(repository.save(config))
+        );
         QCOMPARE(fixture.read("config"), std::string("original content"));
     }
 
@@ -205,7 +207,7 @@ private slots:
         config.profiles.push_back(profile);
         config.on_no_match_exec = { value };
         AutoWlrRandrConfigRepository repository(fixture.dir.filePath("config.toml").toStdString());
-        repository.save(config);
+        static_cast<void>(repository.save(config));
         const auto loaded = repository.load();
         QCOMPARE(loaded.profiles.size(), size_t{ 1 });
         QCOMPARE(loaded.profiles[0].id, value);

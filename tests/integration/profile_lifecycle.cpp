@@ -1,4 +1,5 @@
 #include <qobject.h>
+#include <qtenvironmentvariables.h>
 #include <qtestcase.h>
 #include <qtmetamacros.h>
 
@@ -190,15 +191,101 @@ private slots:
         QVERIFY(editor->is_dirty());
         QCOMPARE(editor->get_selected_profile_id(), QString("desk"));
         QCOMPARE(output(editor)->get_scale(), 2.0F);
-        QVERIFY(editor->get_daemon_status_text() != "Daemon not running");
-        QVERIFY(!editor->get_daemon_status_text().isEmpty());
+        QVERIFY(editor->get_save_status_text().contains("not saved"));
         QVERIFY(QDir(f.dir.filePath(name)).removeRecursively());
         f.write(name, original);
+        // The recreated file has a new version; explicitly reload before reconciling edits.
+        editor->reload_config_from_disk();
+        output(editor)->set_scale(2);
         editor->save_profile();
         SETTLE(window);
         QVERIFY2(!editor->is_dirty(), qPrintable(editor->get_daemon_status_text()));
         editor->reload_config_from_disk();
         QCOMPARE(output(editor)->get_scale(), 2.0F);
+    }
+
+    void save_conflict_data() { lifecycle_data(); }
+
+    void save_conflict() {
+        QFETCH(int, mode);
+        Fixture f;
+        f.profiles();
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(mode);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        QVERIFY(editor->select_profile("desk"));
+        output(editor)->set_scale(2);
+        const auto * name = config_name(mode);
+        const auto external = f.read(name) + "# changed by another editor\n";
+        f.write(name, external);
+        editor->save_profile();
+        SETTLE(window);
+        QCOMPARE(f.read(name), external);
+        QVERIFY(editor->is_dirty());
+        QCOMPARE(output(editor)->get_scale(), 2.0F);
+        QVERIFY(editor->get_save_status_text().contains("not saved"));
+        QVERIFY(editor->get_save_status_text().contains("reload"));
+        QCOMPARE(f.read("daemon_calls").find("reload"), std::string::npos);
+    }
+
+    void saved_reload_failure_data() {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<bool>("remove");
+        for (const int mode : { 1, 2 }) {
+            QTest::newRow(qPrintable(QString("save-%1").arg(mode))) << mode << false;
+            QTest::newRow(qPrintable(QString("delete-%1").arg(mode))) << mode << true;
+        }
+    }
+
+    void saved_reload_failure() {
+        QFETCH(int, mode);
+        QFETCH(bool, remove);
+        Fixture f;
+        f.profiles();
+        qputenv("WAYLAND_DISPLAY", "test-display");
+        f.write("fr.emersion.kanshi.test-display", "");
+        f.write("auto-wlr-randr/auto-wlr-randr.sock", "");
+        MainWindow window;
+        SETTLE(window);
+        window.set_backend_mode(mode);
+        SETTLE(window);
+        auto * editor = window.get_profile_editor();
+        QVERIFY(editor->select_profile("desk"));
+        output(editor)->set_scale(2);
+        const auto before = f.read(config_name(mode));
+        f.write("daemon_mode", "reload_exit");
+        if (remove) {
+            editor->delete_profile("spare");
+        } else {
+            editor->save_profile();
+        }
+        SETTLE(window);
+        QVERIFY(!editor->is_dirty());
+        QVERIFY(f.read(config_name(mode)) != before);
+        QVERIFY(editor->get_save_status_text().contains("saved to disk"));
+        QVERIFY(editor->get_save_status_text().contains("reload failed"));
+        QVERIFY(editor->get_save_status_text().contains("exit code 17"));
+        QVERIFY(editor->get_save_status_text().contains("daemon failure detail"));
+        editor->refresh_daemon_status();
+        SETTLE(window);
+        QVERIFY(editor->get_save_status_text().contains("reload failed"));
+        // Discard uses the saved disk version even though the daemon rejected reload.
+        output(editor)->set_scale(3);
+        editor->discard_changes();
+        QCOMPARE(output(editor)->get_scale(), 2.0F);
+        if (remove) {
+            QVERIFY(!editor->get_profile_ids().contains("spare"));
+        }
+        f.write("daemon_mode", "success");
+        output(editor)->set_scale(2.5F);
+        editor->save_profile();
+        SETTLE(window);
+        QVERIFY2(!editor->is_dirty(), qPrintable(editor->get_save_status_text()));
+        QVERIFY(editor->get_save_status_text().contains("reload succeeded"));
+        editor->reload_config_from_disk();
+        QCOMPARE(output(editor)->get_scale(), 2.5F);
     }
 };
 QTEST_MAIN(ProfileLifecycleTests)

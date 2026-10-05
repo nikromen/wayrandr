@@ -4,6 +4,13 @@
 #include <vector>
 
 #include "backend/profile/types.hpp"
+#include "utils/config_file.hpp"
+
+struct ProfileSaveResult {
+    ConfigFileSnapshot file_snapshot;
+    bool daemon_reloaded = false;
+    std::string reload_error;
+};
 
 class ProfileEditorBackend {
 public:
@@ -12,7 +19,9 @@ public:
     [[nodiscard]] virtual auto capabilities() const -> profile::ProfileEditorCapabilities = 0;
 
     [[nodiscard]] virtual auto load_config() const -> profile::ProfileDocument = 0;
-    virtual void save_config(const profile::ProfileDocument & config) const = 0;
+    // Write failures throw. Once saved, reload failures are reported separately.
+    [[nodiscard]] virtual auto save_config(const profile::ProfileDocument & config) const
+        -> ProfileSaveResult = 0;
 
     virtual void add_profile(
         profile::ProfileDocument & config, profile::ProfileDefinition profile

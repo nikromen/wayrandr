@@ -6,13 +6,12 @@
 #include <QStandardPaths>
 #include <algorithm>
 #include <filesystem>
-#include <fstream>
-#include <sstream>
 #include <stdexcept>
 #include <utility>
 
 #include "backend/kanshi/config_parser.hpp"
 #include "backend/kanshi/types.hpp"
+#include "utils/config_file.hpp"
 
 KanshiConfigRepository::KanshiConfigRepository(std::filesystem::path config_path)
     : config_path_(std::move(config_path)) {}
@@ -30,39 +29,27 @@ auto KanshiConfigRepository::load() const -> KanshiConfig {
     KanshiConfig config;
     config.path = config_path_.string();
 
-    if (!std::filesystem::exists(config_path_)) {
+    const auto file = read_config_file(config_path_);
+    config.file_snapshot = file;
+    if (!file.content.has_value()) {
         spdlog::info("kanshi config not found at {}, using empty config", config.path);
         return config;
     }
 
-    std::ifstream input(config_path_);
-    if (!input) {
-        throw std::runtime_error("Failed to open kanshi config: " + config.path);
-    }
-
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    config = kanshi_config_parser::parse(buffer.str());
+    config = kanshi_config_parser::parse(*file.content);
     config.path = config_path_.string();
+    config.file_snapshot = file;
 
     spdlog::info("Loaded {} kanshi profiles from {}", config.profiles.size(), config.path);
     return config;
 }
 
-void KanshiConfigRepository::save(const KanshiConfig & config) const {
-    // Validate before opening/truncating the destination.
+auto KanshiConfigRepository::save(const KanshiConfig & config) const -> ConfigFileSnapshot {
+    // Validate and serialize before touching the destination.
     const auto content = kanshi_config_parser::serialize(config);
-    if (const auto parent = config_path_.parent_path(); !parent.empty()) {
-        std::filesystem::create_directories(parent);
-    }
-
-    std::ofstream output(config_path_);
-    if (!output) {
-        throw std::runtime_error("Failed to open kanshi config for writing: " + config.path);
-    }
-
-    output << content;
-    spdlog::info("Saved {} kanshi profiles to {}", config.profiles.size(), config.path);
+    const auto saved = save_config_file(config_path_, content, config.file_snapshot);
+    spdlog::info("Saved {} kanshi profiles to {}", config.profiles.size(), config_path_.string());
+    return saved;
 }
 
 void KanshiConfigRepository::add_profile(KanshiConfig & config, KanshiProfile profile) {

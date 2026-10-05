@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,7 @@
 #include "backend/auto_wlr_randr/pattern_matcher.hpp"
 #include "backend/auto_wlr_randr/snapshot.hpp"
 #include "backend/auto_wlr_randr/types.hpp"
+#include "backend/profile/editor_backend.hpp"
 #include "backend/profile/types.hpp"
 
 AutoWlrRandrProfileBackend::AutoWlrRandrProfileBackend() {
@@ -33,13 +35,21 @@ auto AutoWlrRandrProfileBackend::load_config() const -> profile::ProfileDocument
     return auto_wlr_randr_conversions::to_profile_document(repository_.load());
 }
 
-void AutoWlrRandrProfileBackend::save_config(const profile::ProfileDocument & config) const {
+auto AutoWlrRandrProfileBackend::save_config(const profile::ProfileDocument & config) const
+    -> ProfileSaveResult {
     const AutoWlrRandrConfig native_config =
         auto_wlr_randr_conversions::from_profile_document(config);
-    repository_.save(native_config);
-    if (AutoWlrRandrDaemonClient::is_running()) {
-        AutoWlrRandrDaemonClient::reload();
+    ProfileSaveResult result;
+    result.file_snapshot = repository_.save(native_config);
+    try {
+        if (AutoWlrRandrDaemonClient::is_running()) {
+            AutoWlrRandrDaemonClient::reload();
+            result.daemon_reloaded = true;
+        }
+    } catch (const std::exception & error) {
+        result.reload_error = error.what();
     }
+    return result;
 }
 
 void AutoWlrRandrProfileBackend::add_profile(

@@ -6,7 +6,7 @@
 #include <QStandardPaths>
 #include <algorithm>
 #include <filesystem>
-#include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 // The public entry point initializes dependencies required by toml++ internals.
@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "backend/auto_wlr_randr/types.hpp"
+#include "utils/config_file.hpp"
 
 namespace {
 
@@ -117,12 +118,14 @@ auto AutoWlrRandrConfigRepository::load() const -> AutoWlrRandrConfig {
     AutoWlrRandrConfig config;
     config.path = config_path_.string();
 
-    if (!std::filesystem::exists(config_path_)) {
+    const auto file = read_config_file(config_path_);
+    config.file_snapshot = file;
+    if (!file.content.has_value()) {
         spdlog::info("auto-wlr-randr config not found at {}, using empty config", config.path);
         return config;
     }
 
-    const auto parsed = toml::parse_file(config_path_.string());
+    const auto parsed = toml::parse(*file.content, config_path_.string());
 
     if (const auto * on_no_match_exec = parsed["on_no_match_exec"].as_array()) {
         for (const auto & command : *on_no_match_exec) {
@@ -166,11 +169,8 @@ auto AutoWlrRandrConfigRepository::load() const -> AutoWlrRandrConfig {
     return config;
 }
 
-void AutoWlrRandrConfigRepository::save(const AutoWlrRandrConfig & config) const {
-    if (const auto parent = config_path_.parent_path(); !parent.empty()) {
-        std::filesystem::create_directories(parent);
-    }
-
+auto AutoWlrRandrConfigRepository::save(const AutoWlrRandrConfig & config) const
+    -> ConfigFileSnapshot {
     toml::table root;
     toml::table profiles_table;
 
@@ -208,13 +208,13 @@ void AutoWlrRandrConfigRepository::save(const AutoWlrRandrConfig & config) const
 
     root.insert("profile", profiles_table);
 
-    std::ofstream output(config_path_);
-    if (!output) {
-        throw std::runtime_error("Failed to open config file for writing: " + config.path);
-    }
-
+    std::ostringstream output;
     output << root;
-    spdlog::info("Saved {} auto-wlr-randr profiles to {}", config.profiles.size(), config.path);
+    const auto saved = save_config_file(config_path_, output.str(), config.file_snapshot);
+    spdlog::info(
+        "Saved {} auto-wlr-randr profiles to {}", config.profiles.size(), config_path_.string()
+    );
+    return saved;
 }
 
 void AutoWlrRandrConfigRepository::add_profile(

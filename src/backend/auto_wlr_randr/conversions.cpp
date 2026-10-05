@@ -64,6 +64,7 @@ auto from_profile_definition(const profile::ProfileDefinition & profile) -> Auto
 auto to_profile_document(const AutoWlrRandrConfig & config) -> profile::ProfileDocument {
     profile::ProfileDocument document;
     document.path = config.path;
+    document.file_snapshot = config.file_snapshot;
     document.on_no_match_exec = config.on_no_match_exec;
     for (const auto & profile : config.profiles) {
         document.profiles.push_back(to_profile_definition(profile));
@@ -74,6 +75,7 @@ auto to_profile_document(const AutoWlrRandrConfig & config) -> profile::ProfileD
 auto from_profile_document(const profile::ProfileDocument & document) -> AutoWlrRandrConfig {
     AutoWlrRandrConfig config;
     config.path = document.path;
+    config.file_snapshot = document.file_snapshot;
     config.on_no_match_exec = document.on_no_match_exec;
     for (const auto & profile : document.profiles) {
         config.profiles.push_back(from_profile_definition(profile));

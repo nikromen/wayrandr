@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,7 @@
 #include "backend/kanshi/pattern_matcher.hpp"
 #include "backend/kanshi/snapshot.hpp"
 #include "backend/kanshi/types.hpp"
+#include "backend/profile/editor_backend.hpp"
 #include "backend/profile/types.hpp"
 
 KanshiProfileBackend::KanshiProfileBackend() {
@@ -33,17 +35,25 @@ auto KanshiProfileBackend::load_config() const -> profile::ProfileDocument {
     return kanshi_conversions::to_profile_document(repository_.load());
 }
 
-void KanshiProfileBackend::save_config(const profile::ProfileDocument & config) const {
+auto KanshiProfileBackend::save_config(const profile::ProfileDocument & config) const
+    -> ProfileSaveResult {
     KanshiConfig native_config = kanshi_conversions::from_profile_document(config);
     const KanshiConfig existing = repository_.load();
     native_config.path = repository_.get_config_path().string();
     native_config.includes = existing.includes;
     native_config.preserved_directives = existing.preserved_directives;
     native_config.global_outputs = existing.global_outputs;
-    repository_.save(native_config);
-    if (KanshiDaemonClient::is_running()) {
-        KanshiDaemonClient::reload();
+    ProfileSaveResult result;
+    result.file_snapshot = repository_.save(native_config);
+    try {
+        if (KanshiDaemonClient::is_running()) {
+            KanshiDaemonClient::reload();
+            result.daemon_reloaded = true;
+        }
+    } catch (const std::exception & error) {
+        result.reload_error = error.what();
     }
+    return result;
 }
 
 void KanshiProfileBackend::add_profile(
