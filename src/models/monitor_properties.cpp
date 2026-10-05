@@ -11,7 +11,6 @@
 #include <QStringList>
 #include <cmath>
 #include <cstddef>
-#include <stdexcept>
 
 #include "monitor_specs.hpp"
 #include "utils/canvas_drag.hpp"
@@ -82,7 +81,8 @@ auto MonitorProperties::get_resolution(bool width) const -> int {
         return modes[index].height;
     }
 
-    throw std::out_of_range("Active mode index is out of range of available modes");
+    // QML also reads dimensions when there is no available resolution.
+    return 0;
 }
 
 auto MonitorProperties::get_resolution_width() const -> int {
@@ -222,7 +222,7 @@ void MonitorProperties::set_position_y(int y) {
 }
 
 void MonitorProperties::set_active_resolution_index(size_t index) {
-    if (!has_settings()) {
+    if (!has_settings() || index >= monitor_specs->get_modes().size()) {
         return;
     }
 

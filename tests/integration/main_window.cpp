@@ -16,6 +16,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QVariant>
+#include <cstddef>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -32,6 +34,37 @@ class MainWindowTests : public QObject {
 private slots:
 
     void cleanupTestCase() { shutdown_commands(); }  // NOLINT: Qt Test hook name.
+
+    void invalid_mode_selection() {
+        Fixture fixture;
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors().value(0));
+        QVERIFY(monitor != nullptr);
+        QSignalSpy changes(monitor, &MonitorProperties::active_resolution_index_changed);
+        // ComboBox.currentIndex is -1 when its model has no selection.
+        QVERIFY(monitor->setProperty("activeResolutionIndex", -1));
+        QCOMPARE(monitor->get_active_resolution_index(), size_t{ 0 });
+        monitor->set_active_resolution_index(monitor->get_resolutions().size());
+        QCOMPARE(monitor->get_active_resolution_index(), size_t{ 0 });
+        QCOMPARE(monitor->get_resolution_width(), 1920);
+        QCOMPARE(monitor->get_resolution_height(), 1080);
+        QCOMPARE(changes.count(), 0);
+    }
+
+    void empty_modes() {
+        Fixture fixture;
+        auto state = fixture.state();
+        state[0]["modes"] = json::array();
+        fixture.write("state", state.dump());
+        MainWindow window;
+        SETTLE(window);
+        auto * monitor = qobject_cast<MonitorProperties *>(window.get_monitors().value(0));
+        QVERIFY(monitor != nullptr);
+        QVERIFY(monitor->get_resolutions().isEmpty());
+        QCOMPARE(monitor->property("resolutionWidth").toInt(), 0);
+        QCOMPARE(monitor->property("resolutionHeight").toInt(), 0);
+    }
 
     void disconnected_output() {
         Fixture f;
