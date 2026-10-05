@@ -291,6 +291,27 @@ void MonitorSpecs::sync_from(const MonitorSpecs & other) {
         throw std::invalid_argument("Cannot sync monitors with different names");
     }
 
+    if (!other.enabled_monitor_settings.has_value() && enabled_monitor_settings.has_value()) {
+        // Disabled outputs retain their settings, but mode indices belong to the old list.
+        const auto old_index = enabled_monitor_settings->get_active_mode_index();
+        size_t new_index = 0;
+        for (size_t i = 0; i < other.modes.size(); ++i) {
+            if (other.modes[i].is_preferred) {
+                new_index = i;
+                break;
+            }
+        }
+        if (old_index < modes.size()) {
+            for (size_t i = 0; i < other.modes.size(); ++i) {
+                if (other.modes[i] == modes[old_index]) {
+                    new_index = i;
+                    break;
+                }
+            }
+        }
+        enabled_monitor_settings->set_active_mode_index(new_index);
+    }
+    modes = std::vector<Mode>(other.modes);
     enabled = other.enabled;
     if (other.enabled_monitor_settings.has_value()) {
         enabled_monitor_settings = other.enabled_monitor_settings;
