@@ -28,6 +28,10 @@ active = 'test'
 if active_file.exists():
     active = active_file.read_text()
 if sys.argv[1] == 'status':
+    reply = root / 'status_reply'
+    if reply.exists():
+        print(reply.read_text(), end='')
+        sys.exit(0)
     if pathlib.Path(sys.argv[0]).name == 'kanshictl':
         print('Current profile: ' + active)
     else:

@@ -58,11 +58,16 @@ auto KanshiDaemonClient::status() -> KanshiDaemonStatus {
         const std::string output = run_command("kanshictl", { "status" });
         std::istringstream stream(output);
         std::string line;
+        bool profile_found = false;
         while (std::getline(stream, line)) {
             constexpr std::string_view prefix = "Current profile:";
             if (line.rfind(prefix.data(), 0) == 0) {
+                profile_found = true;
                 result.active_profile = trim(line.substr(prefix.size()));
             }
+        }
+        if (!profile_found) {
+            throw std::runtime_error("Invalid kanshictl status response: missing Current profile");
         }
     } catch (const std::exception & e) {
         throw std::runtime_error(std::string("Daemon status failed: ") + e.what());

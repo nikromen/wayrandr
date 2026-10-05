@@ -15,6 +15,7 @@
 #include <QTest>
 #include <QTimer>
 #include <string>
+#include <vector>
 
 #include "models/main_window.hpp"
 #include "support/fixture.hpp"
@@ -82,6 +83,30 @@ private slots:
             "Daemon failure was swallowed"
         );
         f.write("daemon_mode", "success");
+        std::vector<std::string> invalid_replies{ "", "unrecognized status\n" };
+        std::string no_profile = "Current profile: (none)\n";
+        QString no_profile_id = "(none)";
+        if (mode == 2) {
+            invalid_replies = { R"({"connected_outputs":[]})",
+                                R"({"active_profile":"None"})",
+                                R"({"active_profile":"None","connected_outputs":{}})" };
+            no_profile = R"({"active_profile":"None","connected_outputs":[]})";
+            no_profile_id = "None";
+        }
+        for (const auto & reply : invalid_replies) {
+            f.write("status_reply", reply);
+            editor->refresh_daemon_status();
+            SETTLE(window);
+            QVERIFY(!editor->is_daemon_running());
+            QVERIFY(editor->get_active_profile_id().isEmpty());
+            QVERIFY(editor->get_daemon_status_text().contains("Daemon status failed"));
+        }
+        f.write("status_reply", no_profile);
+        editor->refresh_daemon_status();
+        SETTLE(window);
+        QVERIFY(editor->is_daemon_running());
+        QCOMPARE(editor->get_active_profile_id(), no_profile_id);
+        QVERIFY(QFile::remove(f.dir.filePath("status_reply")));
         editor->create_profile_from_live(QString("test-%1").arg(mode));
         SETTLE(window);
         editor->switch_profile(mode == 2);
