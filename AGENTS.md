@@ -70,7 +70,8 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   profile names/outputs, repeated output options and includes following main-file definitions
   rather than silently normalizing potentially significant order/conflicts. Preserve anonymous
   profiles, `...output`, global defaults and includes through editor conversions. Never expand
-  includes or execute commands while loading. TOML schema checks target auto-wlr-randr 1.2.0;
+  includes or execute commands while loading. Support only the latest auto-wlr-randr release;
+  TOML schema checks were verified against 1.2.0. Do not add compatibility with older releases;
   reject unknown items and wrong types, and preserve profile declaration order. Preserve unset
   optional values during unrelated UI edits. Saving normalizes formatting/comments and scfg
   exec quoting; formatting and comment changes are disclosed in the editor.
@@ -78,6 +79,8 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   configuration conversions belong at loading/saving boundaries. Matching uses explicit
   `InvalidGlobBehavior`: Kanshi uses `LITERAL_NAME`, auto-wlr-randr uses `NO_MATCH`.
   Live-position lookup retains `NO_MATCH` for both backends.
+  Auto-wlr-randr profile previews use the first unused connected output for each selector,
+  in returned output order, without reassigning earlier matches (as in version 1.2.0).
 - Preserve the ordering of Apply, confirmation, and rollback. A timeout can mean
   a partially applied monitor change. Keep recovery state until confirmation or
   successful rollback, and prevent conflicting monitor operations from overlapping.

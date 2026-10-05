@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <cstddef>
 #include <exception>
 #include <string>
 #include <vector>
@@ -55,9 +56,31 @@ auto AutoWlrRandrProfileBackend::get_match_warning(
     const profile::ProfileDefinition & profile,
     const std::vector<profile::ConnectedOutput> & connected_outputs
 ) const -> std::string {
-    return profile::matching::get_match_warning(
-        profile, connected_outputs, profile::matching::InvalidGlobBehavior::NO_MATCH
-    );
+    if (profile.outputs.size() != connected_outputs.size()) {
+        return profile::matching::get_match_warning(
+            profile, connected_outputs, profile::matching::InvalidGlobBehavior::NO_MATCH
+        );
+    }
+
+    // auto-wlr-randr 1.2.0 takes the first unused output without reassigning earlier matches.
+    std::vector<bool> used(connected_outputs.size(), false);
+    for (const auto & output : profile.outputs) {
+        size_t index = 0;
+        while (index < connected_outputs.size() &&
+               (used[index] ||
+                !profile::matching::matches_pattern(
+                    output.output,
+                    connected_outputs[index],
+                    profile::matching::InvalidGlobBehavior::NO_MATCH
+                ))) {
+            ++index;
+        }
+        if (index == connected_outputs.size()) {
+            return "Profile patterns do not match the currently connected outputs.";
+        }
+        used[index] = true;
+    }
+    return {};
 }
 
 auto AutoWlrRandrProfileBackend::describe_output_match(
