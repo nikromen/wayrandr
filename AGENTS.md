@@ -66,6 +66,14 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   This is atomic replacement, not guaranteed power-loss durability, and non-cooperating writers
   can still race the final check/rename. Keep disk-save results separate from daemon reload
   results, and advance only the disk snapshot when newer edits exist at asynchronous completion.
+- Kanshi parsing uses libscfg, as Kanshi 1.9.0 does. Reject unknown directives, duplicate
+  profile names/outputs, repeated output options and includes following main-file definitions
+  rather than silently normalizing potentially significant order/conflicts. Preserve anonymous
+  profiles, `...output`, global defaults and includes through editor conversions. Never expand
+  includes or execute commands while loading. TOML schema checks target auto-wlr-randr 1.2.0;
+  reject unknown items and wrong types, and preserve profile declaration order. Preserve unset
+  optional values during unrelated UI edits. Saving normalizes formatting/comments and scfg
+  exec quoting; formatting and comment changes are disclosed in the editor.
 - Preserve the ordering of Apply, confirmation, and rollback. A timeout can mean
   a partially applied monitor change. Keep recovery state until confirmation or
   successful rollback, and prevent conflicting monitor operations from overlapping.

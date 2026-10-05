@@ -96,7 +96,10 @@ private slots:
             editor->is_dirty() && editor->get_exec_commands().contains("test-command"),
             "Late save discarded newer edits"
         );
-        QVERIFY(editor->get_save_status_text().contains("Newer edits remain unsaved"));
+        QVERIFY2(
+            editor->get_save_status_text().contains("Newer edits remain unsaved"),
+            qPrintable(editor->get_save_status_text())
+        );
         f.write("daemon_mode", "success");
         editor->save_profile();
         SETTLE(window);

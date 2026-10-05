@@ -10,6 +10,8 @@ namespace kanshi_conversions {
 auto to_profile_output(const KanshiOutputSetting & setting) -> profile::ProfileOutputDefinition {
     profile::ProfileOutputDefinition output;
     output.output = setting.criteria;
+    output.multi_output = setting.multi_output;
+    output.alias = setting.alias;
     output.enabled = setting.enabled;
     output.mode = setting.mode;
     output.preferred = setting.preferred;
@@ -23,6 +25,8 @@ auto to_profile_output(const KanshiOutputSetting & setting) -> profile::ProfileO
 auto from_profile_output(const profile::ProfileOutputDefinition & output) -> KanshiOutputSetting {
     KanshiOutputSetting setting;
     setting.criteria = output.output;
+    setting.multi_output = output.multi_output;
+    setting.alias = output.alias;
     setting.enabled = output.enabled;
     setting.mode = output.mode;
     setting.preferred = output.preferred;
@@ -36,6 +40,7 @@ auto from_profile_output(const profile::ProfileOutputDefinition & output) -> Kan
 auto to_profile_definition(const KanshiProfile & profile) -> profile::ProfileDefinition {
     profile::ProfileDefinition definition;
     definition.id = profile.id;
+    definition.anonymous = profile.anonymous;
     definition.exec = profile.exec;
     for (const auto & setting : profile.outputs) {
         definition.outputs.push_back(to_profile_output(setting));
@@ -46,6 +51,7 @@ auto to_profile_definition(const KanshiProfile & profile) -> profile::ProfileDef
 auto from_profile_definition(const profile::ProfileDefinition & profile) -> KanshiProfile {
     KanshiProfile definition;
     definition.id = profile.id;
+    definition.anonymous = profile.anonymous;
     definition.exec = profile.exec;
     for (const auto & output : profile.outputs) {
         definition.outputs.push_back(from_profile_output(output));
@@ -57,6 +63,10 @@ auto to_profile_document(const KanshiConfig & config) -> profile::ProfileDocumen
     profile::ProfileDocument document;
     document.path = config.path;
     document.file_snapshot = config.file_snapshot;
+    document.includes = config.includes;
+    for (const auto & output : config.global_outputs) {
+        document.global_outputs.push_back(to_profile_output(output));
+    }
     for (const auto & profile : config.profiles) {
         document.profiles.push_back(to_profile_definition(profile));
     }
@@ -67,6 +77,10 @@ auto from_profile_document(const profile::ProfileDocument & document) -> KanshiC
     KanshiConfig config;
     config.path = document.path;
     config.file_snapshot = document.file_snapshot;
+    config.includes = document.includes;
+    for (const auto & output : document.global_outputs) {
+        config.global_outputs.push_back(from_profile_output(output));
+    }
     for (const auto & profile : document.profiles) {
         config.profiles.push_back(from_profile_definition(profile));
     }

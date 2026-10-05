@@ -6,9 +6,14 @@
 #include <QStandardPaths>
 #include <algorithm>
 #include <filesystem>
+#include <initializer_list>
+#include <optional>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <vector>
 // The public entry point initializes dependencies required by toml++ internals.
 #include <toml++/toml.h>  // IWYU pragma: keep
 
@@ -19,45 +24,87 @@
 
 namespace {
 
+void check_keys(
+    const toml::table & table,
+    std::initializer_list<std::string_view> allowed,
+    const std::string & location
+) {
+    for (const auto & [key, node] : table) {
+        if (std::find(allowed.begin(), allowed.end(), key.str()) == allowed.end()) {
+            throw std::runtime_error(
+                "Unsupported TOML item at " + location + "." + std::string(key.str()) +
+                "; edit this configuration manually to avoid losing data"
+            );
+        }
+    }
+}
+
+template <typename Value>
+auto optional_value(const toml::table & table, const char * key) -> std::optional<Value> {
+    if (!table.contains(key)) {
+        return std::nullopt;
+    }
+    const auto value = table[key].value<Value>();
+    if (!value.has_value()) {
+        throw std::runtime_error("Invalid TOML type for '" + std::string(key) + "'");
+    }
+    return value;
+}
+
+auto string_array(const toml::table & table, const char * key) -> std::vector<std::string> {
+    std::vector<std::string> values;
+    if (!table.contains(key)) {
+        return values;
+    }
+    const auto * array = table[key].as_array();
+    if (array == nullptr) {
+        throw std::runtime_error("Expected TOML array for '" + std::string(key) + "'");
+    }
+    for (const auto & node : *array) {
+        const auto value = node.value<std::string>();
+        if (!value.has_value()) {
+            throw std::runtime_error("Expected string in TOML array '" + std::string(key) + "'");
+        }
+        values.push_back(*value);
+    }
+    return values;
+}
+
 auto parse_output_setting(const toml::table & table) -> ProfileOutputSetting {
+    check_keys(
+        table,
+        { "output",
+          "on",
+          "preferred",
+          "adaptive_sync",
+          "mode",
+          "pos",
+          "left_of",
+          "right_of",
+          "above",
+          "below",
+          "transform",
+          "scale" },
+        "settings"
+    );
     ProfileOutputSetting setting;
-    if (auto output = table["output"].value<std::string>()) {
-        setting.output = *output;
+    const auto output = optional_value<std::string>(table, "output");
+    if (!output.has_value()) {
+        throw std::runtime_error("TOML output setting requires a string 'output'");
     }
-
-    if (table.contains("on")) {
-        setting.on = table["on"].value<bool>();
-    }
-    setting.preferred = table["preferred"].value_or(false);
-    if (table.contains("adaptive_sync")) {
-        setting.adaptive_sync = table["adaptive_sync"].value<bool>();
-    }
-
-    if (auto mode = table["mode"].value<std::string>()) {
-        setting.mode = *mode;
-    }
-    if (auto pos = table["pos"].value<std::string>()) {
-        setting.pos = *pos;
-    }
-    if (auto left_of = table["left_of"].value<std::string>()) {
-        setting.left_of = *left_of;
-    }
-    if (auto right_of = table["right_of"].value<std::string>()) {
-        setting.right_of = *right_of;
-    }
-    if (auto above = table["above"].value<std::string>()) {
-        setting.above = *above;
-    }
-    if (auto below = table["below"].value<std::string>()) {
-        setting.below = *below;
-    }
-    if (auto transform = table["transform"].value<std::string>()) {
-        setting.transform = *transform;
-    }
-    if (auto scale = table["scale"].value<float>()) {
-        setting.scale = *scale;
-    }
-
+    setting.output = *output;
+    setting.on = optional_value<bool>(table, "on");
+    setting.preferred_explicit = table.contains("preferred");
+    setting.preferred = optional_value<bool>(table, "preferred").value_or(false);
+    setting.adaptive_sync = optional_value<bool>(table, "adaptive_sync");
+    setting.mode = optional_value<std::string>(table, "mode");
+    setting.pos = optional_value<std::string>(table, "pos");
+    setting.left_of = optional_value<std::string>(table, "left_of");
+    setting.right_of = optional_value<std::string>(table, "right_of");
+    setting.above = optional_value<std::string>(table, "above");
+    setting.below = optional_value<std::string>(table, "below");
+    setting.transform = optional_value<std::string>(table, "transform");
+    setting.scale = optional_value<float>(table, "scale");
     return setting;
 }
 
@@ -71,8 +118,8 @@ void write_output_setting(toml::table & table, const ProfileOutputSetting & sett
     if (setting.mode.has_value()) {
         table.insert("mode", setting.mode.value());
     }
-    if (setting.preferred) {
-        table.insert("preferred", true);
+    if (setting.preferred || setting.preferred_explicit) {
+        table.insert("preferred", setting.preferred);
     }
     if (setting.pos.has_value()) {
         table.insert("pos", setting.pos.value());
@@ -127,42 +174,47 @@ auto AutoWlrRandrConfigRepository::load() const -> AutoWlrRandrConfig {
 
     const auto parsed = toml::parse(*file.content, config_path_.string());
 
-    if (const auto * on_no_match_exec = parsed["on_no_match_exec"].as_array()) {
-        for (const auto & command : *on_no_match_exec) {
-            if (auto command_value = command.value<std::string>()) {
-                config.on_no_match_exec.push_back(*command_value);
-            }
-        }
+    check_keys(parsed, { "on_no_match_exec", "profile" }, "root");
+    config.on_no_match_exec = string_array(parsed, "on_no_match_exec");
+    const auto * profile_table = parsed["profile"].as_table();
+    if (profile_table == nullptr) {
+        throw std::runtime_error("TOML configuration requires a 'profile' table");
     }
-
-    if (const auto * profile_table = parsed["profile"].as_table()) {
-        for (const auto & [profile_id, profile_node] : *profile_table) {
-            const auto * profile_value = profile_node.as_table();
-            if (profile_value == nullptr) {
-                continue;
-            }
-
-            AutoWlrRandrProfile profile;
-            profile.id = std::string(profile_id.str());
-
-            if (const auto * exec_array = profile_value->get_as<toml::array>("exec")) {
-                for (const auto & command : *exec_array) {
-                    if (auto command_value = command.value<std::string>()) {
-                        profile.exec.push_back(*command_value);
-                    }
-                }
-            }
-
-            if (const auto * settings_array = profile_value->get_as<toml::array>("settings")) {
-                for (const auto & setting_node : *settings_array) {
-                    if (const auto * setting_table = setting_node.as_table()) {
-                        profile.settings.push_back(parse_output_setting(*setting_table));
-                    }
-                }
-            }
-
-            config.profiles.push_back(std::move(profile));
+    // toml++ stores tables by key; backend IndexMap uses declaration order as priority.
+    std::vector<std::pair<std::string, const toml::table *>> profiles;
+    for (const auto & [profile_id, node] : *profile_table) {
+        const auto * value = node.as_table();
+        if (value == nullptr) {
+            throw std::runtime_error(
+                "Expected TOML table for profile '" + std::string(profile_id.str()) + "'"
+            );
         }
+        profiles.emplace_back(std::string(profile_id.str()), value);
+    }
+    std::stable_sort(profiles.begin(), profiles.end(), [](const auto & left, const auto & right) {
+        return left.second->source().begin < right.second->source().begin;
+    });
+    for (const auto & [id, value] : profiles) {
+        check_keys(*value, { "exec", "settings" }, "profile." + id);
+        AutoWlrRandrProfile profile;
+        profile.id = id;
+        profile.exec = string_array(*value, "exec");
+        if (value->contains("settings")) {
+            const auto * settings = (*value)["settings"].as_array();
+            if (settings == nullptr) {
+                throw std::runtime_error("Expected TOML array for profile '" + id + "' settings");
+            }
+            for (const auto & node : *settings) {
+                const auto * setting = node.as_table();
+                if (setting == nullptr) {
+                    throw std::runtime_error(
+                        "Expected TOML table in settings of profile '" + id + "'"
+                    );
+                }
+                profile.settings.push_back(parse_output_setting(*setting));
+            }
+        }
+        config.profiles.push_back(std::move(profile));
     }
 
     spdlog::info("Loaded {} auto-wlr-randr profiles from {}", config.profiles.size(), config.path);
@@ -172,7 +224,8 @@ auto AutoWlrRandrConfigRepository::load() const -> AutoWlrRandrConfig {
 auto AutoWlrRandrConfigRepository::save(const AutoWlrRandrConfig & config) const
     -> ConfigFileSnapshot {
     toml::table root;
-    toml::table profiles_table;
+    std::ostringstream output;
+    std::set<std::string> profile_ids;
 
     if (!config.on_no_match_exec.empty()) {
         toml::array on_no_match_exec_array;
@@ -182,7 +235,18 @@ auto AutoWlrRandrConfigRepository::save(const AutoWlrRandrConfig & config) const
         root.insert("on_no_match_exec", on_no_match_exec_array);
     }
 
+    if (config.profiles.empty()) {
+        root.insert("profile", toml::table{});
+    }
+    if (!root.empty()) {
+        output << root << "\n\n";
+    }
     for (const auto & profile : config.profiles) {
+        if (!profile_ids.insert(profile.id).second) {
+            throw std::runtime_error(
+                "Duplicate TOML profile cannot be saved safely: " + profile.id
+            );
+        }
         toml::table profile_table;
 
         if (!profile.exec.empty()) {
@@ -203,13 +267,13 @@ auto AutoWlrRandrConfigRepository::save(const AutoWlrRandrConfig & config) const
             profile_table.insert("settings", settings_array);
         }
 
+        toml::table profiles_table;
         profiles_table.insert(profile.id, profile_table);
+        toml::table fragment;
+        fragment.insert("profile", profiles_table);
+        output << fragment << "\n\n";
     }
 
-    root.insert("profile", profiles_table);
-
-    std::ostringstream output;
-    output << root;
     const auto saved = save_config_file(config_path_, output.str(), config.file_snapshot);
     spdlog::info(
         "Saved {} auto-wlr-randr profiles to {}", config.profiles.size(), config_path_.string()

@@ -2,6 +2,13 @@
 #include <qtenvironmentvariables.h>
 #include <qtestcase.h>
 #include <qtmetamacros.h>
+#include <stdio.h>  // NOLINT: POSIX fmemopen().
+
+#include <utility>
+
+extern "C" {
+#include <scfg.h>
+}
 
 #include <QTest>
 #include <cstddef>
@@ -25,6 +32,41 @@
 #include "support/environment.hpp"
 #include "support/fixture.hpp"
 #include "utils/helpers.hpp"
+
+namespace {
+
+// Kanshi 1.9.0 derives shell commands from scfg parameters, not raw quote style.
+// Compare those parameters without executing user commands.
+auto exec_words(const std::vector<std::string> & commands)
+    -> std::vector<std::vector<std::string>> {
+    std::vector<std::vector<std::string>> result;
+    for (const auto & command : commands) {
+        auto content = "exec " + command + "\n";
+        const auto close_input = [](FILE * stream) { fclose(stream); };
+        const std::unique_ptr<FILE, decltype(close_input)> input(
+            fmemopen(content.data(), content.size(), "r"), close_input
+        );
+        require(input != nullptr, "Open scfg buffer");
+        scfg_block block{};
+        const std::unique_ptr<scfg_block, decltype(&scfg_block_finish)> guard(
+            &block, &scfg_block_finish
+        );
+        require(scfg_parse_file(&block, input.get()) == 0, "Parse scfg command");
+        require(block.directives_len == 1, "Single scfg command");
+        const auto & directive = block.directives[0];
+        require(std::string(directive.name) == "exec", "Exec directive name");
+        require(directive.children.directives_len == 0, "Exec has no children");
+        std::vector<std::string> words;
+        words.reserve(directive.params_len);
+        for (size_t index = 0; index < directive.params_len; ++index) {
+            words.emplace_back(directive.params[index]);
+        }
+        result.push_back(std::move(words));
+    }
+    return result;
+}
+
+}  // namespace
 
 class CommandSecurityTests : public QObject {
     Q_OBJECT
@@ -65,7 +107,7 @@ private slots:
         QCOMPARE(parsed.profiles[0].id, value);
         QCOMPARE(parsed.profiles[0].outputs.size(), size_t{ 1 });
         QCOMPARE(parsed.profiles[0].outputs[0].criteria, value);
-        QCOMPARE(parsed.profiles[0].exec, profile.exec);
+        QCOMPARE(exec_words(parsed.profiles[0].exec), exec_words(profile.exec));
         QVERIFY(parsed.preserved_directives.empty());
 
         AutoWlrRandrProfile auto_profile;
@@ -155,7 +197,10 @@ private slots:
         profile.exec = { command };
         config.profiles.push_back(profile);
         const auto content = kanshi_config_parser::serialize(config);
-        QCOMPARE(kanshi_config_parser::parse(content).profiles[0].exec, profile.exec);
+        QCOMPARE(
+            exec_words(kanshi_config_parser::parse(content).profiles[0].exec),
+            exec_words(profile.exec)
+        );
         QVERIFY(content.find("wayrandr_exec_boundary") == std::string::npos);
     }
 

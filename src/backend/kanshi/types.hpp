@@ -21,6 +21,7 @@ struct KanshiOutputSetting {
 };
 
 struct KanshiProfile {
+    bool anonymous = false;
     std::string id;
     std::vector<std::string> exec;
     std::vector<KanshiOutputSetting> outputs;
