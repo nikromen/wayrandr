@@ -4,9 +4,8 @@
 #include <spdlog/spdlog.h>
 
 #include <QStandardPaths>
-#include <algorithm>
 #include <filesystem>
-#include <stdexcept>
+#include <string>
 #include <utility>
 
 #include "backend/kanshi/config_parser.hpp"
@@ -50,47 +49,4 @@ auto KanshiConfigRepository::save(const KanshiConfig & config) const -> ConfigFi
     const auto saved = save_config_file(config_path_, content, config.file_snapshot);
     spdlog::info("Saved {} kanshi profiles to {}", config.profiles.size(), config_path_.string());
     return saved;
-}
-
-void KanshiConfigRepository::add_profile(KanshiConfig & config, KanshiProfile profile) {
-    const auto it = std::find_if(
-        config.profiles.begin(), config.profiles.end(), [&](const KanshiProfile & existing) {
-            return existing.id == profile.id;
-        }
-    );
-    if (it != config.profiles.end()) {
-        *it = std::move(profile);
-        return;
-    }
-
-    config.profiles.push_back(std::move(profile));
-}
-
-void KanshiConfigRepository::delete_profile(KanshiConfig & config, const std::string & profile_id) {
-    config.profiles.erase(
-        std::remove_if(
-            config.profiles.begin(),
-            config.profiles.end(),
-            [&](const KanshiProfile & profile) { return profile.id == profile_id; }
-        ),
-        config.profiles.end()
-    );
-}
-
-void KanshiConfigRepository::duplicate_profile(
-    KanshiConfig & config, const std::string & source_id, const std::string & new_id
-) {
-    const auto it = std::find_if(
-        config.profiles.begin(), config.profiles.end(), [&](const KanshiProfile & profile) {
-            return profile.id == source_id;
-        }
-    );
-    if (it == config.profiles.end()) {
-        throw std::invalid_argument("Source profile not found: " + source_id);
-    }
-
-    KanshiProfile copy = *it;
-    copy.id = new_id;
-    copy.anonymous = false;
-    add_profile(config, std::move(copy));
 }

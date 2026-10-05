@@ -38,16 +38,6 @@ struct AutoWlrRandrConfig {
     ConfigFileSnapshot file_snapshot;
 };
 
-struct ConnectedOutputInfo {
-    std::string name;
-    std::optional<std::string> make;
-    std::optional<std::string> model;
-    std::optional<std::string> serial;
-
-    [[nodiscard]] auto build_identifier() const -> std::optional<std::string>;
-    [[nodiscard]] auto display_label() const -> std::string;
-};
-
 struct DaemonStatus {
     bool daemon_running = false;
     std::string active_profile;

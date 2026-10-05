@@ -7,14 +7,6 @@
 #include "backend/auto_wlr_randr/conversions.hpp"
 #include "backend/profile/layout_utils.hpp"
 
-auto ConnectedOutputInfo::build_identifier() const -> std::optional<std::string> {
-    return auto_wlr_randr_conversions::to_connected_output(*this).build_identifier();
-}
-
-auto ConnectedOutputInfo::display_label() const -> std::string {
-    return auto_wlr_randr_conversions::to_connected_output(*this).display_label();
-}
-
 namespace profile_mode_utils {
 
 auto parse_mode_string(const std::string & mode) -> std::optional<std::pair<int, int>> {

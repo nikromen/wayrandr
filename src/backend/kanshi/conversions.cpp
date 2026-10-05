@@ -87,50 +87,12 @@ auto from_profile_document(const profile::ProfileDocument & document) -> KanshiC
     return config;
 }
 
-auto to_connected_output(const KanshiConnectedOutputInfo & output) -> profile::ConnectedOutput {
-    profile::ConnectedOutput connected;
-    connected.name = output.name;
-    connected.make = output.make;
-    connected.model = output.model;
-    connected.serial = output.serial;
-    return connected;
-}
-
-auto from_connected_output(const profile::ConnectedOutput & output) -> KanshiConnectedOutputInfo {
-    KanshiConnectedOutputInfo connected;
-    connected.name = output.name;
-    connected.make = output.make;
-    connected.model = output.model;
-    connected.serial = output.serial;
-    return connected;
-}
-
 auto to_service_status(const KanshiDaemonStatus & status) -> profile::ProfileServiceStatus {
     profile::ProfileServiceStatus service_status;
     service_status.service_running = status.daemon_running;
     service_status.active_profile = status.active_profile;
     service_status.connected_outputs = status.connected_outputs;
     return service_status;
-}
-
-auto to_connected_outputs(const std::vector<KanshiConnectedOutputInfo> & outputs)
-    -> std::vector<profile::ConnectedOutput> {
-    std::vector<profile::ConnectedOutput> converted;
-    converted.reserve(outputs.size());
-    for (const auto & output : outputs) {
-        converted.push_back(to_connected_output(output));
-    }
-    return converted;
-}
-
-auto from_connected_outputs(const std::vector<profile::ConnectedOutput> & outputs)
-    -> std::vector<KanshiConnectedOutputInfo> {
-    std::vector<KanshiConnectedOutputInfo> converted;
-    converted.reserve(outputs.size());
-    for (const auto & output : outputs) {
-        converted.push_back(from_connected_output(output));
-    }
-    return converted;
 }
 
 }  // namespace kanshi_conversions

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <filesystem>
-#include <string>
 
 #include "backend/kanshi/types.hpp"
 #include "utils/config_file.hpp"
@@ -15,12 +14,6 @@ public:
 
     [[nodiscard]] auto load() const -> KanshiConfig;
     [[nodiscard]] auto save(const KanshiConfig & config) const -> ConfigFileSnapshot;
-
-    static void add_profile(KanshiConfig & config, KanshiProfile profile);
-    static void delete_profile(KanshiConfig & config, const std::string & profile_id);
-    static void duplicate_profile(
-        KanshiConfig & config, const std::string & source_id, const std::string & new_id
-    );
 
 private:
     std::filesystem::path config_path_;

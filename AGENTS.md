@@ -74,6 +74,10 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   reject unknown items and wrong types, and preserve profile declaration order. Preserve unset
   optional values during unrelated UI edits. Saving normalizes formatting/comments and scfg
   exec quoting; formatting and comment changes are disclosed in the editor.
+- Profile list operations and live snapshots are shared in `ProfileEditorBackend`; native
+  configuration conversions belong at loading/saving boundaries. Matching uses explicit
+  `InvalidGlobBehavior`: Kanshi uses `LITERAL_NAME`, auto-wlr-randr uses `NO_MATCH`.
+  Live-position lookup retains `NO_MATCH` for both backends.
 - Preserve the ordering of Apply, confirmation, and rollback. A timeout can mean
   a partially applied monitor change. Keep recovery state until confirmation or
   successful rollback, and prevent conflicting monitor operations from overlapping.
