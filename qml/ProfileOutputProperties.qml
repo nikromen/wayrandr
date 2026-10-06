@@ -3,8 +3,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 ScrollView {
+    id: root
+
     property var output
     property var profileEditor
+
+    // Backend positions and QML int properties use signed 32-bit coordinates.
+    readonly property int minimumPosition: -2147483648
+    readonly property int maximumPosition: 2147483647
 
     readonly property bool hasOutput: output !== null
 
@@ -109,8 +115,9 @@ ScrollView {
                 RowLayout {
                     Layout.fillWidth: true
                     SpinBox {
-                        from: 0
-                        to: 1000000
+                        objectName: "positionXSpinBox"
+                        from: root.minimumPosition
+                        to: root.maximumPosition
                         editable: true
                         value: {
                             if (hasOutput) {
@@ -126,8 +133,9 @@ ScrollView {
                     }
                     Label { text: "x" }
                     SpinBox {
-                        from: 0
-                        to: 1000000
+                        objectName: "positionYSpinBox"
+                        from: root.minimumPosition
+                        to: root.maximumPosition
                         editable: true
                         value: {
                             if (hasOutput) {

@@ -4,7 +4,13 @@ import QtQuick.Layouts
 import com.nikromen.wayrandr 1.0
 
 ScrollView {
+    id: root
+
     property var monitor
+
+    // Backend positions and QML int properties use signed 32-bit coordinates.
+    readonly property int minimumPosition: -2147483648
+    readonly property int maximumPosition: 2147483647
 
     implicitHeight: mainLayout.implicitHeight
 
@@ -83,8 +89,9 @@ ScrollView {
                     Layout.fillWidth: true
                     SpinBox {
                         id: posXSpinBox
-                        from: 0
-                        to: 1000000
+                        objectName: "positionXSpinBox"
+                        from: root.minimumPosition
+                        to: root.maximumPosition
                         value: monitor.positionX
                         onValueChanged: monitor.positionX = value
                         editable: true
@@ -92,8 +99,9 @@ ScrollView {
                     Label { text: "x" }
                     SpinBox {
                         id: posYSpinBox
-                        from: 0
-                        to: 1000000
+                        objectName: "positionYSpinBox"
+                        from: root.minimumPosition
+                        to: root.maximumPosition
                         value: monitor.positionY
                         onValueChanged: monitor.positionY = value
                     }
