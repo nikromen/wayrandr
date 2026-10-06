@@ -116,6 +116,15 @@ Follow any more specific `AGENTS.md` in the directory you are editing as well.
   the Makefile. Do not stage files just to include them in checks.
 - Container builds use a separate named volume. Do not reuse the host CMake cache
   or switch to the exported binary via `run-from-container-locally` for verification.
+- `container-install` installs an already built configuration with CMake and forwards
+  `DESTDIR`. Set `CMAKE_INSTALL_PREFIX` through `CMAKE_FLAGS` when building. For isolated
+  Release installation verification, use a separate `CONTAINER_BUILD_VOLUME`, build with
+  `CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/wayrandr"`
+  and `DEBUG_LOGS=OFF`, then run `container-install` with the same volume and
+  `DESTDIR=/workspace/build/install-stage`. QML is embedded in the executable; runtime
+  still requires Qt6 libraries/QML modules, libscfg >= 0.2.0 and wlr-randr. Kanshi,
+  auto-wlr-randr and grim are optional tools for their respective features. Development
+  headers, compilers, CMake and fetched header/static libraries are build requirements.
 - In the final response, briefly state what changed, which container checks passed,
   and any remaining limitations or manual verification. Do not claim checks passed
   if they were skipped, failed, or blocked.

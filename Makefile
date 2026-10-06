@@ -35,6 +35,9 @@ build:
 		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON $(CMAKE_FLAGS)
 	@cmake --build "$(BUILD_DIR)" -j$(NPROC)
 
+install:
+	@cmake --install "$(BUILD_DIR)"
+
 clean:
 	@rm -rf -- "$(BUILD_DIR)" build/coverage build/sanitizers build/fuzz "$(ARTIFACT_DIR)"
 
@@ -197,6 +200,10 @@ container-test:
 	@podman run --rm --pull=never $(CONTAINER_WORKSPACE) $(CONTAINER_BUILD_ENV) \
 		"$(CONTAINER_IMAGE)" make test
 
+container-install:
+	@podman run --rm --pull=never $(CONTAINER_WORKSPACE) $(CONTAINER_BUILD_ENV) \
+		-e DESTDIR="$(DESTDIR)" "$(CONTAINER_IMAGE)" make install
+
 container-run:
 	@podman run --rm --pull=never $(CONTAINER_WORKSPACE) $(CONTAINER_BUILD_ENV) \
 		$(CONTAINER_DISPLAY) \
@@ -250,10 +257,10 @@ container-fuzz-replay:
 	@podman run --rm --pull=never $(CONTAINER_WORKSPACE) $(CONTAINER_BUILD_ENV) \
 		-e FUZZ_TARGET="$(FUZZ_TARGET)" "$(CONTAINER_IMAGE)" make fuzz-replay
 
-.PHONY: build clean clean-cache run test rebuild test-all pre-commit run-from-container-locally \
+.PHONY: build install clean clean-cache run test rebuild test-all pre-commit run-from-container-locally \
         config-check coverage sanitizers fuzz-build fuzz fuzz-replay \
         container-clean-cache container-build-image container-remove-image container-clean \
-        container-build container-test container-test-all container-run container-shell \
+        container-build container-install container-test container-test-all container-run container-shell \
         container-config-check \
         container-pre-commit container-coverage container-sanitizers container-fuzz-build \
         container-fuzz container-export-artifacts container-fuzz-replay

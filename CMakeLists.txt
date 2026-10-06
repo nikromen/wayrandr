@@ -56,6 +56,7 @@ qt_add_resources(QML_RESOURCES qml/resource.qrc)
 add_executable(wayrandr src/main.cpp ${QML_RESOURCES})
 target_link_libraries(wayrandr PRIVATE wayrandr_lib)
 wayrandr_instrument(wayrandr)
+install(TARGETS wayrandr)
 
 include(CTest)
 if(BUILD_TESTING)
