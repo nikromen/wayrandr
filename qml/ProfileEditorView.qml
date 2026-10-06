@@ -80,259 +80,269 @@ Item {
         anchors.fill: parent
         orientation: Qt.Horizontal
 
-        ColumnLayout {
+        ScrollView {
+            id: profileFormScroll
+            objectName: "profileFormScroll"
             Layout.minimumWidth: 360
             Layout.preferredWidth: 420
             Layout.minimumHeight: 0
+            contentWidth: availableWidth
+            clip: true
 
-            Label {
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                visible: profileEditor.loadError.length > 0
-                text: profileEditor.loadError
-                textFormat: Text.PlainText
-                wrapMode: Text.WordWrap
-                color: palette.highlight
-            }
+            ColumnLayout {
+                width: profileFormScroll.availableWidth
+                height: Math.max(implicitHeight, profileFormScroll.availableHeight)
 
-            Button {
-                visible: !profileEditor.configurationLoaded
-                text: qsTr("Retry loading configuration")
-                onClicked: {
-                    if (profileEditor.isDirty) {
-                        discardDialog.pendingAction = 1
-                        discardDialog.open()
-                    } else {
-                        profileEditor.reload_config_from_disk()
-                    }
-                }
-            }
-
-            Label {
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                text: profileEditor.configurationNotice
-                wrapMode: Text.WordWrap
-                color: palette.placeholderText
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                Label { text: qsTr("Profile:") }
-
-                ComboBox {
-                    id: profileCombo
-                    objectName: "profileCombo"
+                Label {
                     Layout.fillWidth: true
-                    model: profileEditor.profileIds
+                    Layout.preferredWidth: 0
+                    visible: profileEditor.loadError.length > 0
+                    text: profileEditor.loadError
+                    textFormat: Text.PlainText
+                    wrapMode: Text.WordWrap
+                    color: palette.highlight
+                }
 
-                    function syncIndex() {
-                        var idx = model.indexOf(profileEditor.selectedProfileId)
-                        if (idx >= 0) {
-                            currentIndex = idx
-                        } else {
-                            currentIndex = 0
-                        }
-                    }
-
-                    Component.onCompleted: syncIndex()
-
-                    Connections {
-                        target: profileEditor
-                        function onSelected_profile_id_changed() {
-                            profileCombo.syncIndex()
-                        }
-                    }
-
-                    onActivated: {
-                        if (!profileEditor.select_profile(model[currentIndex])) {
-                            pendingAction = 2
-                            pendingProfileId = model[currentIndex]
+                Button {
+                    visible: !profileEditor.configurationLoaded
+                    text: qsTr("Retry loading configuration")
+                    onClicked: {
+                        if (profileEditor.isDirty) {
+                            discardDialog.pendingAction = 1
                             discardDialog.open()
+                        } else {
+                            profileEditor.reload_config_from_disk()
                         }
                     }
                 }
-            }
 
-            RowLayout {
-                Layout.fillWidth: true
-
-                Button {
-                    text: qsTr("New from current")
-                    onClicked: promptProfileName(qsTr("New profile name"), function(name) {
-                        profileEditor.create_profile_from_live(name)
-                    })
+                Label {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    text: profileEditor.configurationNotice
+                    wrapMode: Text.WordWrap
+                    color: palette.placeholderText
                 }
 
-                Button {
-                    text: qsTr("Duplicate")
-                    enabled: profileEditor.selectedProfileId.length > 0
-                    onClicked: promptProfileName(qsTr("Duplicate profile as"), function(name) {
-                        profileEditor.duplicate_profile(profileEditor.selectedProfileId, name)
-                    })
-                }
+                RowLayout {
+                    Layout.fillWidth: true
 
-                Button {
-                    text: qsTr("Delete")
-                    enabled: profileEditor.selectedProfileId.length > 0 && profileEditor.configurationLoaded
-                    onClicked: profileEditor.delete_profile(profileEditor.selectedProfileId)
-                }
-            }
+                    Label { text: qsTr("Profile:") }
 
-            TabBar {
-                id: outputTabBar
-                Layout.fillWidth: true
+                    ComboBox {
+                        id: profileCombo
+                        objectName: "profileCombo"
+                        Layout.fillWidth: true
+                        model: profileEditor.profileIds
 
-                Repeater {
-                    model: profileEditor.outputs
-                    TabButton {
-                        text: modelData.outputPattern || qsTr("Output")
+                        function syncIndex() {
+                            var idx = model.indexOf(profileEditor.selectedProfileId)
+                            if (idx >= 0) {
+                                currentIndex = idx
+                            } else {
+                                currentIndex = 0
+                            }
+                        }
+
+                        Component.onCompleted: syncIndex()
+
+                        Connections {
+                            target: profileEditor
+                            function onSelected_profile_id_changed() {
+                                profileCombo.syncIndex()
+                            }
+                        }
+
+                        onActivated: {
+                            if (!profileEditor.select_profile(model[currentIndex])) {
+                                pendingAction = 2
+                                pendingProfileId = model[currentIndex]
+                                discardDialog.open()
+                            }
+                        }
                     }
                 }
-            }
 
-            Connections {
-                target: profileEditor
-                function onOutputs_changed() {
-                    if (outputTabBar.currentIndex >= profileEditor.outputs.length) {
-                        outputTabBar.currentIndex = Math.max(0, profileEditor.outputs.length - 1)
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Button {
+                        text: qsTr("New from current")
+                        onClicked: promptProfileName(qsTr("New profile name"), function(name) {
+                            profileEditor.create_profile_from_live(name)
+                        })
+                    }
+
+                    Button {
+                        text: qsTr("Duplicate")
+                        enabled: profileEditor.selectedProfileId.length > 0
+                        onClicked: promptProfileName(qsTr("Duplicate profile as"), function(name) {
+                            profileEditor.duplicate_profile(profileEditor.selectedProfileId, name)
+                        })
+                    }
+
+                    Button {
+                        text: qsTr("Delete")
+                        enabled: profileEditor.selectedProfileId.length > 0 && profileEditor.configurationLoaded
+                        onClicked: profileEditor.delete_profile(profileEditor.selectedProfileId)
                     }
                 }
-            }
 
-            ProfileOutputProperties {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                output: {
-                    var idx = outputTabBar.currentIndex
-                    var outputs = profileEditor.outputs
-                    if (idx < 0 || idx >= outputs.length) {
-                        return null
+                TabBar {
+                    id: outputTabBar
+                    Layout.fillWidth: true
+
+                    Repeater {
+                        model: profileEditor.outputs
+                        TabButton {
+                            text: modelData.outputPattern || qsTr("Output")
+                        }
                     }
-                    return outputs[idx]
-                }
-                profileEditor: root.profileEditor
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Button {
-                    text: qsTr("Add output")
-                    onClicked: profileEditor.add_output()
-                }
-                Button {
-                    text: qsTr("Remove output")
-                    enabled: outputTabBar.currentIndex >= 0
-                    onClicked: profileEditor.remove_output(outputTabBar.currentIndex)
-                }
-            }
-
-            Label {
-                visible: profileEditor.supportsOnNoMatchExec
-                text: qsTr("On no match exec")
-                font.bold: true
-            }
-
-            CommandListEditor {
-                visible: profileEditor.supportsOnNoMatchExec
-                Layout.fillWidth: true
-                commands: profileEditor.onNoMatchExecCommands
-                onSetCommand: function(index, text) {
-                    profileEditor.set_on_no_match_exec_command(index, text)
-                }
-                onRemoveCommand: function(index) {
-                    profileEditor.remove_on_no_match_exec_command(index)
-                }
-                onAddCommand: function() {
-                    profileEditor.add_on_no_match_exec_command("")
-                }
-            }
-
-            Label {
-                visible: profileEditor.supportsOnNoMatchExec
-                Layout.fillWidth: true
-                text: qsTr("The daemon runs these shell commands as its user when no profile matches. Saving reloads the daemon and may trigger them.")
-                wrapMode: Text.WordWrap
-            }
-
-            Label {
-                text: qsTr("Exec commands")
-                font.bold: true
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("The daemon runs these commands through a shell as its user when activating a profile. Saving reloads the daemon and may trigger them. Loading or editing here does not run them.")
-                wrapMode: Text.WordWrap
-            }
-
-            CommandListEditor {
-                Layout.fillWidth: true
-                commands: profileEditor.execCommands
-                onSetCommand: function(index, text) {
-                    profileEditor.set_exec_command(index, text)
-                }
-                onRemoveCommand: function(index) {
-                    profileEditor.remove_exec_command(index)
-                }
-                onAddCommand: function() {
-                    profileEditor.add_exec_command("")
-                }
-            }
-
-            Label {
-                Layout.fillWidth: true
-                visible: profileEditor.matchWarning.length > 0
-                text: profileEditor.matchWarning
-                wrapMode: Text.WordWrap
-                color: palette.highlight
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                Button {
-                    text: qsTr("Save")
-                    highlighted: true
-                    enabled: profileEditor.isDirty && profileEditor.configurationLoaded
-                    onClicked: profileEditor.save_profile()
                 }
 
-                Button {
-                    text: qsTr("Discard")
-                    enabled: profileEditor.isDirty
-                    onClicked: profileEditor.discard_changes()
+                Connections {
+                    target: profileEditor
+                    function onOutputs_changed() {
+                        if (outputTabBar.currentIndex >= profileEditor.outputs.length) {
+                            outputTabBar.currentIndex = Math.max(0, profileEditor.outputs.length - 1)
+                        }
+                    }
                 }
 
-                CheckBox {
-                    id: forceSwitchCheck
-                    visible: profileEditor.supportsForceSwitch
-                    text: qsTr("Force")
-                    ToolTip.text: qsTr("Apply profile even if output patterns do not match")
+                ProfileOutputProperties {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    output: {
+                        var idx = outputTabBar.currentIndex
+                        var outputs = profileEditor.outputs
+                        if (idx < 0 || idx >= outputs.length) {
+                            return null
+                        }
+                        return outputs[idx]
+                    }
+                    profileEditor: root.profileEditor
                 }
 
-                Button {
-                    text: qsTr("Switch profile")
-                    enabled: profileEditor.selectedProfileId.length > 0
-                    onClicked: profileEditor.switch_profile(forceSwitchCheck.checked)
+                RowLayout {
+                    Layout.fillWidth: true
+                    Button {
+                        text: qsTr("Add output")
+                        onClicked: profileEditor.add_output()
+                    }
+                    Button {
+                        text: qsTr("Remove output")
+                        enabled: outputTabBar.currentIndex >= 0
+                        onClicked: profileEditor.remove_output(outputTabBar.currentIndex)
+                    }
                 }
-            }
 
-            Label {
-                Layout.fillWidth: true
-                visible: profileEditor.saveStatusText.length > 0
-                text: profileEditor.saveStatusText
-                textFormat: Text.PlainText
-                wrapMode: Text.WordWrap
-            }
+                Label {
+                    visible: profileEditor.supportsOnNoMatchExec
+                    text: qsTr("On no match exec")
+                    font.bold: true
+                }
 
-            Label {
-                Layout.fillWidth: true
-                text: profileEditor.daemonStatusText
-                textFormat: Text.PlainText
-                wrapMode: Text.WordWrap
-                color: palette.placeholderText
+                CommandListEditor {
+                    visible: profileEditor.supportsOnNoMatchExec
+                    Layout.fillWidth: true
+                    commands: profileEditor.onNoMatchExecCommands
+                    onSetCommand: function(index, text) {
+                        profileEditor.set_on_no_match_exec_command(index, text)
+                    }
+                    onRemoveCommand: function(index) {
+                        profileEditor.remove_on_no_match_exec_command(index)
+                    }
+                    onAddCommand: function() {
+                        profileEditor.add_on_no_match_exec_command("")
+                    }
+                }
+
+                Label {
+                    visible: profileEditor.supportsOnNoMatchExec
+                    Layout.fillWidth: true
+                    text: qsTr("The daemon runs these shell commands as its user when no profile matches. Saving reloads the daemon and may trigger them.")
+                    wrapMode: Text.WordWrap
+                }
+
+                Label {
+                    text: qsTr("Exec commands")
+                    font.bold: true
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("The daemon runs these commands through a shell as its user when activating a profile. Saving reloads the daemon and may trigger them. Loading or editing here does not run them.")
+                    wrapMode: Text.WordWrap
+                }
+
+                CommandListEditor {
+                    Layout.fillWidth: true
+                    commands: profileEditor.execCommands
+                    onSetCommand: function(index, text) {
+                        profileEditor.set_exec_command(index, text)
+                    }
+                    onRemoveCommand: function(index) {
+                        profileEditor.remove_exec_command(index)
+                    }
+                    onAddCommand: function() {
+                        profileEditor.add_exec_command("")
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: profileEditor.matchWarning.length > 0
+                    text: profileEditor.matchWarning
+                    wrapMode: Text.WordWrap
+                    color: palette.highlight
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Button {
+                        objectName: "profileSaveButton"
+                        text: qsTr("Save")
+                        highlighted: true
+                        enabled: profileEditor.isDirty && profileEditor.configurationLoaded
+                        onClicked: profileEditor.save_profile()
+                    }
+
+                    Button {
+                        text: qsTr("Discard")
+                        enabled: profileEditor.isDirty
+                        onClicked: profileEditor.discard_changes()
+                    }
+
+                    CheckBox {
+                        id: forceSwitchCheck
+                        visible: profileEditor.supportsForceSwitch
+                        text: qsTr("Force")
+                        ToolTip.text: qsTr("Apply profile even if output patterns do not match")
+                    }
+
+                    Button {
+                        text: qsTr("Switch profile")
+                        enabled: profileEditor.selectedProfileId.length > 0
+                        onClicked: profileEditor.switch_profile(forceSwitchCheck.checked)
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: profileEditor.saveStatusText.length > 0
+                    text: profileEditor.saveStatusText
+                    textFormat: Text.PlainText
+                    wrapMode: Text.WordWrap
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: profileEditor.daemonStatusText
+                    textFormat: Text.PlainText
+                    wrapMode: Text.WordWrap
+                    color: palette.placeholderText
+                }
             }
         }
 

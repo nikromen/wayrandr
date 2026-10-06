@@ -27,6 +27,7 @@ ColumnLayout {
             }
             ToolButton {
                 text: "×"
+                Accessible.name: qsTr("Remove command")
                 onClicked: {
                     if (root.onRemoveCommand) {
                         root.onRemoveCommand(index)
