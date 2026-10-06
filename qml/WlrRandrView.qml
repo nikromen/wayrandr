@@ -56,6 +56,7 @@ Item {
                 objectName: "applyError"
                 visible: controller.applyError.length > 0
                 text: controller.applyError
+                textFormat: Text.PlainText
                 wrapMode: Text.WordWrap
             }
 

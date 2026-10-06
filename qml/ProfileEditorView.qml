@@ -90,6 +90,7 @@ Item {
                 Layout.preferredWidth: 0
                 visible: profileEditor.loadError.length > 0
                 text: profileEditor.loadError
+                textFormat: Text.PlainText
                 wrapMode: Text.WordWrap
                 color: palette.highlight
             }
@@ -322,12 +323,14 @@ Item {
                 Layout.fillWidth: true
                 visible: profileEditor.saveStatusText.length > 0
                 text: profileEditor.saveStatusText
+                textFormat: Text.PlainText
                 wrapMode: Text.WordWrap
             }
 
             Label {
                 Layout.fillWidth: true
                 text: profileEditor.daemonStatusText
+                textFormat: Text.PlainText
                 wrapMode: Text.WordWrap
                 color: palette.placeholderText
             }

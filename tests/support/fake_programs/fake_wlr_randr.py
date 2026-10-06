@@ -71,4 +71,7 @@ if failures.exists():
     count = int(failures.read_text())
 if count:
     failures.write_text(str(count - 1))
+    error = root / "failure_stderr"
+    if error.exists():
+        print(error.read_text(), file=sys.stderr)
     sys.exit(1)

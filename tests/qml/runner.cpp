@@ -69,7 +69,10 @@ public:
         emit controller_changed();
     }
 
-    Q_INVOKABLE void fail_restore() { fixture_->write("failures", "1"); }
+    Q_INVOKABLE void fail_restore(const QString & error) {
+        fixture_->write("failures", "1");
+        fixture_->write("failure_stderr", error.toStdString());
+    }
 
     Q_INVOKABLE void disconnect_output() { fixture_->write("state", "[]"); }
 
