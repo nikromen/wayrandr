@@ -10,7 +10,10 @@
 #include <vector>
 
 #include "backend/kanshi/config_parser.hpp"
+#include "backend/kanshi/conversions.hpp"
 #include "backend/kanshi/types.hpp"
+#include "backend/profile/layout_utils.hpp"
+#include "backend/profile/types.hpp"
 #include "spdlog/common.h"
 
 namespace {
@@ -75,11 +78,22 @@ auto same_document(const KanshiConfig & a, const KanshiConfig & b) -> bool {
     for (size_t index = 0; index < a.profiles.size(); ++index) {
         const auto & lhs = a.profiles[index];
         const auto & rhs = b.profiles[index];
-        if (lhs.id != rhs.id || lhs.exec != rhs.exec || !same_outputs(lhs.outputs, rhs.outputs)) {
+        if (lhs.anonymous != rhs.anonymous || lhs.id != rhs.id || lhs.exec != rhs.exec ||
+            !same_outputs(lhs.outputs, rhs.outputs)) {
             return false;
         }
     }
     return true;
+}
+
+void check_geometry(const std::vector<profile::ProfileOutputDefinition> & outputs) {
+    for (const auto & output : outputs) {
+        // Zero dimensions are a valid fallback for unsafe numeric inputs.
+        if (profile::layout_utils::layout_width(output) < 0 ||
+            profile::layout_utils::layout_height(output) < 0) {
+            std::abort();
+        }
+    }
 }
 }  // namespace
 
@@ -100,6 +114,14 @@ extern "C" auto LLVMFuzzerTestOneInput(const uint8_t * data, size_t size) -> int
     // A ParseError here is a serializer defect, not an expected rejection.
     const auto reloaded = kanshi_config_parser::parse(serialized);
     if (!same_document(document, reloaded)) {
+        std::abort();
+    }
+    const auto converted = kanshi_conversions::to_profile_document(document);
+    check_geometry(converted.global_outputs);
+    for (const auto & profile : converted.profiles) {
+        check_geometry(profile.outputs);
+    }
+    if (!same_document(document, kanshi_conversions::from_profile_document(converted))) {
         std::abort();
     }
     return 0;
