@@ -32,7 +32,8 @@ build:
 	@cmake -S . -B "$(BUILD_DIR)" -DCMAKE_BUILD_TYPE=Debug \
 		-DENABLE_DEBUG_LOGS=$(DEBUG_LOGS) \
 		-DBUILD_TESTING=$(BUILD_TESTING) \
-		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON $(CMAKE_FLAGS)
+		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+		-DWAYRANDR_FLATPAK_PROBES=OFF $(CMAKE_FLAGS)
 	@cmake --build "$(BUILD_DIR)" -j$(NPROC)
 
 install:
@@ -73,7 +74,7 @@ test-all:
 	@$(MAKE) fuzz FUZZ_TARGET=kanshi_config
 
 pre-commit:
-	@$(MAKE) build
+	@$(MAKE) build CMAKE_FLAGS="$(CMAKE_FLAGS) -DWAYRANDR_FLATPAK_PROBES=ON"
 	@cmake --build "$(BUILD_DIR)" --target tst_config_compatibility -j$(NPROC)
 	@if [ -n "$(PRE_COMMIT_FILES)" ]; then \
 		pre-commit run --files $(PRE_COMMIT_FILES); \
@@ -278,3 +279,5 @@ container-fuzz-replay:
         container-config-check container-versions \
         container-pre-commit container-coverage container-sanitizers container-fuzz-build \
         container-fuzz container-export-artifacts container-fuzz-replay
+
+include packaging/flatpak/verify.mk
