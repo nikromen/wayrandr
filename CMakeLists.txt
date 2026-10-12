@@ -16,25 +16,31 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SCFG REQUIRED IMPORTED_TARGET scfg>=0.2.0)
 
-# Fetch dependencies
-include(FetchContent)
+option(WAYRANDR_USE_SYSTEM_DEPENDENCIES "Use installed C++ dependencies without fetching" OFF)
+if(WAYRANDR_USE_SYSTEM_DEPENDENCIES)
+    find_package(nlohmann_json CONFIG REQUIRED)
+    find_package(spdlog CONFIG REQUIRED)
+    find_package(tomlplusplus CONFIG REQUIRED)
+else()
+    include(FetchContent)
 
-FetchContent_Declare(json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.3
-)
+    FetchContent_Declare(json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+    )
 
-FetchContent_Declare(spdlog
-    GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    GIT_TAG v1.15.3
-)
+    FetchContent_Declare(spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.15.3
+    )
 
-FetchContent_Declare(tomlplusplus
-    GIT_REPOSITORY https://github.com/marzer/tomlplusplus
-    GIT_TAG v3.4.0
-)
+    FetchContent_Declare(tomlplusplus
+        GIT_REPOSITORY https://github.com/marzer/tomlplusplus
+        GIT_TAG v3.4.0
+    )
 
-FetchContent_MakeAvailable(json spdlog tomlplusplus)
+    FetchContent_MakeAvailable(json spdlog tomlplusplus)
+endif()
 
 include(cmake/Instrumentation.cmake)
 
@@ -56,7 +62,9 @@ qt_add_resources(QML_RESOURCES qml/resource.qrc)
 add_executable(wayrandr src/main.cpp ${QML_RESOURCES})
 target_link_libraries(wayrandr PRIVATE wayrandr_lib)
 wayrandr_instrument(wayrandr)
-install(TARGETS wayrandr)
+include(GNUInstallDirs)
+install(TARGETS wayrandr RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES packaging/wayrandr.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 
 include(CTest)
 if(BUILD_TESTING)
