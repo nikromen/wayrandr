@@ -74,9 +74,3 @@ endif()
 if(WAYRANDR_FUZZING AND NOT BUILD_TESTING)
     message(FATAL_ERROR "Fuzz registration requires BUILD_TESTING=ON")
 endif()
-
-# Development sandbox tools are opt-in and absent from normal native/RPM installs.
-option(WAYRANDR_FLATPAK_PROBES "Build development Flatpak probes" OFF)
-if(WAYRANDR_FLATPAK_PROBES)
-    add_subdirectory(packaging/flatpak/probe)
-endif()
