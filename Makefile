@@ -98,6 +98,16 @@ config-check:
 		-o "$(ARTIFACT_DIR)/config-compatibility/results.xml",junitxml \
 		-o "$(ARTIFACT_DIR)/config-compatibility/results.txt",txt -o -,txt
 
+# Record installed versions without executing monitor or daemon tools.
+versions:
+	@mkdir -p "$(ARTIFACT_DIR)"
+	@{ cat /etc/fedora-release && \
+		rpm -q gcc gcc-c++ clang clang-tools-extra cmake qt6-qtbase qt6-qtdeclarative \
+			libscfg wayland-devel kanshi auto-wlr-randr wlr-randr && \
+		pre-commit --version; \
+	} > "$(ARTIFACT_DIR)/versions.txt"
+	@cat "$(ARTIFACT_DIR)/versions.txt"
+
 coverage:
 	@$(MAKE) build BUILD_DIR=build/coverage CMAKE_FLAGS="-DWAYRANDR_COVERAGE=ON" BUILD_TESTING=ON
 	@find build/coverage -name '*.gcda' -delete
@@ -221,6 +231,10 @@ container-config-check:
 	@podman run --rm --pull=never $(CONTAINER_WORKSPACE) $(CONTAINER_BUILD_ENV) \
 		"$(CONTAINER_IMAGE)" make config-check
 
+container-versions:
+	@podman run --rm --pull=never $(CONTAINER_WORKSPACE) \
+		"$(CONTAINER_IMAGE)" make versions
+
 container-pre-commit:
 	@podman run --rm --pull=never $(CONTAINER_WORKSPACE) $(CONTAINER_BUILD_ENV) \
 		-v "$(CONTAINER_PRE_COMMIT_VOLUME):/root/.cache/pre-commit:z" \
@@ -258,9 +272,9 @@ container-fuzz-replay:
 		-e FUZZ_TARGET="$(FUZZ_TARGET)" "$(CONTAINER_IMAGE)" make fuzz-replay
 
 .PHONY: build install clean clean-cache run test rebuild test-all pre-commit run-from-container-locally \
-        config-check coverage sanitizers fuzz-build fuzz fuzz-replay \
+        config-check versions coverage sanitizers fuzz-build fuzz fuzz-replay \
         container-clean-cache container-build-image container-remove-image container-clean \
         container-build container-install container-test container-test-all container-run container-shell \
-        container-config-check \
+        container-config-check container-versions \
         container-pre-commit container-coverage container-sanitizers container-fuzz-build \
         container-fuzz container-export-artifacts container-fuzz-replay

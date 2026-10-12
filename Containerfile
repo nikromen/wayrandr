@@ -1,4 +1,4 @@
-FROM fedora:latest
+FROM registry.fedoraproject.org/fedora:44
 
 RUN dnf install -y \
     cmake \
