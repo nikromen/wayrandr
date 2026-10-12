@@ -8,6 +8,10 @@ RUN dnf install -y \
     qt6-qtbase-devel \
     qt6-qtdeclarative-devel \
     qt6-qtquickcontrols2-devel \
+    qt6-qtwayland \
+    json-devel \
+    spdlog-devel \
+    tomlplusplus-devel \
     git \
     wayland-devel \
     wlr-randr \

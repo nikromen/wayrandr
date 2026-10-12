@@ -1,0 +1,33 @@
+upstream_project_url: https://github.com/nikromen/wayrandr
+specfile_path: packaging/rpm/wayrandr.spec
+upstream_package_name: wayrandr
+downstream_package_name: wayrandr
+upstream_tag_template: wayrandr-{version}
+
+jobs:
+  - job: copr_build
+    trigger: pull_request
+    targets:
+      - fedora-all
+
+  - job: copr_build
+    trigger: commit
+    branch: main
+    targets:
+      - fedora-all
+    owner: nikromen
+    project: wayrandr
+    list_on_homepage: true
+    preserve_project: true
+    actions:
+      post-modifications:
+        - bash -c "sed -i '1i%global git_build 1' packaging/rpm/wayrandr.spec"
+
+  - job: copr_build
+    trigger: release
+    targets:
+      - fedora-all
+    owner: nikromen
+    project: wayrandr
+    list_on_homepage: true
+    preserve_project: true

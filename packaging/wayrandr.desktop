@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Wayrandr
+Comment=Configure Wayland displays and display profiles
+Exec=wayrandr
+Terminal=false
+Categories=Settings;HardwareSettings;
